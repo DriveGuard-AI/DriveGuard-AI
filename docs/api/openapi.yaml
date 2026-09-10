@@ -1,0 +1,562 @@
+openapi: 3.1.0
+info:
+  title: DriveGuard AI REST API
+  version: 0.1.0
+  description: |
+    DriveGuard AI MVP 的 REST 契约草案。当前仓库尚无后端实现；实现完成后应将
+    FastAPI 生成的 OpenAPI 与本文件进行差异检查，并以评审确认的契约为准同步修订。
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local edge device
+tags:
+  - name: system
+  - name: monitoring
+  - name: events
+  - name: statistics
+  - name: settings
+  - name: models
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: API 进程健康检查
+      security: []
+      responses:
+        "200":
+          description: API 存活
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /system/status:
+    get:
+      tags: [system]
+      operationId: getSystemStatus
+      summary: 获取摄像头、推理、数据库和模型状态
+      responses:
+        "200":
+          description: 当前系统状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "503":
+          description: 无法形成有效状态响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /monitoring/snapshot:
+    get:
+      tags: [monitoring]
+      operationId: getMonitoringSnapshot
+      summary: 获取最新完整风险快照
+      responses:
+        "200":
+          description: 最新风险快照
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskSnapshot"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "409":
+          description: 当前没有活动监测会话
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /events:
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: 分页查询危险事件
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: event_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/EventType"
+        - name: risk_level
+          in: query
+          schema:
+            $ref: "#/components/schemas/RiskLevel"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/EventStatus"
+        - name: started_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: started_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 事件分页结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+        "400":
+          description: 时间范围不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /events/{event_id}:
+    get:
+      tags: [events]
+      operationId: getEvent
+      summary: 获取事件详情
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 事件详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: 事件不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /statistics/summary:
+    get:
+      tags: [statistics]
+      operationId: getStatisticsSummary
+      summary: 获取指定时间范围的事件统计
+      parameters:
+        - name: started_from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: started_to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: 统计摘要；无数据时返回零值和空趋势
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatisticsSummary"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: 获取系统配置
+      responses:
+        "200":
+          description: 去敏后的系统配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [settings]
+      operationId: updateSettings
+      summary: 以乐观锁方式更新系统配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdateRequest"
+      responses:
+        "200":
+          description: 配置更新成功或相同请求的幂等结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsUpdateResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: 配置版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /models:
+    get:
+      tags: [models]
+      operationId: listModels
+      summary: 查询模型版本及激活状态
+      parameters:
+        - name: model_type
+          in: query
+          schema:
+            type: string
+            enum: [detector, landmarker, temporal, fusion]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [registered, active, retired, failed]
+      responses:
+        "200":
+          description: 模型列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModelVersion"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-token
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    AuthRequired:
+      description: 缺少或无效凭证
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: 权限不足
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationError:
+      description: 输入字段类型或范围错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: 未分类内部错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    RiskLevel:
+      type: string
+      enum: [SAFE, WARNING, DANGER]
+    Quality:
+      type: string
+      enum: [good, degraded, unknown]
+    EventType:
+      type: string
+      enum: [fatigue, phone_use, drinking, distraction, eyes_off_road, other]
+    EventStatus:
+      type: string
+      enum: [active, ended, discarded]
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, service_version, time]
+      properties:
+        status:
+          type: string
+          const: ok
+        service_version:
+          type: string
+        time:
+          type: string
+          format: date-time
+    ComponentStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        message:
+          type: [string, "null"]
+        latency_ms:
+          type: [number, "null"]
+          minimum: 0
+    SystemStatus:
+      type: object
+      additionalProperties: false
+      required: [overall, camera, inference, database, model_bundle_version, observed_at]
+      properties:
+        overall:
+          type: string
+          enum: [ok, degraded, unavailable]
+        camera:
+          $ref: "#/components/schemas/ComponentStatus"
+        inference:
+          $ref: "#/components/schemas/ComponentStatus"
+        database:
+          $ref: "#/components/schemas/ComponentStatus"
+        model_bundle_version:
+          type: string
+        fps:
+          type: [number, "null"]
+          minimum: 0
+        observed_at:
+          type: string
+          format: date-time
+    HeadPose:
+      type: object
+      additionalProperties: false
+      required: [yaw, pitch, roll]
+      properties:
+        yaw: {type: number}
+        pitch: {type: number}
+        roll: {type: number}
+    FeatureSnapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        ear: {type: [number, "null"]}
+        mar: {type: [number, "null"]}
+        perclos: {type: [number, "null"], minimum: 0, maximum: 1}
+        head_pose:
+          oneOf:
+            - $ref: "#/components/schemas/HeadPose"
+            - type: "null"
+    Detection:
+      type: object
+      additionalProperties: false
+      required: [label, confidence, bbox]
+      properties:
+        label: {type: string}
+        confidence: {type: number, minimum: 0, maximum: 1}
+        bbox:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: {type: number}
+    RiskScores:
+      type: object
+      additionalProperties:
+        type: number
+        minimum: 0
+        maximum: 1
+    RiskSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schema_version, session_id, sequence, captured_at, risk_level, confidence, quality, risk_scores, features, detections, reason_codes]
+      properties:
+        schema_version: {type: string, const: "1.0"}
+        session_id: {type: string, format: uuid}
+        sequence: {type: integer, minimum: 0}
+        captured_at: {type: string, format: date-time}
+        risk_level: {$ref: "#/components/schemas/RiskLevel"}
+        primary_risk:
+          oneOf:
+            - $ref: "#/components/schemas/EventType"
+            - type: "null"
+        confidence: {type: number, minimum: 0, maximum: 1}
+        quality: {$ref: "#/components/schemas/Quality"}
+        risk_scores: {$ref: "#/components/schemas/RiskScores"}
+        features: {$ref: "#/components/schemas/FeatureSnapshot"}
+        detections:
+          type: array
+          items: {$ref: "#/components/schemas/Detection"}
+        reason_codes:
+          type: array
+          items: {type: string}
+    Event:
+      type: object
+      additionalProperties: false
+      required: [event_id, session_id, event_type, started_at, duration_ms, max_confidence, max_risk_level, status, quality, risk_scores, reason_codes, clip_available]
+      properties:
+        event_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        event_type: {$ref: "#/components/schemas/EventType"}
+        started_at: {type: string, format: date-time}
+        ended_at: {type: [string, "null"], format: date-time}
+        duration_ms: {type: integer, minimum: 0}
+        max_confidence: {type: number, minimum: 0, maximum: 1}
+        max_risk_level: {$ref: "#/components/schemas/RiskLevel"}
+        status: {$ref: "#/components/schemas/EventStatus"}
+        quality: {$ref: "#/components/schemas/Quality"}
+        risk_scores: {$ref: "#/components/schemas/RiskScores"}
+        reason_codes:
+          type: array
+          items: {type: string}
+        model_version_id: {type: [string, "null"], format: uuid}
+        clip_available: {type: boolean}
+    EventPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, page_size, total, has_next]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Event"}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+        has_next: {type: boolean}
+    TrendPoint:
+      type: object
+      required: [bucket_start, event_count, total_duration_ms]
+      properties:
+        bucket_start: {type: string, format: date-time}
+        event_count: {type: integer, minimum: 0}
+        total_duration_ms: {type: integer, minimum: 0}
+    StatisticsSummary:
+      type: object
+      additionalProperties: false
+      required: [total_events, total_duration_ms, by_type, by_risk_level, trend]
+      properties:
+        total_events: {type: integer, minimum: 0}
+        total_duration_ms: {type: integer, minimum: 0}
+        by_type:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        by_risk_level:
+          type: object
+          additionalProperties: {type: integer, minimum: 0}
+        trend:
+          type: array
+          items: {$ref: "#/components/schemas/TrendPoint"}
+    SettingItem:
+      type: object
+      additionalProperties: false
+      required: [key, value_type, version, requires_restart, is_secret, is_configured]
+      properties:
+        key: {type: string}
+        value: {}
+        value_type:
+          type: string
+          enum: [string, integer, number, boolean, object, array]
+        version: {type: integer, minimum: 1}
+        requires_restart: {type: boolean}
+        is_secret: {type: boolean}
+        is_configured: {type: boolean}
+    SettingsResponse:
+      type: object
+      required: [version, items]
+      properties:
+        version: {type: integer, minimum: 1}
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/SettingItem"}
+    SettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [version, changes]
+      properties:
+        version: {type: integer, minimum: 1}
+        changes:
+          type: object
+          minProperties: 1
+          additionalProperties: true
+    SettingsUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [version, applied, restart_required]
+      properties:
+        version: {type: integer, minimum: 1}
+        applied:
+          type: array
+          items: {type: string}
+        restart_required:
+          type: array
+          items: {type: string}
+    ModelVersion:
+      type: object
+      additionalProperties: false
+      required: [model_version_id, model_name, model_type, semantic_version, runtime, status, metrics]
+      properties:
+        model_version_id: {type: string, format: uuid}
+        model_name: {type: string}
+        model_type:
+          type: string
+          enum: [detector, landmarker, temporal, fusion]
+        semantic_version: {type: string}
+        runtime:
+          type: string
+          enum: [pytorch, onnxruntime, tensorrt]
+        feature_schema_version: {type: [string, "null"]}
+        status:
+          type: string
+          enum: [registered, active, retired, failed]
+        metrics:
+          type: object
+          additionalProperties: true
+    ErrorDetail:
+      type: object
+      required: [reason]
+      properties:
+        field: {type: [string, "null"]}
+        reason: {type: string}
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, request_id]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        details:
+          type: array
+          items: {$ref: "#/components/schemas/ErrorDetail"}
+        request_id: {type: string, format: uuid}

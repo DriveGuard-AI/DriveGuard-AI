@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="System Architecture">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="输入层" style="swimlane;startSize=30;horizontal=1;rounded=0;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;container=1;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="1440" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="车内摄像头" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" vertex="1" parent="2">
+          <mxGeometry x="120" y="50" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="Video Capture&#xa;OpenCV / GStreamer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="2">
+          <mxGeometry x="620" y="50" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="感知与时序层" style="swimlane;startSize=30;horizontal=1;rounded=0;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;container=1;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="1440" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Object Detector&#xa;Phone / Bottle / Cup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="5">
+          <mxGeometry x="70" y="70" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="Face &amp; Head Experts&#xa;EAR / MAR / PERCLOS / Pose" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="5">
+          <mxGeometry x="350" y="70" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="Feature Contract&#xa;Versioned Frame Features" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="5">
+          <mxGeometry x="650" y="70" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="Sliding Window + TCN&#xa;3–5 seconds" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="5">
+          <mxGeometry x="940" y="70" width="210" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="决策层" style="swimlane;startSize=30;horizontal=1;rounded=0;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;container=1;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="1440" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="Risk Fusion&#xa;SAFE / WARNING / DANGER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="10">
+          <mxGeometry x="470" y="60" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="Local Alarm&#xa;独立于网络与 Dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="10">
+          <mxGeometry x="840" y="60" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="应用与数据层" style="swimlane;startSize=30;horizontal=1;rounded=0;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;container=1;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="680" width="1440" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="FastAPI Services&#xa;REST + WebSocket" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="13">
+          <mxGeometry x="210" y="70" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="React Dashboard&#xa;Monitoring / Events / Stats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="13">
+          <mxGeometry x="590" y="70" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="SQLite&#xa;Events / Settings / Models" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="13">
+          <mxGeometry x="1010" y="60" width="210" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="frames" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="frame packets" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;exitX=0.4;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="frame packets" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;exitX=0.6;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="4" target="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="detections" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="6" target="8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="face features" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="7" target="8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="feature window" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="8" target="9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="behavior probabilities" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="9" target="11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="risk state" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="11" target="12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="events + snapshots" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;exitX=0.35;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="11" target="14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="REST / WebSocket" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="14" target="15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="metadata" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="14" target="16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

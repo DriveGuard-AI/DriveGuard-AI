@@ -46,6 +46,8 @@ Camera → Capture → Perception Experts → Feature Contract
 
 `FeatureVector` 使用版本化 schema，将帧级特征映射为固定顺序或具名张量。Window Buffer 维护 3–5 秒滑动窗口，显式处理丢帧、低质量特征和采样频率变化。TCN 输出各行为概率与模型置信度。
 
+时序模型详细候选见 [TCN 模型设计](../training/MODEL_DESIGN.md)：25 Hz、4 秒窗口、12 个观测值与 12 个有效性掩码、5 个因果残差块、4 个独立二分类 logits。概率由逐类 sigmoid 得到，不直接等于已校准置信度。训练 label_mask 与输入 mask 独立，未知标签不参与对应损失；单个样本不混合多摄像头特征。
+
 ### 3.4 Risk Fusion
 
 首版采用可解释规则融合：行为概率、持续时间、输入质量与冷却状态共同决定风险。融合器输出：

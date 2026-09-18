@@ -228,9 +228,40 @@ shadow SHALL 维护公共 JSON 超参数、模型结构、GPU 和华为昇腾 NP
 - THEN 在模型卡记录 pending_permission 和待核实来源
 - AND 不把仅存在本地的 checkpoint 标记为已开源，继续完成可独立开展的训练工程工作
 
+### REQ-012：四任务与部分监督（新增设计细化）
+
+TCN SHALL 保留疲劳、手机使用、饮水和视觉分心四个可同时成立的输出。训练 SHALL 区分输入有效性与标签已知性；未标注类别 MUST NOT 自动成为负样本。具体候选见 [TCN 模型设计](../training/MODEL_DESIGN.md)。
+
+#### Scenario：子集缺少行为标注
+
+- GIVEN 一个 gaze 窗口没有疲劳、手机或饮水标注
+- WHEN 构建监督信号与计算损失、指标
+- THEN 未知类别的 label_mask 为 0，不贡献对应分类损失或指标
+- AND 不将子集来源名作为模型输入或行为标签
+
+#### Scenario：没有有效监督
+
+- GIVEN 一个 batch 的启用任务全部没有已知标签
+- WHEN 执行训练循环
+- THEN 跳过该 batch 的参数更新并计数
+- AND 整个 epoch 无有效更新时报告失败，不以零损失标记训练成功
+
+#### Scenario：跨子集主体泄漏
+
+- GIVEN 同一驾驶员出现在多个子集、分片或视角
+- WHEN 生成训练、验证与测试划分
+- THEN 该驾驶员全部录制及派生窗口归入同一集合
+
+#### Scenario：未训练任务与正式交付
+
+- GIVEN 部分任务实验只训练了四类中的一部分
+- WHEN 评估或交付模型
+- THEN 明确记录 active_tasks，其余任务不可作为有效预测使用
+- AND 不将部分任务成绩称为完整四任务模型成绩
+
 ## 4. MODIFIED Requirements
 
-当前尚无历史 Spec，本节无修改项。后续变更必须保留旧行为摘要，并说明兼容策略。
+REQ-012 是新增的模型监督设计细化；原有四任务业务目标不变。后续修改既有行为时保留旧行为摘要，并说明兼容策略。
 
 ## 5. REMOVED Requirements
 
@@ -262,6 +293,8 @@ shadow SHALL 维护公共 JSON 超参数、模型结构、GPU 和华为昇腾 NP
 | REQ-011 | FR-011、shadow 任务分配 | training、configs、models | 训练协议与 checkpoint | 路径/切分测试、设备错误、合成训练/续训、真实双平台验证 |
 
 ## 8. Spec 验证
+
+REQ-012 追溯 FR-004/011，涉及 TCN、标签适配和评估；验证包括未知标签梯度、全未知 batch、跨子集主体泄漏和任务可用性，均为后续实现测试。
 
 - [x] 每个新增 Requirement 至少包含一个 Given/When/Then Scenario。
 - [x] 主路径、失败或降级路径均有覆盖。

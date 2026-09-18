@@ -123,6 +123,8 @@ gpu_memory_mb, cpu_percent, dropped_frame_rate, duration_minutes
 
 ## 9. 通过标准与证据
 
+训练工程新增检查（REQ-011，负责人 shadow）：配置类型与范围、外置路径、训练/验证/测试主体交集、设备不可用时显式失败、checkpoint CPU 可加载、resume 与训练配置一致。双入口共享测试；真实 GPU 与昇腾 NPU 运行各留设备和环境记录。合成 smoke 只能证明代码闭环，不能作为模型正式跑分。预算实验顺序见[训练职责约定](../training/TRAINING_CHARTER.md)。
+
 - 新增或修改 Requirement 时，至少有一个可执行或明确待实现的测试映射。
 - 代码合并前相关自动化测试通过；无法自动化的验收需附复现步骤、环境和结果。
 - 模型或阈值变更必须附相同数据切分和硬件口径下的前后对比。

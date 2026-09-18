@@ -116,6 +116,9 @@
 | API / OpenAPI | 后端负责人 | 前端、测试 |
 | Test Strategy | 测试负责人 | 算法、开发、部署 |
 | Governance | 技术负责人 | 全体贡献者 |
+| 训练协议、模型结构、实验报告、权重模型卡 | 算法工程师 shadow | 推理集成维护者、项目负责人 |
+
+shadow 的具体工作包、GPU/昇腾 NPU 双平台交付与数据/权重 Git 策略见[训练职责约定](../training/TRAINING_CHARTER.md)。`model` 为训练开发分支；署名用于职责和文档，不改写 Git 全局身份。
 
 ## 10. 完成定义
 

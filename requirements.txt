@@ -1,0 +1,11 @@
+# Shared dependencies for the planned TCN training pipeline.
+# Bootstrap list, not a validated or reproducible environment lock.
+numpy
+torch
+
+# Install the platform-matched PyTorch build BEFORE this file.
+# CUDA: select the wheel matching the target GPU runtime.
+# Ascend: install matching CANN, PyTorch and torch_npu using the matrix below.
+# torch_npu is intentionally not a shared dependency for CPU/CUDA machines.
+# https://github.com/Ascend/pytorch/blob/master/COMPATIBILITY.md
+# Do not use --upgrade on an already configured training server.

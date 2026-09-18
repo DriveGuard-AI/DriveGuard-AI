@@ -14,6 +14,7 @@
 | [OpenAPI 草案](api/openapi.yaml) | 前后端、工具链 | 可机读的 REST API 契约 | Draft v0.1 |
 | [测试策略](testing/TEST_STRATEGY.md) | 开发、测试、算法 | 分层测试、数据切分、性能与验收方案 | Baseline v0.1 |
 | [文档协作规范](governance/DOCUMENTATION_GOVERNANCE.md) | 全体贡献者 | 代码迭代时的文档同步与审核流程 | Active v0.1 |
+| [shadow 训练职责约定](training/TRAINING_CHARTER.md) | 算法、推理集成、项目负责人 | 训练分工、GPU/NPU、数据与权重交付 | Active v0.2 |
 
 ## 信息可信度
 

@@ -196,6 +196,38 @@
 - THEN 在当前变更或明确关联的后续任务中修正实现或文档
 - AND 在修正前不得把存在偏差的条目标记为“已对齐”
 
+### REQ-011：shadow 训练工程与双平台交付
+
+shadow SHALL 维护公共 JSON 超参数、模型结构、GPU 和华为昇腾 NPU 独立训练入口及共享训练逻辑。数据根目录 SHALL 可外置，原始数据与派生特征 MUST 从 Git 排除；正式 checkpoint 权重 SHALL 公开交付并附配置、结构、数据切分摘要、模型卡、来源许可与校验和。
+
+#### Scenario：本地与服务器路径不同
+
+- GIVEN 相同相对路径清单和不同机器数据根目录
+- WHEN 通过命令行或环境变量选择根目录
+- THEN 得到相同数据协议与清单校验结果
+- AND 不要求下载完整数据到本地工作区
+
+#### Scenario：请求的加速器不可用
+
+- GIVEN 用户选择 GPU 或 NPU 入口但对应设备/依赖不可用
+- WHEN 初始化训练设备
+- THEN 明确报告缺失平台依赖，不静默切换 CPU
+- AND 无需导入 NPU 插件即可执行 GPU 入口的无依赖配置预检
+
+#### Scenario：checkpoint 跨平台交接
+
+- GIVEN 合法训练已产生 checkpoint
+- WHEN shadow 交付该模型版本
+- THEN 权重保存为 CPU state_dict 并附可重建模型配置、训练状态与 SHA-256
+- AND 分别记录 GPU/NPU 的实际验证状态，未运行的平台不能标记通过
+
+#### Scenario：权重公开许可尚未确认
+
+- GIVEN 正式权重有第三方数据或预训练权重来源
+- WHEN 来源许可尚不能确认满足公开交付要求
+- THEN 在模型卡记录 pending_permission 和待核实来源
+- AND 不把仅存在本地的 checkpoint 标记为已开源，继续完成可独立开展的训练工程工作
+
 ## 4. MODIFIED Requirements
 
 当前尚无历史 Spec，本节无修改项。后续变更必须保留旧行为摘要，并说明兼容策略。
@@ -227,6 +259,7 @@
 | REQ-008 | FR-009、NFR-004 | Settings Service | system_settings、PUT settings | 权限、冲突、校验 |
 | REQ-009 | FR-011 | Training/Model Registry | model_versions | 数据审计、基准报告 |
 | REQ-010 | AC-008、NFR-005 | 全模块 | 文档与契约文件 | 评审检查 |
+| REQ-011 | FR-011、shadow 任务分配 | training、configs、models | 训练协议与 checkpoint | 路径/切分测试、设备错误、合成训练/续训、真实双平台验证 |
 
 ## 8. Spec 验证
 

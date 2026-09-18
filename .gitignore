@@ -1,3 +1,19 @@
 .ai-memory/*/
 !.ai-memory/project_memory.md
 !.ai-memory/handoff.md
+
+# Local Python environments (never commit installed packages).
+.venv/
+.venv-*/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Machine-local training data, configuration and temporary artifacts.
+/data/
+/datasets/
+/runs/
+/configs/training/*.local.json
+
+# Selected release weights must remain publishable; do not ignore *.pt/*.pth.

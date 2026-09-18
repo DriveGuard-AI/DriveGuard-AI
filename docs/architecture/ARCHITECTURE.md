@@ -140,6 +140,10 @@ Jetson/RTX Host
 
 ## 7. 可靠性与降级
 
+### 训练开发边界（2026-09-18）
+
+shadow 在 `model` 分支维护 `training/` 与 `configs/training/`。GPU/CUDA 与华为昇腾 NPU/torch_npu 入口共用模型和 FP32 训练循环，平台初始化单独适配。训练数据根目录允许机器间不同；发布权重统一保存 CPU state_dict。NPU 是新增的**训练平台**，现有 Jetson/TensorRT 部署规划不因此代表支持 NPU 推理。具体协议见[训练职责约定](../training/TRAINING_CHARTER.md)。
+
 | 故障 | 系统行为 |
 | --- | --- |
 | 摄像头不可用 | 停止使用旧帧，状态标记不可用，周期重连 |

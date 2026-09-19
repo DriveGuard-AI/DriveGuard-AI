@@ -1,0 +1,7 @@
+# Ascend-only overlay; do not install on CPU/CUDA-only machines.
+# Server baseline: Python 3.11.4, CANN 9.0.0, driver 25.5.0, Ascend 910B3.
+# CANN and the driver are system dependencies, not pip packages.
+# Existing server uses torch 2.7.1+cpu, which satisfies torch==2.7.1.
+# Basic NPU forward/backward/optimizer smoke passed; full TCN not yet tested.
+-r requirements.txt
+torch_npu==2.7.1.post4

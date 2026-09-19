@@ -3,6 +3,7 @@
 !.ai-memory/handoff.md
 
 # Local Python environments (never commit installed packages).
+tests/
 .venv/
 .venv-*/
 venv/
@@ -15,5 +16,7 @@ __pycache__/
 /datasets/
 /runs/
 /configs/training/*.local.json
+/configs/perception/*.local.json
+/models/local/
 
 # Selected release weights must remain publishable; do not ignore *.pt/*.pth.

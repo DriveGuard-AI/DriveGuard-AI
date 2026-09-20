@@ -74,6 +74,7 @@ Camera
 
 ## 文档
 
+- [服务器初始化：文件同步、NPU 依赖与最小测试](docs/training/SERVER_SETUP.md)
 - [完整文档索引](docs/README.md)
 - [PPT 全方案对齐](docs/governance/PPT_ALIGNMENT.md)（多专家模型、前后端选型与部署）
 - [详细需求](docs/requirements/REQUIREMENTS.md)

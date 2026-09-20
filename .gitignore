@@ -2,8 +2,8 @@
 !.ai-memory/project_memory.md
 !.ai-memory/handoff.md
 
+# Test sources belong in Git; only generated caches are ignored.
 # Local Python environments (never commit installed packages).
-tests/
 .venv/
 .venv-*/
 venv/
@@ -14,6 +14,7 @@ __pycache__/
 # Machine-local training data, configuration and temporary artifacts.
 /data/
 /datasets/
+/Dataset/
 /runs/
 /configs/training/*.local.json
 /configs/perception/*.local.json

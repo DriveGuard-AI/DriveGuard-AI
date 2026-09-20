@@ -23,6 +23,7 @@
 | [TCN 子模型设计](training/MODEL_DESIGN.md) | 算法 | 因果网络、24 通道基线、部分监督与 checkpoint | Baseline v0.2 |
 | [分阶段实施计划](training/IMPLEMENTATION_PLAN.md) | 各模块维护者 | 完整方案工作包与 shadow 的训练增量 | P2/P3已有工程基础，关系门控CPU工程验证完成 |
 | [关系门控训练与服务器接入](training/RELATION_RUNBOOK.md) | shadow、服务器操作者 | 模型文件、五数组、GPU/NPU命令、续训与验证边界 | CPU合成闭环通过，硬件待验收 |
+| [服务器初始化](training/SERVER_SETUP.md) | 服务器操作者 | Git缺文件排查、NPU依赖安装、环境预检、被忽略工件准备 | 操作指南，待服务器执行 |
 | [TCN 训练指南](training/RUNBOOK.md) | 算法、服务器操作者 | 配置预检、合成验证、双入口与恢复 | 已实现，硬件训练未验证 |
 | [特征数据契约](training/DATA_CONTRACT.md) | 算法、特征提取维护者 | 录制级数组、manifest、mask 与切分 | v1/v2已实现，真实标注映射待接入 |
 | [感知特征桥接](training/PERCEPTION_BRIDGE.md) | 算法、感知维护者 | 专家观测到19特征、时序统计、流式导出 | 已实现，不含模型推理调用 |

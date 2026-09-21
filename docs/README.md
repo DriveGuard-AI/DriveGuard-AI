@@ -6,7 +6,8 @@
 
 | 文档 | 主要读者 | 作用 | 当前状态 |
 | --- | --- | --- | --- |
-| [DMD 全量标注审计](training/DMD_AUDIT.md) | shadow、服务器操作者 | 原始标注、录制配对、标签覆盖与同步声明检查 | 已实现；服务器全量扫描待执行 |
+| [DMD 真实训练数据准备](training/DMD_PREPARATION.md) | shadow、服务器操作者 | 被试划分、标签代理语义、PTS/shift 对齐与准备清单 | 标签核心与清单已实现；批量特征/manifest 待接入 |
+| [DMD 全量标注审计](training/DMD_AUDIT.md) | shadow、服务器操作者 | 原始标注、录制配对、标签覆盖与同步声明检查 | 用户回传：58 录制、10 被试、69 标注，0 错误、126 警告 |
 | [PPT 全方案对齐记录](governance/PPT_ALIGNMENT.md) | 全体贡献者 | 14 页来源、设计落点、差异与状态 | Baseline v0.2 |
 | [部署优先的轻量关系门控](architecture/RELATION_GATED_FUSION.md) | 算法、部署、测试 | 四证据流、共享TCN、任务门控、平台边界与回退 | CPU骨架与合成训练已验证 |
 | [完整多专家模型](architecture/MULTI_EXPERT_DESIGN.md) | 算法、推理、测试 | YOLO/MediaPipe/交互特征/TCN/融合整体设计 | Baseline v0.3 |

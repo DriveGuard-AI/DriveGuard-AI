@@ -62,6 +62,13 @@ def _context(config_path, dataset_root, output_dir, *, gaze=False):
         from training.gaze.profile import default_group_profile
         from inference.perception.gaze_profile import gaze_profile
         context.update(group_profile=default_group_profile(),feature_profile=gaze_profile())
+    if context['runtime']['objects']['variant'] == 'yolo11s':
+        from inference.experts.detector_client import RemoteDetector
+        detector = RemoteDetector(**context['runtime']['objects'])
+        try:
+            context['environment']['detector_service_model_id'] = detector.model_id
+        finally:
+            detector.close()
     return context
 
 
@@ -157,6 +164,9 @@ def _extract(context, job, source, doc, fingerprint, evidence, source_stat, prog
         options = {'feature_profile':context['feature_profile']} if context.get('gaze') else {}
         feature = run_video(source, attempt / 'features', runtime,
                             group_profile=context['group_profile'], frame_observer=observe, **options)
+        expected_detector = context['environment'].get('detector_service_model_id')
+        if expected_detector is not None and feature.get('provenance', {}).get('detector_service_model_id') != expected_detector:
+            raise ValueError('Detector service identity changed since batch preflight; cache is not publishable')
         compiler = compile_labels
         if context.get('gaze'):
             from training.dmd.gaze_labels import compile_gaze_labels as compiler

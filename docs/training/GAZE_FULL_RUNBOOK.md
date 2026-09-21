@@ -2,6 +2,8 @@
 
 2026-09-21 · shadow。新版入口是 `training.dmd.gaze_batch` 和 `training.gaze.npu_train`；旧入口保持原四任务行为。
 
+**服务器当前推荐入口：** 完成下方第2节配置后，按[YOLO11s NPU＋MediaPipe后台全量提取](SERVER_EXTRACTION.md)执行。新方案提供nohup、6/3/3并行和自动发布；下方第3、4节保留原YOLOX CPU串行方案，不要两个流程同时执行。新方案输出目录不同，训练时使用其成功发布的manifest。
+
 本轮提供新版代码与本机工程验证，不表示服务器全量提取、新版 NPU 或真实精度已经通过。无需继续旧八段/十二段试跑，也不需要重新下载视频或升级已验证依赖。
 
 ## 1. 训练内容
@@ -10,7 +12,7 @@
 - 一个九分类辅助任务：left_mirror、left、front、center_mirror、front_right、right_mirror、right、infotainment、steering_wheel。not_valid/冲突/缺失为未知，不是安全或第十类。
 - 输入原19个特征加左右虹膜各两个局部位置，共23维，拼接同形有效性mask后为46通道；新版同时启用三个头姿估计字段。
 - 保留四流门控与共享因果TCN；gaze头使用F流表示，其损失更新共享编码器。gaze真值不输入模型，预测区域也不直接触发危险告警。
-- YOLOX、MediaPipe冻结：CPU离线提取，NPU训练融合时序模型。本轮不微调感知工件，不是全流程NPU视频推理。
+- 感知专家冻结：推荐YOLO11s在NPU检测、MediaPipe在CPU离线提取，再由NPU训练融合时序模型；原YOLOX CPU入口保留。本轮不微调感知工件，不是全流程NPU视频推理。
 
 设计见[完整训练方案](../superpowers/specs/2026-09-21-full-training-gaze-design.md)，实际检查及已知边界见[工程验证记录](../experiments/20260921-gaze-joint-training.md)。
 

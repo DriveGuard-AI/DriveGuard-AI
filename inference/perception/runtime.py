@@ -34,9 +34,19 @@ def load_runtime_config(path):
     if min(roi) < 0 or roi[2]-roi[0] < 1e-6 or roi[3]-roi[1] < 1e-6:
         raise ValueError('driver_roi must be nonnegative and nondegenerate')
     objects = config['objects']
-    _keys(objects, 'asset variant backend device_index input_size score_threshold nms_threshold', 'objects')
-    if objects['variant'] not in ('yolox-nano', 'yolox-tiny') or objects['backend'] not in ('cpu', 'cuda', 'npu'):
-        raise ValueError('Expected built-in YOLOX nano/tiny and explicit cpu/cuda/npu backend')
+    remote = isinstance(objects, dict) and objects.get('variant') == 'yolo11s'
+    _keys(objects, 'asset variant backend device_index input_size score_threshold nms_threshold' + (' service' if remote else ''), 'objects')
+    if objects['variant'] not in ('yolox-nano', 'yolox-tiny', 'yolo11s') or objects['backend'] not in ('cpu', 'cuda', 'npu'):
+        raise ValueError('Expected supported detector and explicit cpu/cuda/npu backend')
+    if remote:
+        service = objects['service']
+        _keys(service, 'host port token_file', 'detector service')
+        if (service['host'] != '127.0.0.1' or type(service['port']) is not int
+                or not 1024 <= service['port'] <= 65535
+                or not isinstance(service['token_file'], str) or not service['token_file'].strip()
+                or '://' in service['token_file']):
+            raise ValueError('Detector service requires loopback, valid port and local token_file')
+        service['token_file'] = str((Path(path).resolve().parent / service['token_file']).resolve())
     if type(objects['device_index']) is not int or objects['device_index'] < 0 or (objects['backend'] == 'cpu' and objects['device_index'] != 0):
         raise ValueError('Invalid device index')
     size = objects['input_size']
@@ -56,5 +66,8 @@ def runtime_signature(config):
     portable = deepcopy(config)
     for asset in (portable['objects']['asset'], portable['face_asset'], portable['hands_asset']):
         asset.pop('path')
+    # Endpoint/secret location does not change inference. Service's actual model
+    # identity (versions/backend/settings) is separately bound in batch evidence.
+    portable['objects'].pop('service', None)
     return canonical_hash({'implementation': 'driveguard-video-v1', 'config': portable,
                            'sampling': 'PTS-ceil-ms-causal-25Hz', 'tracking': 'unique-IoU0.3-age80ms-v1'})

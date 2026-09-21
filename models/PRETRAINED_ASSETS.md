@@ -1,5 +1,7 @@
 # 本地预训练工件清单
 
+2026-09-21新增：服务器提取候选采用YOLO11s。只由服务器执行 `scripts/server/setup_yolo11.sh` 下载[官方v8.3.0工件](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt)，到 `models/local/yolo11s.pt`；下载后生成来源与本地SHA-256 receipt，不预填未知hash、不在本机下载。固定Ultralytics 8.3.199，许可按AGPL-3.0／Enterprise路线记录；细节与边界见[服务器指南](../docs/training/SERVER_EXTRACTION.md)。既有Face/Hand工件复用，不重新下载。本段不表示真实NPU运行已通过。
+
 2026-09-19 · shadow。用户批准准备模型和独立感知环境后，从以下官方地址下载。文件位于 Git 忽略的 `models/local/`，用于开发验证；不是本项目自训权重或正式发布。本表 SHA-256 为下载后本地计算的固定值，**不是上游发布者提供的签名/校验声明**。
 
 | 文件 | 固定来源 | 字节数 | 许可记录 |

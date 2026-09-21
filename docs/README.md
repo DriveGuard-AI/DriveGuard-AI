@@ -6,6 +6,8 @@
 
 | 文档 | 主要读者 | 作用 | 当前状态 |
 | --- | --- | --- | --- |
+| [服务器后台并行提取](training/SERVER_EXTRACTION.md) | shadow、服务器操作者 | YOLO11s NPU、MediaPipe CPU、6/3/3并发、nohup及自动发布 | 工程实现；新版真实NPU及吞吐待服务器验证 |
+| [服务器提取工程验证](experiments/20260921-server-extraction.md) | 算法、评审者 | 288项回归、后台恢复审核与真实运行边界 | 286通过、2跳过；非服务器实测 |
 | [四行为 + Gaze 全量训练](training/GAZE_FULL_RUNBOOK.md) | shadow、服务器操作者 | 23特征、九类gaze、全量提取、联合NPU训练与续训 | 新版实现；服务器全量和精度待验证 |
 | [Gaze联合工程验证](experiments/20260921-gaze-joint-training.md) | 算法、评审者 | 253项回归、真实样例接口与审核边界 | 本机CPU工程通过；非精度报告 |
 | [DMD 批量提取与训练](training/DMD_BATCH.md) | shadow、服务器操作者 | pilot/all、ROI、记录级恢复、发布检查与 NPU 命令 | 工程接线已实现；真实服务器待执行 |

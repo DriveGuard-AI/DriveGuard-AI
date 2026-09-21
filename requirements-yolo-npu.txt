@@ -1,0 +1,9 @@
+# SERVER ONLY. Install in .venv-yolo-npu --system-site-packages.
+# Reuse the existing validated torch/torch_npu pair; never --upgrade torch.
+# Install matching CPU torchvision wheel first; torchvision NMS is not used on NPU.
+torch==2.7.1
+torch_npu==2.7.1.post4
+torchvision==0.22.1
+numpy==1.26.4
+opencv-python==4.11.0.86
+ultralytics==8.3.199

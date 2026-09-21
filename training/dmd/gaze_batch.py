@@ -115,6 +115,11 @@ def main(argv=None):
         sub.add_argument('--config',required=True)
         sub.add_argument('--dataset-root',required=True)
         sub.add_argument('--output-dir',required=True)
+        if name=='run':
+            sub.add_argument('--workers-dist',type=int)
+            sub.add_argument('--workers-drows',type=int)
+            sub.add_argument('--workers-gaze',type=int)
+            sub.add_argument('--threads',type=int,default=1)
         if name=='publish':
             sub.add_argument('--training-config',default=str(ROOT/'configs/training/relation_gaze.json'))
     args=parser.parse_args(argv)
@@ -124,12 +129,20 @@ def main(argv=None):
             result=dict(status='needs_roi_review',jobs=len(config['jobs']),
                         confirmed=sum(s['confirmed_exclusive'] for s in config['jobs'].values()),config=args.output)
         elif args.command=='run':
-            result=run_batch(args.config,args.dataset_root,args.output_dir,
-                             progress=lambda s:print(s,file=sys.stderr,flush=True))
+            progress=lambda s:print(s,file=sys.stderr,flush=True)
+            quotas=(args.workers_dist,args.workers_drows,args.workers_gaze)
+            if any(q is not None for q in quotas):
+                if any(q is None for q in quotas):
+                    raise ValueError('Provide all three worker quotas together')
+                from training.dmd.parallel import run_parallel
+                result=run_parallel(args.config,args.dataset_root,args.output_dir,
+                    quotas=dict(zip(('distraction','drowsiness','gaze'),quotas)),threads=args.threads,progress=progress)
+            else:
+                result=run_batch(args.config,args.dataset_root,args.output_dir,progress=progress)
         else:
             result=publish_batch(args.config,args.dataset_root,args.output_dir,args.training_config)
         print(json.dumps(result,ensure_ascii=False,allow_nan=False))
-        return 2 if result.get('failed',0) else 0
+        return 2 if result.get('failed',0) or result.get('status')=='stopped' else 0
     except (OSError,ValueError,TypeError,KeyError,ImportError,RuntimeError) as error:
         print(f'Joint DMD batch failed: {error}',file=sys.stderr)
         return 2

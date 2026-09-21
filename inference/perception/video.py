@@ -60,15 +60,22 @@ def run_video(input_path, output_dir, config, *, group_profile=None, frame_obser
     from inference.perception.export import export_recording
     from inference.perception.profile import load_profile
     with ExitStack() as stack:
-        detector = YOLOXAdapter(**config['objects'])
+        remote = config['objects']['variant'] == 'yolo11s'
+        if remote:
+            from inference.experts.detector_client import RemoteDetector
+            detector = RemoteDetector(**config['objects'])
+        else:
+            detector = YOLOXAdapter(**config['objects'])
         stack.callback(detector.close)
         gaze_options = {'gaze_features': True} if gaze else {}
         landmarks = MediaPipeAdapter(config['face_asset'], config['hands_asset'], driver_roi=config['driver_roi'],
                                      driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'], **gaze_options)
         stack.callback(landmarks.close)
-        for name in ('numpy', 'torch', 'yolox', 'cv2', 'mediapipe', 'av'):
+        if remote:
+            provenance['detector_service_model_id'] = detector.model_id
+        for name in ('numpy', 'torch', 'cv2', 'mediapipe', 'av') + (() if remote else ('yolox',)):
             provenance['versions'][name] = str(importlib.import_module(name).__version__)
-        if config['objects']['backend'] == 'npu':
+        if config['objects']['backend'] == 'npu' and not remote:
             provenance['versions']['torch_npu'] = str(importlib.import_module('torch_npu').__version__)
         frames = decode_video(source, provenance['clock'])
         stack.callback(frames.close)

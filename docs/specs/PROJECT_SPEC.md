@@ -2,7 +2,7 @@
 
 ## 1. Proposal
 
-状态：0.3.0 设计基线，2026-09-19；新增部署优先关系门控场景，尚未实现；来源与取舍见[PPT 全方案对齐](../governance/PPT_ALIGNMENT.md)和[关系门控设计](../architecture/RELATION_GATED_FUSION.md)。公共API契约版本不随本文同步升级。
+状态：0.3.0 设计基线，2026-09-21增量；关系门控及gaze联合训练工程已实现，真实全量精度和产品层仍待验证；来源与取舍见[PPT 全方案对齐](../governance/PPT_ALIGNMENT.md)和[关系门控设计](../architecture/RELATION_GATED_FUSION.md)。公共API契约版本不随本文同步升级。
 
 **Intent**：以可测试的行为契约定义 DriveGuard AI MVP，避免感知模型、时序模型、后端、前端和数据层在独立迭代时产生语义漂移。
 
@@ -349,6 +349,15 @@ TCN SHALL 保留疲劳、手机使用、饮水和视觉分心四个可同时成�
 - AND 不把预览关闭等同于停止监测
 
 ## 4. MODIFIED Requirements
+
+2026-09-21，REQ-012/013联合训练细化（实现见[新版指南](../training/GAZE_FULL_RUNBOOK.md)）：
+
+- GIVEN 使用新版23维特征与九类gaze标签，WHEN 进行联合训练，THEN 四个行为目标保持独立二分类，gaze作为共享F时序编码的辅助九分类；标签、主体ID和绝对视频时间MUST NOT进入模型输入。
+- GIVEN gaze为not_valid、未知、冲突或标签间隙，WHEN 转换监督，THEN mask=0而不是第十类或安全负例；仅gaze子集face视角生成区域监督，不自动给四行为补标签。
+- GIVEN 头姿/虹膜证据不满足质量规则，WHEN 训练或预测gaze，THEN 屏蔽其损失或返回不可用，不输出默认argmax伪装有效预测；四行为依各自证据处理。
+- GIVEN 旧19维缓存或四任务checkpoint，WHEN 选择新版训练入口，THEN 拒绝版本混用，不补零升级；使用独立新版缓存，并保留旧入口。
+
+本次同步特征、标签、训练、预测和运行文档；未新增REST/WS字段、数据库表或风险等级。后续修改类别、特征、阈值或损失时继续执行REQ-010文档同步，不另设审批门禁。
 
 REQ-012 为监督契约，REQ-013/014 将 PPT 完整多专家和应用层方案落入可测试行为；原有四任务目标不变。原来笼统的“重连总是有快照”细化为有效快照或不可用状态，避免未知时伪造安全。API 草案 0.2.0 增加预览、快照 503 和运行时枚举；无已发布客户端，后续实现保持 schema 同步，不另加审批门禁。
 

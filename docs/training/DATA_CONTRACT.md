@@ -1,5 +1,7 @@
 # 录制级特征数据契约 v1
 
+新增联合训练v3：显式23维输入及独立gaze分类数组，见本文末尾第7节。v1/v2不改变含义。
+
 2026-09-18 · 实现：training/common/data.py、normalization.py。只定义提取后的特征接口，不代表 DMD 原始标注已扫描、转换或具备完整四任务覆盖。
 
 ## 1. 文件布局与输入
@@ -78,3 +80,13 @@ data-root 可位于仓库外。清单为 UTF-8 JSON，schema_version=`driveguard
 - 标签未知性、主体独立、外置根目录与只读mmap约束不变。NPU训练只消费这些特征及标签，不要求在训练环境导入感知包。
 
 实现使用独立v2训练配置；manifest的group_profile及group_profile_sha256必须与配置相符。导出显式传--group-profile才产生v2 record；默认仍为v1。所有stat字段在父观测中断后保守屏蔽到该缺口离开100槽历史，窗口切片包含前99槽历史，避免切片边界重置。train/val的正负监督预检使用与训练相同的supported/quality/eligible规则，并另报raw标签与不可用窗口。测试场景见Spec REQ-011/012/013及[测试策略](../testing/TEST_STRATEGY.md)。
+
+## 7. 联合 Gaze v3
+
+`driveguard-feature-manifest-v3` / record-v3配套`driveguard-training-v3`和`driveguard-interaction-v2`，组profile为groups-v2。前19字段保留顺序，新增iris_left_x/iris_left_y/iris_right_x/iris_right_y，数值和mask均`[N,23]`；拼接为46通道。新版启用经过矩阵校验的头姿估计，完整定义由extractor_profile记录。
+
+原四行为数组和age不变，另加`gaze_targets.npy` int64 `[N]`与`gaze_label_masks.npy` uint8 `[N]`。有效类别0..8，未知必须target0/mask0；类别0仅在mask1时代表left_mirror。清单新增`gaze_mapping={version,classes,rules}`，version为driveguard-gaze-v1，classes固定顺序见[全量指南](GAZE_FULL_RUNBOOK.md)。
+
+Gaze只对face视角生成区域标签，其他子集/视角未知；四行为标签不从gaze区推断。来源/类别顺序/数组/规则与normalizer、checkpoint绑定校验；训练和重载拒绝旧19维缓存或更改的映射。原始导出仍无标签，批处理对齐后的监督另存，不覆盖原始数组。
+
+九分类使用共享F时序表示与masked CE；必须有有效头姿和至少单眼虹膜信息，不能仅因Objects可用就计算gaze。行为raw/usable覆盖与gaze九类raw/usable覆盖分别报告。旧缓存缺少新增观测，需从原视频重新提取，不允许伪造填充升级。

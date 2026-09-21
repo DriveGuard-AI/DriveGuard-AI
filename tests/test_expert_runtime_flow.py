@@ -21,13 +21,17 @@ from tests.perception_helpers import packet
 
 @contextmanager
 def runtime_fixture(directory, *, close_error=False, inference_error=False, multiple_faces=False,
-                    source_count=100, source_step_ms=40):
+                    source_count=100, source_step_ms=40, gaze=False):
     closed = []
     source = Path(directory) / 'synthetic.mp4'
     source.write_bytes(b'not a real video')
     config = load_runtime_config('configs/perception/runtime.example.json')
     config.update(recording_id='synthetic', driver_roi=[0, 0, 800, 500], driver_region_confirmed_exclusive=True)
     reference = packet()
+    if gaze:
+        from tests.test_gaze_perception import gaze_packet
+        reference = gaze_packet()
+        config.update(schema_version='driveguard-runtime-v2',gaze_features=True)
 
     class Model(torch.nn.Module):
         def __init__(self):
@@ -58,7 +62,8 @@ def runtime_fixture(directory, *, close_error=False, inference_error=False, mult
                 return [SimpleNamespace(x=x/1000, y=y/500, z=0) for x, y in points]
             faces = [normalized(reference['face']['landmarks'])]
             if multiple_faces: faces *= 2
-            return SimpleNamespace(face_landmarks=faces, face_blendshapes=[], facial_transformation_matrixes=[],
+            matrices = [np.eye(4) for _ in faces] if getattr(self.options,'output_facial_transformation_matrixes',False) else []
+            return SimpleNamespace(face_landmarks=faces, face_blendshapes=[], facial_transformation_matrixes=matrices,
                     hand_landmarks=[normalized(reference['hands']['items'][0]['landmarks'])],
                     hand_world_landmarks=[], handedness=[])
         def close(self):

@@ -233,6 +233,11 @@ def spatial_features(packet, profile):
 
     face = packet["face"]
     points = face["landmarks"]
+    if profile.get('feature_schema_version') == 'driveguard-interaction-v2':
+        from inference.experts.gaze_geometry import IRIS_NAMES, iris_features
+        values.update(dict.fromkeys(IRIS_NAMES))
+        if fresh(face) and face['driver_confirmed'] and points is not None and all(_inside(p,roi) for p in points):
+            values.update(iris_features(points))
     face_center = mouth_center = face_diagonal = None
     if fresh(face) and face["driver_confirmed"] and points is not None and all(_inside(p, roi) for p in points):
         box = _bounds(points)

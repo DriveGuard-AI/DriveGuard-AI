@@ -1,5 +1,7 @@
 # DMD 真实训练数据准备
 
+本文四行为映射和原始preparation保持兼容。新版通过`training.dmd.gaze_batch`只读迁移原准备清单，将gaze face纳入九分类监督；参见[完整训练指南](GAZE_FULL_RUNBOOK.md)。下文“gaze不监督”描述仅适用于旧版入口。
+
 本页说明标注语义与准备清单。已接通**批量感知、标签数组、记录级恢复和训练 manifest 发布**，操作见 [DMD 批量训练数据流水线](DMD_BATCH.md)。`preparation.json` **仍不能直接传给训练器**，只有 publish 成功生成的 `manifest.json` 才是训练输入。
 
 用户已回传 Ascend910B3 上 10 轮合成训练、断点续训、参数更新和 NPU 重载推理成功；这说明训练工程链路可运行，不代表已经训练真实 DMD。

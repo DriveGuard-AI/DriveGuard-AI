@@ -1,5 +1,7 @@
 # YOLOX / MediaPipe 本地视频特征入口
 
+2026-09-21增量：下文保留旧runtime-v1的19维单视频CLI使用方式与历史验证快照。新版runtime-v2已启用同一张脸的变换矩阵头姿估计及虹膜局部位置，输出23维；正式入口为[四行为+Gaze全量批处理](GAZE_FULL_RUNBOOK.md)，由批处理显式提供匹配的feature/group profile。旧单视频CLI未增加新版profile选择，不应直接用新版配置替换旧CLI参数。用户已回传ARM CPU真实视频感知通过；新版真实头姿/虹膜仅做本机单截图接口验证，未证明区域分类精度。
+
 2026-09-19更新 · shadow · model。**三个真实工件与独立Windows CPU环境已准备，真实模型加载/空白帧前向和105项测试通过；真实视频尚未验证。** 本轮没有修改原训练环境、处理DMD或启动训练。位置、版本快照、已知pip依赖警告见[本机准备记录](PERCEPTION_SETUP.md)，工件来源/hash/许可见[预训练清单](../../models/PRETRAINED_ASSETS.md)。
 
 ## 1. 已接入的模块

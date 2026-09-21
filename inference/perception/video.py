@@ -36,8 +36,11 @@ def expert_packets(frames, detector, landmarks, config):
                    width=width, height=height, driver_roi=list(roi), **deepcopy(cached))
 
 
-def run_video(input_path, output_dir, config, *, group_profile=None, frame_observer=None):
+def run_video(input_path, output_dir, config, *, group_profile=None, frame_observer=None, feature_profile=None):
     config = deepcopy(config)
+    gaze = config.get('schema_version') == 'driveguard-runtime-v2'
+    if gaze != bool(feature_profile and feature_profile.get('feature_schema_version') == 'driveguard-interaction-v2'):
+        raise ValueError('Gaze runtime and explicit new feature profile must be selected together')
     # Preflight all three local assets before importing either model runtime.
     for location, key in ((config['objects'], 'asset'), (config, 'face_asset'), (config, 'hands_asset')):
         location[key] = verify_asset(location[key])
@@ -59,8 +62,9 @@ def run_video(input_path, output_dir, config, *, group_profile=None, frame_obser
     with ExitStack() as stack:
         detector = YOLOXAdapter(**config['objects'])
         stack.callback(detector.close)
+        gaze_options = {'gaze_features': True} if gaze else {}
         landmarks = MediaPipeAdapter(config['face_asset'], config['hands_asset'], driver_roi=config['driver_roi'],
-                                     driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'])
+                                     driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'], **gaze_options)
         stack.callback(landmarks.close)
         for name in ('numpy', 'torch', 'yolox', 'cv2', 'mediapipe', 'av'):
             provenance['versions'][name] = str(importlib.import_module(name).__version__)
@@ -81,7 +85,7 @@ def run_video(input_path, output_dir, config, *, group_profile=None, frame_obser
             # Resource cleanup is part of success, so finish it before export publishes record.json.
             stack.close()
         options = {'group_profile':group_profile} if group_profile is not None else {}
-        return export_recording(checked_packets(), output_dir, load_profile(), provenance=provenance, **options)
+        return export_recording(checked_packets(), output_dir, feature_profile or load_profile(), provenance=provenance, **options)
 
 
 def main(argv=None):

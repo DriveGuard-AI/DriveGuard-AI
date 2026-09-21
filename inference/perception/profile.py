@@ -20,6 +20,9 @@ KEYS = {'schema_version', 'name', 'feature_schema_version', 'feature_names', 'sa
 
 
 def validate_profile(profile):
+    if isinstance(profile, dict) and profile.get('schema_version') == 'driveguard-extractor-profile-v2':
+        from inference.perception.gaze_profile import validate_gaze_profile
+        return validate_gaze_profile(profile)
     if not isinstance(profile, dict) or set(profile) != KEYS:
         raise ValueError('Invalid feature profile keys')
     if (profile['schema_version'] != 'driveguard-extractor-profile-v1' or

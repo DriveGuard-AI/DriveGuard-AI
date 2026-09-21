@@ -95,8 +95,13 @@ def _materialize(raw_path, output, slots, features, relation=False):
 def export_recording(packets, output_dir, profile, *, provenance=None, group_profile=None):
     extractor = FeatureExtractor(profile)
     profile = extractor.profile
+    if profile['feature_schema_version'] == 'driveguard-interaction-v2' and group_profile is None:
+        raise ValueError('Gaze extraction requires its matching group profile')
     if group_profile is not None:
-        from training.relation.profile import validate_group_profile
+        if profile['feature_schema_version'] == 'driveguard-interaction-v2':
+            from training.gaze.profile import validate_group_profile
+        else:
+            from training.relation.profile import validate_group_profile
         group_profile = validate_group_profile(group_profile,profile['feature_names'])
         if profile['sample_rate_hz'] != 25 or profile['max_age_ms'] != group_profile['max_age_ms']:
             raise ValueError('Extractor rate/age differs from group profile')
@@ -144,6 +149,8 @@ def export_recording(packets, output_dir, profile, *, provenance=None, group_pro
         if group_profile is not None:
             report.update(schema_version='driveguard-feature-record-v2',group_profile=group_profile,
                           group_profile_sha256=canonical_hash(group_profile))
+            if profile['feature_schema_version'] == 'driveguard-interaction-v2':
+                report['schema_version'] = 'driveguard-feature-record-v3'
         if provenance is not None:
             # Capture decoder metadata populated during iteration, before successful publication.
             if not isinstance(provenance, dict):

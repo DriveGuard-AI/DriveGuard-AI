@@ -54,8 +54,11 @@ class FeatureCorpus:
 
     def __init__(self, config, manifest_path, data_root=None):
         self.config = deepcopy(validate_config(config))
-        self.relation = self.config['schema_version'] == 'driveguard-training-v2'
+        self.gaze = self.config['schema_version'] == 'driveguard-training-v3'
+        self.relation = self.config['schema_version'] in ('driveguard-training-v2','driveguard-training-v3')
         self.array_names = ARRAY_NAMES + (('expert_age_ms',) if self.relation else ())
+        if self.gaze:
+            self.array_names += ('gaze_targets','gaze_label_masks')
         self.root = resolve_data_root(data_root)
         self.manifest = read_json(manifest_path)
         self._cache = OrderedDict()
@@ -71,9 +74,12 @@ class FeatureCorpus:
         keys = {'schema_version', 'dataset_version', 'feature_schema', 'extractor_profile', 'label_mapping', 'records'}
         if self.relation:
             keys |= {'group_profile', 'group_profile_sha256'}
+        if self.gaze:
+            keys |= {'gaze_mapping'}
         if not isinstance(manifest, dict) or set(manifest) != keys:
             raise ValueError('Invalid manifest keys')
-        if manifest['schema_version'] != ('driveguard-feature-manifest-v2' if self.relation else 'driveguard-feature-manifest-v1'):
+        version = 3 if self.gaze else (2 if self.relation else 1)
+        if manifest['schema_version'] != f'driveguard-feature-manifest-v{version}':
             raise ValueError('Unsupported manifest schema')
         if self.relation:
             group_profile = data['group_profile']
@@ -95,6 +101,12 @@ class FeatureCorpus:
             raise ValueError('Label mapping/schema mismatch')
         if not isinstance(labels.get('rules'), dict) or not labels['rules']:
             raise ValueError('Label mapping must record positive/negative/unknown rules')
+        if self.gaze:
+            gaze = manifest['gaze_mapping']
+            if (not isinstance(gaze,dict) or set(gaze) != {'version','classes','rules'} or
+                    gaze['version'] != data['gaze_label_schema_version'] or gaze['classes'] != data['gaze_classes'] or
+                    not isinstance(gaze['rules'],dict) or not gaze['rules']):
+                raise ValueError('Gaze mapping/schema/class order mismatch')
         records = manifest['records']
         if not isinstance(records, list) or not records:
             raise ValueError('Manifest records must be nonempty')
@@ -138,6 +150,8 @@ class FeatureCorpus:
         }
         if self.relation:
             self.summary['group_profile_sha256'] = manifest['group_profile_sha256']
+        if self.gaze:
+            self.summary['gaze_mapping_sha256'] = canonical_hash(manifest['gaze_mapping'])
         self.summary['fingerprint'] = canonical_hash(self.summary)
 
     def arrays(self, record):
@@ -172,6 +186,11 @@ class FeatureCorpus:
                 raise ValueError(f'{name} shape mismatch')
         if arrays['targets'].dtype != np.float32:
             raise ValueError('targets must be float32')
+        if self.gaze:
+            if arrays['gaze_targets'].dtype != np.int64 or arrays['gaze_targets'].shape != (frames,):
+                raise ValueError('gaze_targets must be int64 [slots]')
+            if arrays['gaze_label_masks'].dtype != np.uint8 or arrays['gaze_label_masks'].shape != (frames,):
+                raise ValueError('gaze_label_masks must be uint8 [slots]')
         if self.relation:
             ages = arrays['expert_age_ms']
             if ages.dtype != np.float32 or ages.shape != (frames,3):
@@ -191,12 +210,21 @@ class FeatureCorpus:
                     raise ValueError(f'{name} must be binary')
             if np.any(chunks['targets'][chunks['label_masks'] == 0] != 0):
                 raise ValueError('Unknown labels must have zero placeholder targets')
+            if self.gaze:
+                gaze_targets, gaze_masks = chunks['gaze_targets'], chunks['gaze_label_masks']
+                if not np.isin(gaze_masks,[0,1]).all() or ((gaze_targets < 0) | (gaze_targets >= 9)).any():
+                    raise ValueError('Invalid gaze targets/masks')
+                if (gaze_targets[gaze_masks == 0] != 0).any():
+                    raise ValueError('Unknown gaze labels must have zero placeholder targets')
         record['frames'] = frames
 
     def effective_masks(self, arrays, start, stop):
         if not self.relation:
             return arrays['masks'][start:stop]
-        from training.relation.preprocessing import dependency_masks
+        if self.gaze:
+            from training.gaze.preprocessing import dependency_masks
+        else:
+            from training.relation.preprocessing import dependency_masks
         profile = self.config['data']['group_profile']
         first = max(0,start-profile['history_steps']+1)
         filtered = dependency_masks(arrays['masks'][first:stop], arrays['expert_age_ms'][first:stop], profile)
@@ -218,6 +246,9 @@ class FeatureCorpus:
         return WindowDataset(self, split, normalizer)
 
     def check_supervision(self, active_tasks, normalizer=None):
+        if self.gaze:
+            from training.gaze.data import FeatureCorpus as GazeCorpus
+            return GazeCorpus.check_supervision(self,active_tasks,normalizer)
         if self.relation:
             return self._check_relation_supervision(active_tasks,normalizer or self.fit_normalizer())
         result = {}
@@ -309,9 +340,15 @@ class WindowDataset:
         stop = start + self.steps
         masks = self.corpus.effective_masks(arrays,start,stop)
         if self.corpus.relation:
-            from training.relation.preprocessing import prepare_window
+            if self.corpus.gaze:
+                from training.gaze.preprocessing import prepare_window
+            else:
+                from training.relation.preprocessing import prepare_window
             x = prepare_window(arrays['values'][start:stop],masks,arrays['expert_age_ms'][start:stop],
                                self.normalizer,self.corpus.config['data']['group_profile'])
         else:
             x = normalize(arrays['values'][start:stop], masks, self.normalizer)
-        return x, arrays['targets'][stop-1].copy(), arrays['label_masks'][stop-1].astype(bool, copy=True)
+        item = (x, arrays['targets'][stop-1].copy(), arrays['label_masks'][stop-1].astype(bool, copy=True))
+        if self.corpus.gaze:
+            return (*item, arrays['gaze_targets'][stop-1].copy(), bool(arrays['gaze_label_masks'][stop-1]))
+        return item

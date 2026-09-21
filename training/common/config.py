@@ -55,9 +55,10 @@ def validate_config(config):
     top = {'schema_version', 'experiment', *KEYS}
     if not isinstance(config, dict) or set(config) != top:
         raise ValueError('Invalid configuration keys')
-    if config['schema_version'] not in ('driveguard-training-v1', 'driveguard-training-v2'):
+    if config['schema_version'] not in ('driveguard-training-v1', 'driveguard-training-v2', 'driveguard-training-v3'):
         raise ValueError('Unsupported configuration schema')
-    relation = config['schema_version'] == 'driveguard-training-v2'
+    gaze = config['schema_version'] == 'driveguard-training-v3'
+    relation = config['schema_version'] in ('driveguard-training-v2','driveguard-training-v3')
     if not isinstance(config['experiment'], str) or not config['experiment'].strip():
         raise ValueError('experiment must be nonempty')
     for section, keys in KEYS.items():
@@ -65,6 +66,10 @@ def validate_config(config):
             keys = keys | {'group_profile'}
         if relation and section == 'model':
             keys = keys | {'kind', 'projection_dim', 'gate_hidden_dim'}
+        if gaze and section == 'data':
+            keys = keys | {'gaze_label_schema_version','gaze_classes'}
+        if gaze and section == 'training':
+            keys = keys | {'gaze_enabled','task_weights'}
         if not isinstance(config[section], dict) or set(config[section]) != keys:
             raise ValueError(f'Invalid {section} keys')
     data, model, train, runtime = (config[k] for k in KEYS)
@@ -97,13 +102,18 @@ def validate_config(config):
     if model['dropout'] >= 1:
         raise ValueError('dropout must be < 1')
     if relation:
-        from training.relation.profile import validate_group_profile
+        if gaze:
+            from training.gaze.profile import validate_group_profile, GAZE_CLASSES
+            if data['gaze_label_schema_version'] != 'driveguard-gaze-v1' or data['gaze_classes'] != list(GAZE_CLASSES):
+                raise ValueError('Gaze schema/class order mismatch')
+        else:
+            from training.relation.profile import validate_group_profile
         validate_group_profile(data['group_profile'], names)
-        if model['kind'] != 'relation_gated_v1':
+        if model['kind'] != ('relation_gaze_v1' if gaze else 'relation_gated_v1'):
             raise ValueError('Unsupported v2 model kind')
         for key in ('projection_dim', 'gate_hidden_dim'):
             _integer(model[key], key)
-        if (data['feature_schema_version'] != 'driveguard-interaction-v1' or
+        if (data['feature_schema_version'] != ('driveguard-interaction-v2' if gaze else 'driveguard-interaction-v1') or
                 data['sample_rate_hz'] != 25 or data['window_steps'] != 100 or
                 model['channels'] != [model['projection_dim']] * len(model['dilations'])):
             raise ValueError('Relation model requires interaction-v1/25Hz/100 slots and shared projection width')
@@ -123,6 +133,14 @@ def validate_config(config):
         raise ValueError('active_tasks must be a nonempty subset of the four tasks')
     if len(set(active)) != len(active):
         raise ValueError('Duplicate active tasks')
+    if gaze:
+        if active != list(TASKS) or train['gaze_enabled'] is not True:
+            raise ValueError('Joint training requires all four active tasks and gaze_enabled=true')
+        weights = train['task_weights']
+        if not isinstance(weights,list) or len(weights) != 5:
+            raise ValueError('task_weights requires four behavior weights and one gaze weight')
+        for weight in weights:
+            _number(weight,'task_weights',exclusive=True)
     if runtime['backend'] not in ('cpu', 'cuda', 'npu'):
         raise ValueError('Unsupported backend')
     _integer(runtime['device_index'], 'device_index', 0)

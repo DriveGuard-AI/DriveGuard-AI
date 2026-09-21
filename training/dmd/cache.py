@@ -83,6 +83,11 @@ def _check_dimensions(paths, raw_paths, report):
         dimensions = {'values': (slots, len(feature['feature_schema']['names'])),
                       'masks': (slots, len(feature['feature_schema']['names'])),
                       'expert_age_ms': (slots, 3), 'targets': (slots, 4), 'label_masks': (slots, 4)}
+        gaze = feature['schema_version'] == 'driveguard-feature-record-v3'
+        if gaze:
+            dimensions.update(gaze_targets=(slots,),gaze_label_masks=(slots,))
+            if arrays['gaze_targets'].dtype != np.int64 or arrays['gaze_label_masks'].dtype != np.uint8:
+                raise ValueError('Invalid gaze dtype')
         for name, shape in dimensions.items():
             if arrays[name].shape != shape:
                 raise ValueError('Array dimensions differ from feature record')
@@ -111,6 +116,10 @@ def _check_dimensions(paths, raw_paths, report):
                     raise ValueError('Nonbinary array data')
             if np.any(chunk['targets'][chunk['label_masks'] == 0] != 0):
                 raise ValueError('Unknown labels must have zero targets')
+            if gaze:
+                targets,masks=chunk['gaze_targets'],chunk['gaze_label_masks']
+                if not np.isin(masks,[0,1]).all() or np.any((targets<0)|(targets>=9)) or np.any(targets[masks==0]!=0):
+                    raise ValueError('Invalid gaze targets/masks')
             ages = chunk['expert_age_ms']
             if np.any(ages < 0) or np.any(ages > feature['group_profile']['max_age_ms'] + 1):
                 raise ValueError('Expert ages outside profile range')
@@ -138,11 +147,12 @@ def validate_complete(attempt_dir, fingerprint):
             return None
         report = read_json(_unlinked(root / 'complete.json'))
         if (not isinstance(report, dict)
-                or report.get('schema_version') != 'driveguard-dmd-complete-v1'
+                or report.get('schema_version') not in ('driveguard-dmd-complete-v1','driveguard-dmd-complete-v2')
                 or report.get('fingerprint') != fingerprint
                 or not isinstance(report.get('label_summary'), dict)):
             return None
         feature, job = report['feature_record'], report['job']
+        gaze = report['schema_version'] == 'driveguard-dmd-complete-v2'
         if not isinstance(feature, dict) or not isinstance(job, dict):
             return None
         required = {'schema_version', 'status', 'slots', 'recording_id', 'view',
@@ -169,7 +179,7 @@ def validate_complete(attempt_dir, fingerprint):
             return None
         if job['subset'] not in ('distraction', 'drowsiness', 'gaze'):
             return None
-        if (feature['schema_version'] != 'driveguard-feature-record-v2'
+        if (feature['schema_version'] != ('driveguard-feature-record-v3' if gaze else 'driveguard-feature-record-v2')
                 or feature['status'] != 'complete_unlabeled'
                 or any(feature[key] != job[key] for key in ('recording_id', 'view'))):
             return None
@@ -179,7 +189,10 @@ def validate_complete(attempt_dir, fingerprint):
         if (root / 'features/incomplete.json').exists():
             return None
         profile = validate_profile(feature['extractor_profile'])
-        group = validate_group_profile(feature['group_profile'], profile['feature_names'])
+        group_validator = validate_group_profile
+        if gaze:
+            from training.gaze.profile import validate_group_profile as group_validator
+        group = group_validator(feature['group_profile'], profile['feature_names'])
         expected_schema = {'version': profile['feature_schema_version'],
                            'names': profile['feature_names'], 'sample_rate_hz': 25}
         if (feature['profile_sha256'] != canonical_hash(profile)
@@ -187,7 +200,10 @@ def validate_complete(attempt_dir, fingerprint):
                 or feature['feature_schema'] != expected_schema
                 or profile['max_age_ms'] != group['max_age_ms']):
             return None
-        paths = _hashed_paths(root, report['arrays'], report['array_sha256'], ARRAYS)
+        expected_arrays = dict(ARRAYS)
+        if gaze:
+            expected_arrays.update(gaze_targets='gaze_targets.npy',gaze_label_masks='gaze_label_masks.npy')
+        paths = _hashed_paths(root, report['arrays'], report['array_sha256'], expected_arrays)
         raw_paths = _hashed_paths(root / 'features', feature['arrays'], feature['array_sha256'], RAW_ARRAYS)
         _check_dimensions(paths, raw_paths, report)
         return report
@@ -198,8 +214,9 @@ def validate_complete(attempt_dir, fingerprint):
 def publish_manifest(output_root, completed, training_config, label_policy):
     """Publish a fresh manifest only after the real loader and coverage gate pass."""
     config = validate_config(training_config)
-    if config['schema_version'] != 'driveguard-training-v2':
-        raise ValueError('DMD publication requires a v2 training configuration')
+    gaze = config['schema_version'] == 'driveguard-training-v3'
+    if config['schema_version'] not in ('driveguard-training-v2','driveguard-training-v3'):
+        raise ValueError('DMD publication requires v2 or v3 training configuration')
     if not isinstance(label_policy, dict) or not label_policy:
         raise ValueError('A nonempty label policy is required')
     canonical_hash(label_policy)
@@ -218,6 +235,8 @@ def publish_manifest(output_root, completed, training_config, label_policy):
         if not attempt.is_relative_to(root):
             raise ValueError('Completed attempt lies outside output root')
         feature, job = report['feature_record'], report['job']
+        if (feature['schema_version']=='driveguard-feature-record-v3') != gaze:
+            raise ValueError('Training and cache versions disagree')
         if job['job_id'] in identities:
             raise ValueError('Duplicate completed job')
         identities.add(job['job_id'])
@@ -229,17 +248,24 @@ def publish_manifest(output_root, completed, training_config, label_policy):
         record = {'record_id': job['job_id'], **{key: job[key] for key in METADATA}}
         record.update({key: (attempt / report['arrays'][key]).relative_to(root).as_posix()
                        for key in RAW_ARRAYS})
+        if gaze:
+            record.update({key:(attempt/report['arrays'][key]).relative_to(root).as_posix()
+                           for key in ('gaze_targets','gaze_label_masks')})
         records.append(record)
         sources.append({'job_id': job['job_id'], 'fingerprint': report['fingerprint'],
                         'attempt': attempt.relative_to(root).as_posix()})
     manifest = {
-        'schema_version': 'driveguard-feature-manifest-v2',
+        'schema_version': 'driveguard-feature-manifest-v3' if gaze else 'driveguard-feature-manifest-v2',
         'dataset_version': 'dmd-event-proxy-v1-' + canonical_hash({'sources': sources, 'labels': label_policy}),
         'feature_schema': first['feature_schema'], 'extractor_profile': first['extractor_profile'],
         'group_profile': first['group_profile'], 'group_profile_sha256': first['group_profile_sha256'],
         'label_mapping': {'version': 'driveguard-behavior-v1', 'tasks': list(TASKS), 'rules': label_policy},
         'records': records,
     }
+    if gaze:
+        from training.gaze.profile import GAZE_CLASSES
+        manifest['gaze_mapping']={'version':'driveguard-gaze-v1','classes':list(GAZE_CLASSES),
+                                  'rules':label_policy['gaze_rules']}
     parent = root / 'manifests'
     parent.mkdir(exist_ok=True)
     _unlinked(parent)
@@ -252,7 +278,10 @@ def publish_manifest(output_root, completed, training_config, label_policy):
                   'active_tasks': config['training']['active_tasks'],
                   'training_config_sha256': canonical_hash(config)}
     try:
-        corpus = FeatureCorpus(config, candidate, root)
+        corpus_type = FeatureCorpus
+        if gaze:
+            from training.gaze.data import FeatureCorpus as corpus_type
+        corpus = corpus_type(config, candidate, root)
         normalizer = corpus.fit_normalizer()
         coverage = corpus.check_supervision([], normalizer)
         diagnostic['coverage'] = coverage
@@ -260,6 +289,9 @@ def publish_manifest(output_root, completed, training_config, label_policy):
                    for task in config['training']['active_tasks']
                    if coverage[split]['positive'][TASKS.index(task)] == 0
                    or coverage[split]['negative'][TASKS.index(task)] == 0]
+        if gaze:
+            missing += [f'{split} gaze:{name}' for split in ('train','val')
+                        for index,name in enumerate(GAZE_CLASSES) if coverage[split]['gaze_support'][index]==0]
         if missing:
             diagnostic['status'] = 'insufficient_supervision'
             raise ValueError('Usable positive and negative supervision required: ' + ', '.join(missing))

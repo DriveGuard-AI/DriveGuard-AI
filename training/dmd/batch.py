@@ -33,14 +33,17 @@ def _environment():
         except metadata.PackageNotFoundError:
             versions[name] = None
     code = {}
-    for directory in ('training/dmd', 'training/common', 'training/relation', 'inference'):
+    for directory in ('training/dmd', 'training/common', 'training/relation', 'training/gaze', 'inference'):
         for path in sorted((ROOT / directory).rglob('*.py')):
             code[path.relative_to(ROOT).as_posix()] = file_sha256(path)
     return dict(versions=versions, implementation_sha256=canonical_hash(code))
 
 
-def _context(config_path, dataset_root, output_dir):
-    context = load_batch(config_path)
+def _context(config_path, dataset_root, output_dir, *, gaze=False):
+    loader = load_batch
+    if gaze:
+        from training.dmd.gaze_batch import load_batch as loader
+    context = loader(config_path)
     for jid, setting in context['config']['jobs'].items():
         if setting['confirmed_exclusive'] is not True:
             raise ValueError(f'ROI exclusive ownership not confirmed: {jid}; inspect video before setting true')
@@ -55,6 +58,10 @@ def _context(config_path, dataset_root, output_dir):
     context.update(root=root, output=output, environment=_environment(),
                    group_profile=read_json(ROOT / 'configs/perception/relation_groups_v1.json'),
                    feature_profile=read_json(ROOT / 'configs/perception/interaction_v1.json'))
+    if gaze:
+        from training.gaze.profile import default_group_profile
+        from inference.perception.gaze_profile import gaze_profile
+        context.update(group_profile=default_group_profile(),feature_profile=gaze_profile())
     return context
 
 
@@ -147,9 +154,13 @@ def _extract(context, job, source, doc, fingerprint, evidence, source_stat, prog
             pts.append(frame.timestamp_ms)
             if progress and len(pts) % 100 == 0:
                 progress(f'{job["job_id"]}: source_frames={len(pts)} video_seconds={frame.timestamp_ms/1000:.2f}')
+        options = {'feature_profile':context['feature_profile']} if context.get('gaze') else {}
         feature = run_video(source, attempt / 'features', runtime,
-                            group_profile=context['group_profile'], frame_observer=observe)
-        labels = compile_labels(doc, job['view'], pts,
+                            group_profile=context['group_profile'], frame_observer=observe, **options)
+        compiler = compile_labels
+        if context.get('gaze'):
+            from training.dmd.gaze_labels import compile_gaze_labels as compiler
+        labels = compiler(doc, job['view'], pts,
             closed_eye_min_ms=context['label_policy']['closed_eye_min_ms'], subset=job['subset'])
         if (feature['slots'] != len(labels['slots_ms']) or feature['first_timestamp_ms'] != 0
                 or feature['last_timestamp_ms'] != labels['slots_ms'][-1]):
@@ -157,6 +168,9 @@ def _extract(context, job, source, doc, fingerprint, evidence, source_stat, prog
         np.save(attempt / 'source_pts_ms.npy', np.asarray(pts, dtype=np.int64), allow_pickle=False)
         np.save(attempt / 'targets.npy', np.asarray(labels['targets'], dtype=np.float32), allow_pickle=False)
         np.save(attempt / 'label_masks.npy', np.asarray(labels['label_masks'], dtype=np.uint8), allow_pickle=False)
+        if context.get('gaze'):
+            np.save(attempt/'gaze_targets.npy',np.asarray(labels['gaze_targets'],dtype=np.int64),allow_pickle=False)
+            np.save(attempt/'gaze_label_masks.npy',np.asarray(labels['gaze_label_masks'],dtype=np.uint8),allow_pickle=False)
         stat = source.stat()
         if (stat.st_size, stat.st_mtime_ns) != source_stat:
             raise ValueError('Video changed during extraction')
@@ -165,7 +179,9 @@ def _extract(context, job, source, doc, fingerprint, evidence, source_stat, prog
                 raise ValueError('Annotation changed during extraction')
         arrays = {name: f'features/{name}.npy' for name in ('values', 'masks', 'expert_age_ms')}
         arrays.update({name: f'{name}.npy' for name in ('targets', 'label_masks', 'source_pts_ms')})
-        report = dict(schema_version='driveguard-dmd-complete-v1', fingerprint=fingerprint,
+        if context.get('gaze'):
+            arrays.update({name:f'{name}.npy' for name in ('gaze_targets','gaze_label_masks')})
+        report = dict(schema_version='driveguard-dmd-complete-v2' if context.get('gaze') else 'driveguard-dmd-complete-v1', fingerprint=fingerprint,
             job=job, feature_record=feature, arrays=arrays,
             array_sha256={name: file_sha256(attempt / path) for name, path in arrays.items()},
             label_summary=labels['summary'])
@@ -183,9 +199,9 @@ def _extract(context, job, source, doc, fingerprint, evidence, source_stat, prog
         raise
 
 
-def run_batch(config_path, dataset_root, output_dir, progress=None):
+def run_batch(config_path, dataset_root, output_dir, progress=None, *, gaze=False):
     from training.dmd.cache import write_json
-    context = _context(config_path, dataset_root, output_dir)
+    context = _context(config_path, dataset_root, output_dir, gaze=gaze)
     result = dict(completed=0, reused=0, failed=0, jobs=[])
     with _lock(context['output']):
         for index, job in enumerate(context['selected'], 1):
@@ -217,9 +233,9 @@ def run_batch(config_path, dataset_root, output_dir, progress=None):
     return result
 
 
-def publish_batch(config_path, dataset_root, output_dir, training_config):
+def publish_batch(config_path, dataset_root, output_dir, training_config, *, gaze=False):
     from training.dmd.cache import publish_manifest
-    context = _context(config_path, dataset_root, output_dir)
+    context = _context(config_path, dataset_root, output_dir, gaze=gaze)
     with _lock(context['output']):
         completed = []
         for job in context['selected']:

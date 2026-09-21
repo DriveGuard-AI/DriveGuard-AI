@@ -30,7 +30,7 @@ def _inside(points, roi):
     return all(roi[0] <= x <= roi[2] and roi[1] <= y <= roi[3] for x, y in points)
 
 
-def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_id):
+def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_id, *, matrices=None):
     result = dict(status='ok', timestamp_ms=timestamp_ms, model_id=model_id,
                   driver_confirmed=False, landmarks=None, head_pose=None)
     try:
@@ -38,9 +38,13 @@ def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_i
     except (ValueError, TypeError, AttributeError, OverflowError):
         result['status'] = 'missing'
         return result
-    candidates = [points for points in candidates if _inside(points, roi)]
+    selected = [(index,points) for index,points in enumerate(candidates) if _inside(points, roi)]
+    candidates = [points for _,points in selected]
     if len(candidates) == 1:
         result.update(landmarks=candidates[0], driver_confirmed=exclusive)
+        if matrices is not None and len(matrices) == len(faces):
+            from inference.experts.gaze_geometry import head_pose
+            result['head_pose'] = head_pose(matrices[selected[0][0]])
     elif len(candidates) > 1:
         result['status'] = 'missing'
     return result
@@ -60,7 +64,9 @@ def hand_observation(hands, width, height, roi, exclusive, timestamp_ms, model_i
 
 class MediaPipeAdapter:
     """Owns independent CPU Face/Hand VIDEO tasks for one recording only."""
-    def __init__(self, face_asset, hands_asset, *, driver_roi, driver_region_confirmed_exclusive=False):
+    def __init__(self, face_asset, hands_asset, *, driver_roi, driver_region_confirmed_exclusive=False, gaze_features=False):
+        if type(gaze_features) is not bool:
+            raise ValueError('gaze_features must be boolean')
         if type(driver_region_confirmed_exclusive) is not bool:
             raise ValueError('Driver exclusivity must be an explicit boolean annotation')
         if not isinstance(driver_roi, (list, tuple)) or len(driver_roi) != 4 or not all(
@@ -73,6 +79,7 @@ class MediaPipeAdapter:
         except ImportError as error:
             raise RuntimeError('MediaPipe Tasks is required in the perception environment; no automatic install') from error
         self._roi, self._exclusive = list(driver_roi), driver_region_confirmed_exclusive
+        self._gaze = gaze_features
         self._time, self._shape, self._closed = None, None, False
         self._resources = ExitStack()
         base, vision = self._mp.tasks.BaseOptions, self._mp.tasks.vision
@@ -81,13 +88,15 @@ class MediaPipeAdapter:
                         delegate='CPU', mode='VIDEO', num_faces=2, num_hands=4, confidence=0.5,
                         coordinates='full-frame-unmirrored-xy', driver_roi=self._roi,
                         driver_region_confirmed_exclusive=self._exclusive)
+        if gaze_features:
+            settings.update(implementation='driveguard-mediapipe-gaze-v2',gaze_geometry='mediapipe-matrix-iris-v1')
         self.face_model_id = model_identity('mediapipe-face', face_asset, settings)
         self.hands_model_id = model_identity('mediapipe-hands', hands_asset, settings)
         try:
             self._face = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
                 base_options=base(model_asset_path=face_asset['path'], delegate=base.Delegate.CPU),
                 num_faces=2, min_face_detection_confidence=0.5, min_face_presence_confidence=0.5,
-                output_face_blendshapes=False, output_facial_transformation_matrixes=False, **common))
+                output_face_blendshapes=False, output_facial_transformation_matrixes=gaze_features, **common))
             self._resources.callback(self._face.close)
             self._hands = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
                 base_options=base(model_asset_path=hands_asset['path'], delegate=base.Delegate.CPU),
@@ -111,7 +120,8 @@ class MediaPipeAdapter:
         try:
             face = self._face.detect_for_video(image, timestamp_ms)
             hands = self._hands.detect_for_video(image, timestamp_ms)
-            result = (face_observation(face.face_landmarks, width, height, self._roi, self._exclusive, timestamp_ms, self.face_model_id),
+            pose_options = {'matrices': face.facial_transformation_matrixes} if self._gaze else {}
+            result = (face_observation(face.face_landmarks, width, height, self._roi, self._exclusive, timestamp_ms, self.face_model_id, **pose_options),
                       hand_observation(hands.hand_landmarks, width, height, self._roi, self._exclusive, timestamp_ms, self.hands_model_id))
             if result[0]['status'] == 'missing':
                 # Ambiguous/invalid face evidence cannot uphold the exclusive-driver assertion.

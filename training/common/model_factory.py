@@ -12,6 +12,10 @@ def build_model(config):
     validate_config(config)
     settings = deepcopy(config['model'])
     settings['window_steps'] = config['data']['window_steps']
+    if config['schema_version'] == 'driveguard-training-v3':
+        from training.gaze.model import RelationGazeTCN
+        settings.pop('kind')
+        return RelationGazeTCN(**settings)
     if config['schema_version'] == 'driveguard-training-v2':
         from training.relation.model import RelationGatedTCN
         from training.relation.profile import GROUP_INDICES
@@ -37,11 +41,14 @@ def load_model(path, backend='cpu', device_index=0):
     data = config['data']
     if payload['normalizer'].get('feature_names') != data['feature_names']:
         raise ValueError('Checkpoint normalizer feature mismatch')
-    if config['schema_version'] == 'driveguard-training-v2':
+    if config['schema_version'] in ('driveguard-training-v2','driveguard-training-v3'):
         profile = data['group_profile']
         if (payload.get('model_kind') != model_kind(config) or payload.get('group_profile') != profile or
                 payload.get('group_profile_sha256') != canonical_hash(profile)):
             raise ValueError('Checkpoint model/group profile mismatch')
+    if config['schema_version'] == 'driveguard-training-v3':
+        from training.gaze.checkpoint import validate_metadata
+        validate_metadata(payload)
     device = select_device(backend,device_index)
     model = build_model(config).to(device)
     model.load_state_dict(payload['model_state'],strict=True)

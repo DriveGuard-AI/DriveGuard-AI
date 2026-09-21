@@ -14,9 +14,15 @@ def _keys(value, keys, name):
 
 def load_runtime_config(path):
     config = read_json(path)
-    _keys(config, 'schema_version recording_id view driver_roi driver_region_confirmed_exclusive objects face_asset hands_asset', 'runtime')
-    if config['schema_version'] != 'driveguard-runtime-v1':
+    if not isinstance(config, dict):
+        raise ValueError('runtime configuration must be a JSON object')
+    gaze = config.get('schema_version') == 'driveguard-runtime-v2'
+    keys = 'schema_version recording_id view driver_roi driver_region_confirmed_exclusive objects face_asset hands_asset'
+    _keys(config, keys + (' gaze_features' if gaze else ''), 'runtime')
+    if config['schema_version'] not in ('driveguard-runtime-v1','driveguard-runtime-v2'):
         raise ValueError('Unsupported runtime schema')
+    if gaze and config['gaze_features'] is not True:
+        raise ValueError('runtime-v2 requires explicit gaze_features=true')
     for key in ('recording_id', 'view'):
         if not isinstance(config[key], str) or not config[key].strip():
             raise ValueError(f'{key} must be a nonempty string')

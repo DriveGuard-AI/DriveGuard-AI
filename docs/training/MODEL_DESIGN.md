@@ -1,5 +1,7 @@
 # DriveGuard Temporal v1 模型设计
 
+2026-09-21定位：本文是早期拼接TCN基线与当时的验证快照，不是当前全量训练入口。现有主线为四流关系门控，并已实现四行为+九类gaze联合训练；新增23维特征、46通道和F流辅助头见[新版指南](GAZE_FULL_RUNBOOK.md)。数据准备已恢复，旧四任务NPU合成验证已由用户回传；新版真实全量训练仍待服务器执行。
+
 版本：0.2.0 · 负责人：shadow · 分支：`model` · 日期：2026-09-18。
 
 状态：时序子模型及训练工程已实现并通过本地 CPU 合成测试，正式训练、目标硬件性能与推理适配仍未验证。操作与实际数据格式见[训练指南](RUNBOOK.md)和[数据契约](DATA_CONTRACT.md)。完整 YOLO + MediaPipe + 交互特征 + TCN + 融合方案见[多专家模型设计](../architecture/MULTI_EXPERT_DESIGN.md)。

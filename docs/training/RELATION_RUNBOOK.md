@@ -1,6 +1,8 @@
 # 关系门控模型训练与服务器接入
 
-负责人：shadow。范围：四证据流模型骨架、共享训练循环、CPU合成验证、GPU/昇腾入口；不代表真实DMD精度或硬件训练已经验收。
+负责人：shadow。范围：四证据流模型骨架、共享训练循环、CPU合成验证、GPU/昇腾入口。2026-09-21 用户回传昇腾910B3合成训练10轮/30次更新、续训及权重重载推理通过；不代表真实DMD精度、GPU验证或长程硬件验收。
+
+**当前真实数据准备入口：[DMD 全量标注审计](DMD_AUDIT.md)**。先生成原始标签覆盖与同步声明报告，再确定标签映射和被试划分。该工具不生成训练数组或直接启动训练，不需要重复环境测试。
 
 **首次同步服务器先执行[服务器初始化指南](SERVER_SETUP.md)**：确认提交与测试源码齐全，安装 `requirements-npu.txt`，核对环境，再运行本页合成训练。Git 不同步本机虚拟环境、预训练工件和 `*.local.json`。
 
@@ -121,7 +123,7 @@ python3 -m training.relation.gpu_train --data-root /data/driveguard-features --m
 python3 -m training.relation.cpu_train --data-root /data/driveguard-features --manifest /data/driveguard-features/manifest.json --output-dir runs/relation-cpu-001 --epochs 2
 ```
 
-GPU/NPU不可用会明确失败，不静默换CPU。当前是单卡FP32、num_workers=0；新模型只完成CPU验证，不能把`--check-config`通过当作服务器算子兼容证明。
+GPU/NPU不可用会明确失败，不静默换CPU。当前是单卡FP32、num_workers=0；CPU合成验证及用户回传的NPU短程合成训练已通过，GPU尚未实机验证。不能把`--check-config`通过当作服务器算子兼容证明。
 
 ## 6. 续训与读取权重
 
@@ -147,6 +149,6 @@ model, metadata = load_model("runs/relation-npu-001/best.pt", backend="cpu")
 - DMD原始标签映射、真实视频验收、真实训练/精度和公开正式权重。
 - YOLOX检测器微调或NPU检测后端、MediaPipe迁移NPU。
 - 可选专家缺失增强（目前只确定性处理真实/合成缺失）、完整在线任务支持适配与风险告警。
-- GPU/NPU实机训练、ONNX/TensorRT、前后端与部署验收。
+- GPU实机训练、NPU真实数据/长程训练、ONNX/TensorRT、前后端与部署验收；NPU短程合成验证已由用户回传通过。
 
 这些不妨碍先交付模型和训练骨架，但服务器真实训练前必须先具备合规的v2数据与对应硬件环境。

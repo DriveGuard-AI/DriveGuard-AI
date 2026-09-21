@@ -6,6 +6,7 @@
 
 | 文档 | 主要读者 | 作用 | 当前状态 |
 | --- | --- | --- | --- |
+| [DMD 全量标注审计](training/DMD_AUDIT.md) | shadow、服务器操作者 | 原始标注、录制配对、标签覆盖与同步声明检查 | 已实现；服务器全量扫描待执行 |
 | [PPT 全方案对齐记录](governance/PPT_ALIGNMENT.md) | 全体贡献者 | 14 页来源、设计落点、差异与状态 | Baseline v0.2 |
 | [部署优先的轻量关系门控](architecture/RELATION_GATED_FUSION.md) | 算法、部署、测试 | 四证据流、共享TCN、任务门控、平台边界与回退 | CPU骨架与合成训练已验证 |
 | [完整多专家模型](architecture/MULTI_EXPERT_DESIGN.md) | 算法、推理、测试 | YOLO/MediaPipe/交互特征/TCN/融合整体设计 | Baseline v0.3 |
@@ -22,8 +23,8 @@
 | [shadow 训练职责约定](training/TRAINING_CHARTER.md) | 算法、推理集成、项目负责人 | 训练分工、GPU/NPU、数据与权重交付 | Active v0.2 |
 | [TCN 子模型设计](training/MODEL_DESIGN.md) | 算法 | 因果网络、24 通道基线、部分监督与 checkpoint | Baseline v0.2 |
 | [分阶段实施计划](training/IMPLEMENTATION_PLAN.md) | 各模块维护者 | 完整方案工作包与 shadow 的训练增量 | P2/P3已有工程基础，关系门控CPU工程验证完成 |
-| [关系门控训练与服务器接入](training/RELATION_RUNBOOK.md) | shadow、服务器操作者 | 模型文件、五数组、GPU/NPU命令、续训与验证边界 | CPU合成闭环通过，硬件待验收 |
-| [服务器初始化](training/SERVER_SETUP.md) | 服务器操作者 | Git缺文件排查、NPU依赖安装、环境预检、被忽略工件准备 | 操作指南，待服务器执行 |
+| [关系门控训练与服务器接入](training/RELATION_RUNBOOK.md) | shadow、服务器操作者 | 模型文件、五数组、GPU/NPU命令、续训与验证边界 | CPU合成通过；用户回传NPU短程合成验证通过 |
+| [服务器初始化](training/SERVER_SETUP.md) | 服务器操作者 | Git缺文件排查、NPU依赖安装、环境预检、被忽略工件准备 | 用户已回传初始化与短程验证；新机器参考指南 |
 | [TCN 训练指南](training/RUNBOOK.md) | 算法、服务器操作者 | 配置预检、合成验证、双入口与恢复 | 已实现，硬件训练未验证 |
 | [特征数据契约](training/DATA_CONTRACT.md) | 算法、特征提取维护者 | 录制级数组、manifest、mask 与切分 | v1/v2已实现，真实标注映射待接入 |
 | [感知特征桥接](training/PERCEPTION_BRIDGE.md) | 算法、感知维护者 | 专家观测到19特征、时序统计、流式导出 | 已实现，不含模型推理调用 |

@@ -46,6 +46,12 @@ git ls-files --error-unmatch requirements.txt requirements-npu.txt training/rela
 
 `git check-ignore -v Dataset/example.mp4` 应命中 `/Dataset/`。忽略规则不会移除已跟踪数据；若 `git ls-files Dataset` 有输出，先核对后再处理，不在初始化过程中删除数据。
 
+## 当前服务器进度（2026-09-21 更新）
+
+用户回传：Ascend910B3、torch 2.7.1+cpu、torch_npu 2.7.1.post4，关系门控合成训练10轮/30次更新、续训和权重重载NPU推理已通过。独立Linux aarch64感知环境的MediaPipe Face/Hand与YOLOX Nano加载及真实body视频前10秒联合推理也已完成。上述是用户服务器日志证据，不是本地实测，不代表真实DMD训练精度。
+
+该服务器无需重复下面的初始化步骤，当前进入[DMD全量标注审计](DMD_AUDIT.md)。本文后续步骤保留供新机器参考。已工作的感知环境使用MediaPipe 0.10.18，而通用requirements-perception.txt保留Windows验证版本，不能直接拿该文件覆盖ARM64环境。原始NPU训练环境保持不变。
+
 ## 2. 确认 Python，再安装 NPU requirements
 
 沿用之前已经通过 NPU Linear 前后向的解释器/容器，不重新安装 CANN，不创建无法访问预装 torch 的空环境。
@@ -120,7 +126,7 @@ CPU 合成训练和读取已提取特征都不依赖以下文件；原始视频�
 
 配置以[模板](../../configs/perception/runtime.example.json)为起点；其中路径/hash/来源以及录制 ID、ROI、驾驶员独占区域确认都是占位信息，需要填写，模板原样不能运行。不要照搬 Windows 空白帧测试用的 runtime.local.json。
 
-独立感知环境的依赖方案需根据上面输出的 Linux CPU 架构和 Python 版本核对；当前仅记录过 Windows x64 的真实工件加载，不能声称 requirements-perception.txt 已在 Linux x86_64/aarch64 验证。先提供架构信息，再配置这部分；不向已工作的 NPU 环境直接安装 MediaPipe/torchvision。
+新机器的独立感知依赖仍需按 Linux CPU 架构和 Python 版本核对。已有用户回传的 aarch64 独立环境验证，但不能声称 requirements-perception.txt 本身已在 Linux x86_64/aarch64 验证；不向已工作的 NPU 环境直接安装 MediaPipe/torchvision。
 
 实际视频调用和受限上游依赖说明见[感知运行指南](EXPERT_RUNTIME.md)。先做一小段单视角视频的特征检查，再进行全量提取。
 

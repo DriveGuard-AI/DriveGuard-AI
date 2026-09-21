@@ -1,6 +1,6 @@
 {
   "schema_version": "driveguard-dmd-label-policy-v1",
-  "closed_eye_min_ms": null,
+  "closed_eye_min_ms": 1000,
   "tasks": ["fatigue", "phone_use", "drinking", "distraction"],
   "rules": {
     "fatigue": "drowsiness only: explicit yawn OR causally observed sustained eyes_state/close; explicit open without yawn is a proxy negative; transitions, undefined and gaps are unknown. NOT a fatigue diagnosis.",

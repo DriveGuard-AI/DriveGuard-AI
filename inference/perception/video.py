@@ -36,7 +36,7 @@ def expert_packets(frames, detector, landmarks, config):
                    width=width, height=height, driver_roi=list(roi), **deepcopy(cached))
 
 
-def run_video(input_path, output_dir, config, *, group_profile=None):
+def run_video(input_path, output_dir, config, *, group_profile=None, frame_observer=None):
     config = deepcopy(config)
     # Preflight all three local assets before importing either model runtime.
     for location, key in ((config['objects'], 'asset'), (config, 'face_asset'), (config, 'hands_asset')):
@@ -68,8 +68,13 @@ def run_video(input_path, output_dir, config, *, group_profile=None):
             provenance['versions']['torch_npu'] = str(importlib.import_module('torch_npu').__version__)
         frames = decode_video(source, provenance['clock'])
         stack.callback(frames.close)
+        def observed_frames():
+            for frame in frames:
+                if frame_observer is not None:
+                    frame_observer(frame)
+                yield frame
         def checked_packets():
-            yield from expert_packets(frames, detector, landmarks, config)
+            yield from expert_packets(observed_frames(), detector, landmarks, config)
             final_stat = source.stat()
             if (final_stat.st_size, final_stat.st_mtime_ns) != (initial_stat.st_size, initial_stat.st_mtime_ns):
                 raise ValueError('Source video changed during extraction; do not publish this cache')

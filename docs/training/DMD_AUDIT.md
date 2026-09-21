@@ -57,7 +57,7 @@ cd /mnt/workspace/DriveGuard-AI
 
 用户选择两份数据：8 人训练、2 人留出评估；同一人跨子集和视角保持同组。当前训练器用 `val` 选 `best.pt`，因此留出集内部名为 val，不另划 test，也不声称独立最终测试。名单已固定在 `configs/dmd/split.subjects.json`，不按模型跑分挑人。
 
-此工具没有生成五类特征数组、真实标签或 v2 manifest。下一步使用[DMD 训练准备](DMD_PREPARATION.md)：纯标签核心与准备清单已实现，批量感知提取及最终 manifest 发布仍待接入。
+此工具没有生成五类特征数组、真实标签或 v2 manifest。下一步使用[DMD 训练准备](DMD_PREPARATION.md)，然后通过[批量感知与训练](DMD_BATCH.md)的 init/run/publish 生成经过覆盖检查的训练输入。
 
 ## 验证来源
 

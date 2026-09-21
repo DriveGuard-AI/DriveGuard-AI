@@ -75,7 +75,7 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(body['annotation_frame_offset'], 1)
         self.assertTrue((self.base / 'prepared/README.md').exists())
         self.assertFalse((self.base / 'prepared/manifest.json').exists())
-        self.assertIsNone(result['label_policy']['closed_eye_min_ms'])
+        self.assertEqual(result['label_policy']['closed_eye_min_ms'], 1000)
         self.assertEqual(result['split_summary']['configured_but_absent'], ['7'])
 
     def test_rejects_changed_annotation_without_publishing(self):

@@ -20,7 +20,8 @@ from tests.perception_helpers import packet
 
 
 @contextmanager
-def runtime_fixture(directory, *, close_error=False, inference_error=False, multiple_faces=False):
+def runtime_fixture(directory, *, close_error=False, inference_error=False, multiple_faces=False,
+                    source_count=100, source_step_ms=40):
     closed = []
     source = Path(directory) / 'synthetic.mp4'
     source.write_bytes(b'not a real video')
@@ -72,8 +73,8 @@ def runtime_fixture(directory, *, close_error=False, inference_error=False, mult
         def __enter__(self): return self
         def __exit__(self, *args): closed.append('decoder')
         def decode(self, stream):
-            for index in range(100):
-                yield SimpleNamespace(pts=1000+index*40, time_base=Fraction(1, 1000), is_corrupt=False,
+            for index in range(source_count):
+                yield SimpleNamespace(pts=1000+index*source_step_ms, time_base=Fraction(1, 1000), is_corrupt=False,
                     to_ndarray=lambda format: np.broadcast_to(np.array([1, 2, 3], dtype=np.uint8), (500, 1000, 3)))
     classes = [str(i) for i in range(80)]
     classes[39], classes[41], classes[67] = 'bottle', 'cup', 'cell phone'
@@ -88,6 +89,31 @@ def runtime_fixture(directory, *, close_error=False, inference_error=False, mult
 
 
 class RuntimeFlowTests(unittest.TestCase):
+    def test_observer_sees_every_source_frame_before_resampling(self):
+        import inspect
+        self.assertIn('frame_observer', inspect.signature(run_video).parameters)
+        with tempfile.TemporaryDirectory(dir='runs') as directory, runtime_fixture(
+                directory, source_count=200, source_step_ms=20) as (source, config, closed):
+            times = []
+            report = run_video(source, Path(directory) / 'output', config,
+                               frame_observer=lambda frame: times.append(frame.timestamp_ms))
+            self.assertEqual(times, list(range(0, 4000, 20)))
+            self.assertEqual(report['slots'], 100)
+            self.assertEqual(closed.count('decoder'), 1)
+
+    def test_observer_failure_closes_resources_without_success(self):
+        import inspect
+        self.assertIn('frame_observer', inspect.signature(run_video).parameters)
+        with tempfile.TemporaryDirectory(dir='runs') as directory, runtime_fixture(directory) as (source, config, closed):
+            output = Path(directory) / 'output'
+            def fail(frame):
+                raise ValueError('invalid source timeline')
+            with self.assertRaisesRegex(ValueError, 'invalid source timeline'):
+                run_video(source, output, config, frame_observer=fail)
+            self.assertFalse((output / 'record.json').exists())
+            self.assertEqual(closed.count('decoder'), 1)
+            self.assertEqual(closed.count('task'), 2)
+
     def test_real_adapters_to_unlabeled_arrays_and_provenance(self):
         with tempfile.TemporaryDirectory(dir='runs') as directory, runtime_fixture(directory) as (source, config, closed):
             output = Path(directory) / 'output'

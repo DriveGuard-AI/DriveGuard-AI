@@ -110,6 +110,8 @@ def prepare_dataset(*, audit_path, dataset_root, output_dir, split_path=DEFAULT_
     if observed - assignments.keys():
         raise ValueError(f'Unassigned subjects: {sorted(observed - assignments.keys())}')
     policy = deepcopy(read_json(DEFAULT_LABELS))
+    if closed_eye_min_ms is None:
+        closed_eye_min_ms = policy['closed_eye_min_ms']
     policy['closed_eye_min_ms'] = closed_eye_min_ms
     jobs, skipped, seen = [], [], set()
     for record in records:
@@ -170,7 +172,7 @@ def prepare_dataset(*, audit_path, dataset_root, output_dir, split_path=DEFAULT_
             jobs_by_split=dict(Counter(j['split'] for j in jobs)),
             configured_but_absent=sorted(assignments.keys() - observed, key=int)),
         needs_configuration=(['closed_eye_min_ms'] if closed_eye_min_ms is None else []) + ['driver_rois'],
-        not_implemented_here=['batch_perception_execution', 'labeled_array_export', 'training_manifest_publication'])
+        next_command='python -m training.dmd.batch init')
     # Do not publish a success marker until both files are fully written.
     output.mkdir(parents=True, exist_ok=False)
     pending = output / 'preparation.pending.json'
@@ -182,7 +184,7 @@ def prepare_dataset(*, audit_path, dataset_root, output_dir, split_path=DEFAULT_
         '需要为各任务确认驾驶员 ROI 与排他性，并显式设置持续闭眼毫秒数。'
         '不要仅凭标注中的 driver ID 将排他性设为 true。\n\n'
         'train/val 是两份被试隔离划分；val 用于选 best.pt，不是独立 test。'
-        'gaze 当前不生成监督；全量感知执行与最终数据导出需要后续接入。\n', encoding='utf-8')
+        'gaze 当前不生成监督；使用 training.dmd.batch 继续批量感知和训练清单发布。\n', encoding='utf-8')
     pending.rename(output / 'preparation.json')
     return result
 

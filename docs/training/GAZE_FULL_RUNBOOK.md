@@ -108,3 +108,55 @@ gaze输入资格：F组可用，末槽三个头姿字段及至少一只眼的两
 头姿是canonical-face相对相机估计，虹膜位置是局部图像线索，不是车辆标定视线。DMD固定区域采集顺序可能产生捷径，禁止绝对视频时间/标签/主体身份作为输入；数据集分数不代表自然驾驶泛化。
 
 真实权重训练完成后按[权重发布约定](../../models/releases/README.md)公开，附新profile、类序、数据划分及许可。本次不包含尚未训练的真实权重；YOLOX上游权重再发布许可仍需单独确认。
+
+## 7. Body 分心逐窗口诊断
+
+训练效果差时，先在原缓存上诊断，不需要重新提取视频或启动训练。工具 `training.gaze.diagnostics` 只读取可信 checkpoint 和原 manifest/特征，复用训练数据加载器及 checkpoint 中的归一化参数，并核对完整数据指纹。不要移动验证主体、删掉失败样本或改写缓存来提高分数。
+
+先同步新增的 `training/gaze/diagnostics.py` 到服务器同名目录。在服务器仓库根目录执行本次第15轮最佳权重诊断（需要 `best.pt` 及同目录 `best.pt.sha256.json`）：
+
+```bash
+/opt/buildtools/Python-3.11.4/bin/python3 -m training.gaze.diagnostics \
+  --checkpoint runs/relation-gaze-npu-iQNl4LJ1-epochs20/model/best.pt \
+  --backend npu \
+  --view all \
+  --output-dir runs/body-dist-diagnostics-epoch15-001
+```
+
+默认选择 val/distraction；这里用 `--view all` 同时导出 face/body，便于直接对照，`groups.view.body` 才是 body 指标。仅诊断 body 可改为 `--view body`（默认值）。CPU 推理改成 `--backend cpu`，CUDA 使用 `--backend cuda`。默认 batch_size=64，可通过 `--batch-size 16` 减少批量；跨平台数值不保证逐位一致。
+
+默认复用 checkpoint 保存的 manifest、data_root。路径变化时通过 `--manifest` 和 `--data-root` 指向原始同一套缓存；内容必须与训练一致。全量哈希校验可能耗时，stderr 会先提示校验，再报告推理窗口进度。输出目录必须全新，失败后不覆盖原报告；只有 `summary.json` 的 `status=complete` 才代表本次报告完整。
+
+输出：
+
+- `windows.csv`：所有选中窗口，包含未知标签、输入不可用和预测正确的窗口，不只收集错误。UTF-8 BOM 编码，可导入表格软件。
+- `summary.json`：权重轮次/哈希、数据指纹、统计口径、整体以及按视角/受试者/录制/F资格分组的指标、0.1–0.9固定阈值对照。阈值表针对选中的整个集合；需要 body 专用阈值分析时单独运行 `--view body`。它不自动选择或部署阈值。
+
+CSV重点字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| recording_id、view、subject_id | 录制/视角/主体定位；manifest不存原视频路径，不猜测文件名 |
+| window_start_s、window_end_s | 相对该视频首个解码帧PTS的秒数；end为最后采样槽时间，标签取该槽，不是整窗多数标签；不是原标注帧号 |
+| target、label_known | 视线离路真值及标签是否已知；未知target留空 |
+| probability、prediction、outcome | 分心概率、当前阈值预测和TP/FP/TN/FN；输入不可用时概率和预测留空，outcome为unavailable；未知标签优先标unknown |
+| logit | 模型原始分数；判定使用与概率阈值等价的logit边界（0.5对应0），避免浮点概率四舍五入改变训练判定 |
+| behavior_available | 与现有训练一致：任意特征组可用；不等价于存在足够视线证据 |
+| raw_*_valid_ratio | 特征缓存中的原始mask有效比例；并非人工验证的几何精度 |
+| effective_*_valid_ratio | 依赖/过期过滤及normalizer支持掩码后的比例，与训练输入一致 |
+| *_head_pose_valid_ratio | 同一槽yaw/pitch/roll三者同时有效的比例 |
+| *_iris_pair_valid_ratio | 同一槽至少一只眼x/y成对有效的比例 |
+| f_eligible、f_valid_ratio、face_age_ms | F组资格、按训练支持特征归一的组有效比例、当前面部结果年龄 |
+| f_block_reasons | F过滤条件，可同时出现no_supported_features、no_current_valid_feature、low_valid_ratio、stale_face；只描述条件，不直接认定错误根因 |
+| f_dist_weight、o_dist_weight、ho_dist_weight、fo_dist_weight | 该窗口分心任务的四组门控权重；未通过资格的组权重为0，权重不是因果重要性 |
+| head_yaw_deg_last、head_pitch_deg_last、head_roll_deg_last | 最后采样槽有效头姿的原始数值；无效留空，用于检查偏移/异常 |
+
+解读顺序：
+
+1. 查看 `groups.view.body` 和 `groups.view.face` 的召回率及F1，确认与训练history的distraction统计相符；跨设备允许小数值差异。
+2. 在CSV筛选 `view=body, outcome=FN`。比较正负样本原始头姿/虹膜比例；原始就低时优先检查视频/提取；原始高而effective低时检查过期、依赖和训练支持字段。
+3. 查 `effective_head_pose_valid_ratio` 高、`f_eligible=False` 的漏检窗口，结合 `f_block_reasons` 判断组过滤是否挡住仍有效的头姿。
+4. 对F可用的漏检查看概率和头姿末槽值，按recording_id、view与秒数抽查原视频和标签对齐；不能仅凭低概率断定标签错误。
+5. 再考虑阈值或训练策略。`precision/recall/f1` 沿用训练的有效监督口径；`known_input_coverage` 记录已知标签中有输入的比例，`detected_fraction_of_all_known_positives` 的分母还包含输入不可用的正例。禁止只报筛选后的高分而省略覆盖率。
+
+此工具不改变可用性规则、不重新标注、不微调模型。验证集已参与best选择，且窗口可能重叠；这些统计不是独立测试集效果或事件级告警效果。本机合成测试仅证明导出和计算流程，真实body根因以服务器诊断结果为准。

@@ -22,7 +22,8 @@ class SampleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir='runs') as tmp:
             samples=Samples(Path(tmp),2)
             for timestamp in (0,40,1000,2000,3000):
-                samples.add(VideoFrame(timestamp,bgr),detail,[0,0,100,99])
+                samples.add(VideoFrame(timestamp,bgr),detail,[0,0,100,99],
+                            landmarks=[(30,30),(60,40)],crop=[10,10,110,90])
             self.assertEqual([i['source_pts_ms'] for i in samples.items],[0,1000])
             self.assertEqual(len(list(Path(tmp).glob('*.jpg'))),2)
             image=cv2.imread(str(Path(tmp)/samples.items[0]['file']))

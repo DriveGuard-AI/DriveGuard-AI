@@ -8,7 +8,7 @@ class Samples:
         self.directory, self.limit = directory, limit
         self.counts, self.last, self.items = Counter(), {}, []
 
-    def add(self, frame, detail, roi):
+    def add(self, frame, detail, roi, *, landmarks=None, crop=None):
         reason = detail['reason']
         if reason == 'ok' and detail['iris_reason'] != 'ok':
             reason = 'iris_' + detail['iris_reason']
@@ -26,11 +26,16 @@ class Samples:
                       zip((x1,y1,x2,y2), (width-1,height-1,width-1,height-1))]
             cv2.rectangle(canvas, tuple(points[:2]), tuple(points[2:]), color, 2)
         box(roi, (0,255,255))
+        if crop is not None:
+            box(crop, (255,180,0))
         for candidate in detail['candidates']:
             if candidate['bbox'] is not None:
                 color = (0,165,255) if candidate['invalid_reason'] else (
                     (0,255,0) if candidate['inside_roi'] else (0,0,255))
                 box(candidate['bbox'], color)
+        if landmarks is not None:
+            for x,y in landmarks:
+                cv2.circle(canvas,(round(x*scale),round(y*scale)),1,(255,255,0),-1)
         caption = f'{frame.timestamp_ms/1000:.3f}s {reason} faces={detail["detected_faces"]}'
         cv2.putText(canvas, caption, (8,24), cv2.FONT_HERSHEY_SIMPLEX, .6, (255,255,255), 2)
         filename = f'{reason}-{frame.timestamp_ms:010d}.jpg'
@@ -48,6 +53,9 @@ def write_gallery(output, records):
              '<h1>Face replay diagnostics</h1><p>Yellow: driver ROI; green: accepted candidate; '
              'red: outside ROI; orange: invalid landmarks. Boxes are landmark bounds, not detector boxes. '
              'Samples are illustrative; use frames.csv for frequencies. No face result does not prove no person is visible.</p>']
+    if any('head_continuity' in r for r in records):
+        parts.append('<p>Crop previews: blue rectangle is the inference crop; cyan dots are accepted landmarks '
+                     'mapped to the original image. Crop pose angles are experimental, not calibrated original-camera angles.</p>')
     for record in records:
         parts.append(f'<h2>{escape(record["record_id"])} / {escape(record["view"])}</h2>')
         parts.append(f'<p>Slots: {record["slots"]}; partial: {record["partial"]}; '
@@ -55,6 +63,13 @@ def write_gallery(output, records):
                      f'iris mask mismatches: {record["iris_mask_mismatches"]}</p>')
         parts.append(f'<p><a href="{record["directory"]}/frames.csv">frames.csv</a> · '
                      f'<a href="{record["directory"]}/candidates.jsonl">candidates.jsonl</a></p>')
+        if 'head_continuity' in record:
+            temporal=record['head_continuity']; counts=temporal['windows']['coverage25']['all']
+            parts.append(f'<p>Longest missing head run: cached {temporal["cached"]["longest_missing_ms"]} ms, '
+                         f'candidate {temporal["variant"]["longest_missing_ms"]} ms. '
+                         f'Coverage25 window proxies: cached {counts["cached_eligible"]}, candidate {counts["variant_eligible"]}, '
+                         f'total {counts["windows"]}. These are input counts, not accuracy. '
+                         f'<a href="{record["directory"]}/head_windows.csv">head_windows.csv</a></p>')
         for item in record['samples']:
             parts.append(f'<figure><figcaption>{item["source_pts_ms"]/1000:.3f}s '
                          f'{escape(item["reason"])}</figcaption><img loading="lazy" '

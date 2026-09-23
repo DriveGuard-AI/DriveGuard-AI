@@ -12,6 +12,7 @@ from time import perf_counter
 
 from training.common.config import TASKS, canonical_hash, read_json
 from training.dmd.face_experiment_config import load_config, validate_config
+from training.dmd.face_head_continuity import HeadContinuity, aggregate_continuity, WINDOW_FIELDS
 
 
 def _coverage():
@@ -47,6 +48,7 @@ def _aggregate(records, variants):
         pairs = sum(r['angle_jumps']['pairs'] for r in rows)
         baseline = variant['name'] == 'baseline'
         result[variant['name']] = dict(totals, parameters=variant, records=len(rows), coverage=coverage,
+            head_continuity=aggregate_continuity([r['head_continuity'] for r in rows]),
             partial=any(r['partial'] for r in rows),
             baseline_masks_reproduced=all(r['baseline_masks_reproduced'] for r in rows) if baseline else None,
             baseline_runtime_and_masks_match=all(r['baseline_runtime_and_masks_match'] for r in rows) if baseline else None,
@@ -78,6 +80,7 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
     limit = min(expected_slots, math.ceil(min(expected_slots/25, max_seconds)*25)) if max_seconds else expected_slots
     samples, counters, iris_reasons = Samples(directory, samples_per_reason), Counter(), Counter()
     coverage, contingency, clock = _coverage(), Counter(), {}
+    continuity=HeadContinuity()
     count = unique = head_diff = iris_diff = pts_diff = 0
     last_pts = previous_angles = None
     jump_pairs, jump_sum, jump_max = 0, np.zeros(3), np.zeros(3)
@@ -107,6 +110,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             'cached_head_yaw_deg', 'cached_head_pitch_deg', 'cached_head_roll_deg']
         handle = stack.enter_context((directory/'frames.csv').open('x', encoding='utf-8-sig', newline=''))
         writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
+        window_handle=stack.enter_context((directory/'head_windows.csv').open('x',encoding='utf-8-sig',newline=''))
+        window_writer=csv.DictWriter(window_handle,fieldnames=WINDOW_FIELDS); window_writer.writeheader()
         candidates = stack.enter_context((directory/'candidates.jsonl').open('x', encoding='utf-8'))
         for slot, frame in slots:
             if count >= expected_slots:
@@ -123,7 +128,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
                 detail = adapter.last_face_diagnostics
                 candidates.write(json.dumps(dict(source_pts_ms=frame.timestamp_ms,
                     crop_pixels=adapter.crop_pixels, **detail), allow_nan=False)+'\n')
-                samples.add(frame, detail, config['driver_roi'])
+                samples.add(frame, detail, config['driver_roi'],landmarks=observation['landmarks'],
+                            crop=adapter.crop_pixels if variant['crop_xyxy'] else None)
                 angles = ([observation['head_pose'][axis+'_deg'] for axis in ('yaw', 'pitch', 'roll')]
                           if detail['head_usable'] else None)
                 if angles is not None and previous_angles is not None:
@@ -149,6 +155,9 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             contingency[f'cached_{int(cached_head)}_variant_{int(head)}'] += 1
             known = bool(arrays['label_masks'][count, TASKS.index('distraction')])
             target = int(arrays['targets'][count, TASKS.index('distraction')]) if known else ''
+            window=continuity.update(count,cached_head,head,known,target)
+            if window is not None:
+                window_writer.writerow(window)
             label_group = ('known_positive' if target == 1 else 'known_negative') if known else 'unknown'
             for group in ('all', label_group):
                 counts = coverage[group]
@@ -199,7 +208,7 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
         baseline_masks_reproduced=mask_match if baseline else None,
         baseline_runtime_and_masks_match=(mask_match and baseline_id == feature['expert_models']['face'] and
                                           all(version_matches.values())) if baseline else None,
-        coverage=coverage, reason_counts=dict(counters), iris_reason_counts=dict(iris_reasons),
+        coverage=coverage, head_continuity=continuity.report(), reason_counts=dict(counters), iris_reason_counts=dict(iris_reasons),
         pose_coordinate_frame='crop-experimental' if variant['crop_xyxy'] else 'full-frame',
         training_cache_compatible=False,
         angle_jumps=dict(pairs=jump_pairs, axes=['yaw', 'pitch', 'roll'],
@@ -242,6 +251,8 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
     identities = [r['record_id'] for r in selected]
     if len(set(identities)) != len(identities) or (record_ids and set(record_ids)-set(identities)):
         raise ValueError('Duplicate or unmatched record IDs')
+    if any(v['crop_xyxy'] is not None for v in experiment['variants']) and len(selected)!=1:
+        raise ValueError('Crop experiments require exactly one record; crop scope cannot span recordings')
     items = []
     stamps = {manifest: manifest_stamp}
     for record in selected:
@@ -251,6 +262,12 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
         paths += [item['source']] + [Path(item['config'][key]['path']).resolve(strict=True) for key in ('face_asset', 'hands_asset')]
         stamps.update({p: _stamp(p) for p in paths})
         items.append(item)
+    if 'crop_scope' in experiment:
+        item=items[0]
+        actual=dict(record_id=item['record']['record_id'],video_sha256=item['video_sha256'],
+                    image_size=item['complete']['feature_record']['image_size'])
+        if experiment['crop_scope']!=actual:
+            raise ValueError('Crop scope does not match selected record/video/image size')
     if not isinstance(experiment_config, dict):
         config_path = Path(experiment_config).resolve(strict=True)
         if load_config(config_path) != experiment:

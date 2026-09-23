@@ -160,3 +160,43 @@ CSV重点字段：
 5. 再考虑阈值或训练策略。`precision/recall/f1` 沿用训练的有效监督口径；`known_input_coverage` 记录已知标签中有输入的比例，`detected_fraction_of_all_known_positives` 的分母还包含输入不可用的正例。禁止只报筛选后的高分而省略覆盖率。
 
 此工具不改变可用性规则、不重新标注、不微调模型。验证集已参与best选择，且窗口可能重叠；这些统计不是独立测试集效果或事件级告警效果。本机合成测试仅证明导出和计算流程，真实body根因以服务器诊断结果为准。
+
+## 8. Body 人脸／头姿缺失原因重放
+
+第7节已经发现原始头姿大量缺失时，用 `training.dmd.face_diagnostics` 检查缓存写入前发生了什么。它读取原 `complete.json`、`input.json`、模型工件和视频哈希，按原ROI、MediaPipe参数和25Hz因果采样从视频开头连续重放。仅启动CPU上的Face/Hand任务，不需要YOLO服务或NPU训练环境；原缓存、标签和训练规则不变。
+
+同步本次源码后，在服务器仓库根目录执行本次实际缓存的诊断：
+
+```bash
+env -u PYTHONPATH -u PYTHONHOME PYTHONNOUSERSITE=1 \
+  .venv-perception-arm64/bin/python -m training.dmd.face_diagnostics \
+  --manifest runs/dmd-full-yolo11-features-001/manifests/f356b9789f604cf5850d74fefc61261e/manifest.json \
+  --data-root runs/dmd-full-yolo11-features-001 \
+  --dataset-root Dataset \
+  --view body \
+  --output-dir runs/body-face-causes-001
+```
+
+`--dataset-root` 指向原Dataset根目录，视频相对路径从原job读取，不由recording_id猜测。Face/Hand工件仍须位于原配置路径且哈希一致；不要重新下载不同版本工件。默认val/distraction、完整重放所有匹配body录制；`--view all`可增加face对照。可重复指定 `--record-id` 选择manifest中的record_id。`--max-seconds 60`只检查每段前60秒，报告标记partial，不能代表整段的分布；默认0不限制。资源清理或推理失败时没有完整 `summary.json`，重跑使用新目录。
+
+输出及阅读顺序：
+
+1. **`summary.json`**：先看 `groups.view.body.runtime_and_masks_match`；false时先查每段的版本、模型ID、源PTS及掩码差异，不能把重放原因直接认定为原缓存根因。true只证明这些身份和有效性对照一致，不证明每个头姿数值或人工判断准确。
+2. 查看 `groups.view.body.reason_counts` 和 `positive_slot_reason_counts`：分别统计所有槽、已知分心正例槽的头姿不可用原因。统计单位是25Hz槽，包含复用帧，**不是前一份windows.csv中的窗口或FN数**。`invalid_candidate_counts`按唯一推理帧中的非法候选脸计数。
+3. **`index.html`**：在本地浏览器查看有限样例。黄框是ROI；绿框是ROI内候选脸；红框是ROI外；橙框是非法关键点。框来自关键点外接范围，不是检测器原始框。默认每段每原因最多2张、间隔至少1秒，样例不是随机统计样本。`--samples-per-reason 0`禁用图片。
+4. **`record-*/frames.csv`**：逐槽时间、原因、原始／重放头姿及虹膜有效性、逐字段掩码是否一致、分心标签。头姿须三个轴同时有效；虹膜须至少一只眼x/y成对有效；mismatch则比较全部三个／四个字段，避免掩盖单眼差异。时间与第7节窗口时间同为首个解码PTS起点，可用record_id加时间关联。
+5. **`record-*/candidates.jsonl`**：每个实际推理帧的候选脸数、关键点数量、越界原因、框、ROI外点数、选中索引；复用同一源帧时不重复推理。ROI和原视频路径在summary的对应record中。
+
+| reason | 含义和下一步 |
+| --- | --- |
+| no_face_detected | MediaPipe未返回人脸关键点；结合截图检查脸太小、侧脸、遮挡、反光。该API不能进一步区分内部检测与跟踪／presence失败，也不代表画面中没有人脸 |
+| invalid_landmarks | 至少一张候选脸关键点数量异常、非有限或超出图像；原适配器会拒绝整组人脸，具体候选和子原因在JSONL |
+| outside_roi | 候选脸关键点无法全部落入原ROI；结合截图检查ROI边界与真实司机范围 |
+| ambiguous_faces | ROI内有多张候选脸，原规则无法确认司机 |
+| driver_unconfirmed | 原区域未明确标记为司机独占；须检查实际标注，不能自动改成确认 |
+| pose_matrices_missing / pose_matrix_count_mismatch | 变换矩阵不存在，或矩阵数量与人脸数不一致 |
+| pose_matrix_invalid | 已选中脸，但矩阵没有通过现有头姿几何校验 |
+| stale_face | 复用帧的结果超过原profile规定的有效年龄 |
+| ok | 头姿可用；虹膜是否有效另看iris_reason，不等于F组通过 |
+
+`iris_reason=geometry_rejected`可由闭眼、极端眼形、虹膜位置等几何条件触发，不能单凭该字段认定某一种原因。此次定位感知缺失；“头姿已有效但F仍被眼部时序特征挡住”的问题仍需独立评估F组拆分，不靠增加训练轮数解决。

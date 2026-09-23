@@ -64,7 +64,11 @@ def hand_observation(hands, width, height, roi, exclusive, timestamp_ms, model_i
 
 class MediaPipeAdapter:
     """Owns independent CPU Face/Hand VIDEO tasks for one recording only."""
-    def __init__(self, face_asset, hands_asset, *, driver_roi, driver_region_confirmed_exclusive=False, gaze_features=False):
+    def __init__(self, face_asset, hands_asset, *, driver_roi, driver_region_confirmed_exclusive=False, gaze_features=False,
+                 diagnostics=False):
+        if type(diagnostics) is not bool:
+            raise ValueError('diagnostics must be boolean')
+        self._diagnostics, self.last_face_diagnostics = diagnostics, None
         if type(gaze_features) is not bool:
             raise ValueError('gaze_features must be boolean')
         if type(driver_region_confirmed_exclusive) is not bool:
@@ -127,6 +131,10 @@ class MediaPipeAdapter:
                 # Ambiguous/invalid face evidence cannot uphold the exclusive-driver assertion.
                 for hand in result[1]['items']:
                     hand['driver_confirmed'] = False
+            if self._diagnostics:
+                from inference.experts.face_diagnostics import inspect_face
+                self.last_face_diagnostics = inspect_face(face.face_landmarks, pose_options.get('matrices'),
+                    result[0], width, height, self._roi, self._exclusive)
         except BaseException:
             self.close()  # A partially advanced internal tracker cannot safely retry the same timestamp.
             raise

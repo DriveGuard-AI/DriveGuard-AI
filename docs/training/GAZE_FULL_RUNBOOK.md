@@ -163,6 +163,8 @@ CSV重点字段：
 
 ## 8. Body 人脸／头姿缺失原因重放
 
+已完成原因重放后的改进实验，见[Body分心改进指南](BODY_DIST_IMPROVEMENT.md)：新独立头姿补充分支可以直接使用原缓存训练；感知候选方式独立比较，避免同时改变两处而无法归因。
+
 第7节已经发现原始头姿大量缺失时，用 `training.dmd.face_diagnostics` 检查缓存写入前发生了什么。它读取原 `complete.json`、`input.json`、模型工件和视频哈希，按原ROI、MediaPipe参数和25Hz因果采样从视频开头连续重放。仅启动CPU上的Face/Hand任务，不需要YOLO服务或NPU训练环境；原缓存、标签和训练规则不变。
 
 同步本次源码后，在服务器仓库根目录执行本次实际缓存的诊断：

@@ -19,6 +19,7 @@ from training.common.data import file_sha256
 from training.common.model_factory import load_model
 from training.gaze.data import FeatureCorpus
 from training.gaze.profile import FEATURE_NAMES, GROUP_INDICES
+from training.gaze.head_evidence import HEAD_MODEL_KIND,behavior_availability,head_evidence
 
 DIST = TASKS.index('distraction')
 GROUPS = ('f', 'o', 'ho', 'fo')
@@ -56,7 +57,11 @@ def _window_row(dataset, index, inputs, target, labels):
                window_start_s=start / config['sample_rate_hz'],
                window_end_s=(stop-1) / config['sample_rate_hz'],
                label_known=known, target=int(target[DIST]) if known else None,
-               behavior_available=bool(inputs['eligible'].any()))
+               behavior_available=bool(behavior_availability(inputs,dataset.corpus.config['model']['kind'])[DIST]))
+    if dataset.corpus.config['model']['kind'] == HEAD_MODEL_KIND:
+        head_valid,head_ratio=head_evidence(inputs['x'])
+        row.update(h_eligible=bool(head_valid),h_valid_ratio=float(head_ratio),
+                   distraction_head_evidence_available=bool(head_valid))
     for prefix, masks in (('raw', raw_masks), ('effective', effective)):
         row.update({prefix + '_' + key: value for key, value in _evidence(masks).items()})
         for column, name in enumerate(FEATURE_NAMES):
@@ -139,8 +144,9 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
     if progress:
         progress('Loading checkpoint and checking original feature hashes...')
     model, payload = load_model(checkpoint, backend, device_index)
-    if payload.get('model_kind') != 'relation_gaze_v1':
-        raise ValueError('Diagnostics require a relation_gaze_v1 checkpoint')
+    if payload.get('model_kind') not in ('relation_gaze_v1',HEAD_MODEL_KIND):
+        raise ValueError('Diagnostics require a supported joint checkpoint')
+    head_model=payload['model_kind']==HEAD_MODEL_KIND
     config = payload['config']
     manifest = manifest or config['runtime']['manifest']
     data_root = data_root or config['runtime']['data_root']
@@ -161,6 +167,7 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
         output.mkdir(parents=True, exist_ok=False)
         overall = _Counts()
         groups = {name: {} for name in ('view', 'subject_id', 'record_id', 'f_eligibility')}
+        if head_model: groups['h_eligibility']={}
         thresholds = {value / 10: _Counts() for value in range(1, 10)}
         device = next(model.parameters()).device
         with (output / 'windows.csv').open('x', encoding='utf-8-sig', newline='') as stream:
@@ -178,7 +185,8 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
                     logits = out['behavior_logits'][:, DIST].cpu().tolist()
                     probabilities = torch.sigmoid(out['behavior_logits'][:, DIST]).cpu().tolist()
                     weights = out['weights'][:, DIST].cpu().tolist()
-                for row, logit, probability, gate in zip(rows, logits, probabilities, weights):
+                    head_weights=out['head_dist_weight'].cpu().tolist() if head_model else [None]*len(rows)
+                for row, logit, probability, gate, head_weight in zip(rows, logits, probabilities, weights,head_weights):
                     if not math.isfinite(logit) or not math.isfinite(probability) or not all(math.isfinite(value) for value in gate):
                         raise ValueError('Nonfinite prediction or gate weight')
                     row['logit'] = float(logit) if row['behavior_available'] else None
@@ -192,13 +200,19 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
                     else:
                         row['outcome'] = ('T' if row['prediction'] == row['target'] else 'F') + ('P' if row['prediction'] else 'N')
                     row.update({group + '_dist_weight': float(value) for group, value in zip(GROUPS, gate)})
+                    if head_model:
+                        if not math.isfinite(head_weight): raise ValueError('Nonfinite head gate weight')
+                        row['h_dist_weight']=float(head_weight)
                     if writer is None:
                         writer = csv.DictWriter(stream, fieldnames=list(row))
                         writer.writeheader()
                     writer.writerow(row)
                     overall.update(row, threshold)
                     for name in groups:
-                        group = ('f_eligible' if row['f_eligible'] else 'f_ineligible') if name == 'f_eligibility' else row[name]
+                        if name in ('f_eligibility','h_eligibility'):
+                            prefix=name[0]
+                            group=prefix+('_eligible' if row[prefix+'_eligible'] else '_ineligible')
+                        else: group=row[name]
                         groups[name].setdefault(group, _Counts()).update(row, threshold)
                     for candidate, counts in thresholds.items():
                         counts.update(row, candidate)
@@ -208,6 +222,7 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
             'schema_version': 'driveguard-distraction-diagnostics-v1', 'status': 'complete',
             'checkpoint': str(Path(checkpoint).resolve()), 'checkpoint_sha256': file_sha256(checkpoint),
             'checkpoint_epoch': payload['epoch'], 'device': str(device),
+            'model_kind':payload['model_kind'],
             'manifest': str(Path(manifest).resolve()), 'data_root': str(corpus.root),
             'data_fingerprint': corpus.summary['fingerprint'],
             'synthetic': corpus.manifest['extractor_profile'].get('synthetic', False),
@@ -220,7 +235,8 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
                 'Window times are relative to first decoded frame PTS; end time is the label slot, inclusive.',
                 'recording_id + view identify video; the feature manifest does not contain original video paths.',
                 'Raw masks are cached extraction masks; effective masks match training after dependencies and normalization.',
-                'Behavior availability is ANY group, matching existing training; it is not proof of gaze evidence.',
+                'Distraction availability is ANY original group, or eligible H in the head model; this is not proof of gaze evidence.',
+                'In the head model F/O/HO/FO distraction weights plus h_dist_weight sum to one when available.',
                 'Precision/recall/F1 exclude unknown labels and unavailable inputs, matching training.',
                 'Predictions compare logits to log(threshold/(1-threshold)), avoiding rounded sigmoid boundary errors.',
                 'All-known-positive detection fraction includes unavailable positives in its denominator.',

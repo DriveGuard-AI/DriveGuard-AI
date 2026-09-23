@@ -18,8 +18,11 @@ class RelationGazeTCN(RelationGatedTCN):
         good=masks[:,:,list(GAZE_HEAD_INDICES)].all(-1) & (masks[:,:,list(GAZE_IRIS_PAIRS[0])].all(-1) | masks[:,:,list(GAZE_IRIS_PAIRS[1])].all(-1))
         return eligible[:,0] & good[:,-1] & (good.float().mean(-1) >= GAZE_MIN_VALID_RATIO)
 
-    def forward(self,x,quality,eligible,return_aux=False):
-        # One encoder invocation produces the embeddings for all five tasks.
+    @staticmethod
+    def behavior_availability(x,eligible):
+        return eligible.any(-1)[:,None].expand(-1,4)
+
+    def checked_embeddings(self,x,quality,eligible):
         embeddings=self.encode(x)[:,:,:,-1]
         if not isinstance(quality,torch.Tensor) or quality.dtype != torch.float32:
             raise TypeError('quality must be float32')
@@ -31,7 +34,11 @@ class RelationGazeTCN(RelationGatedTCN):
             raise TypeError('eligible must be boolean')
         if eligible.shape != (len(x),4) or eligible.device != x.device:
             raise ValueError('eligible shape/device mismatch')
-        embeddings=embeddings.masked_fill(~eligible[:,:,None],0)
+        return embeddings.masked_fill(~eligible[:,:,None],0)
+
+    def forward(self,x,quality,eligible,return_aux=False):
+        # One encoder invocation produces the embeddings for all five tasks.
+        embeddings=self.checked_embeddings(x,quality,eligible)
         gate_input=torch.cat((embeddings.flatten(1),quality.flatten(1)),dim=-1)
         scores=torch.stack([gate(gate_input) for gate in self.gates],dim=1)
         weights=torch.softmax(scores.masked_fill(~eligible[:,None,:],torch.finfo(scores.dtype).min),dim=-1)

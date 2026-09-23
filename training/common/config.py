@@ -109,7 +109,8 @@ def validate_config(config):
         else:
             from training.relation.profile import validate_group_profile
         validate_group_profile(data['group_profile'], names)
-        if model['kind'] != ('relation_gaze_v1' if gaze else 'relation_gated_v1'):
+        allowed_kinds = ('relation_gaze_v1','relation_gaze_head_v1') if gaze else ('relation_gated_v1',)
+        if model['kind'] not in allowed_kinds:
             raise ValueError('Unsupported v2 model kind')
         for key in ('projection_dim', 'gate_hidden_dim'):
             _integer(model[key], key)

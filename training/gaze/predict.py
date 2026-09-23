@@ -35,10 +35,18 @@ class JointPredictor:
             behavior=torch.sigmoid(out['behavior_logits'][0]).cpu().tolist()
             gaze=torch.softmax(out['gaze_logits'][0],dim=-1).cpu().tolist()
         available=bool(out['available'][0]); gaze_valid=bool(out['gaze_available'][0])
-        return {'available':available,'gaze_available':gaze_valid,
+        result={'available':available,'gaze_available':gaze_valid,
             'behavior_probabilities':{task:float(behavior[i]) if available else None for i,task in enumerate(TASKS)},
             'gaze_probabilities':{name:float(gaze[i]) for i,name in enumerate(GAZE_CLASSES)} if gaze_valid else None,
             'gaze_class':GAZE_CLASSES[max(range(9),key=gaze.__getitem__)] if gaze_valid else None}
+        if 'task_available' in out:
+            task_available=out['task_available'][0].cpu().tolist()
+            result['behavior_available']=dict(zip(TASKS,task_available))
+            result['behavior_probabilities']={task:float(behavior[i]) if task_available[i] else None for i,task in enumerate(TASKS)}
+            result['distraction_head_evidence_available']=bool(out['head_available'][0])
+            result['distraction_evidence_status']='head_supported' if result['distraction_head_evidence_available'] else (
+                'limited_head_evidence' if task_available[3] else 'unavailable')
+        return result
 
 
 def main(argv=None):

@@ -27,17 +27,23 @@ def run_epoch(model,loader,device,task_weights=None,optimizer=None,gradient_clip
     sums=torch.zeros(5,dtype=torch.float64); counts=torch.zeros(5,dtype=torch.int64)
     weights=torch.tensor(task_weights or [1.]*5,dtype=torch.float64)
     updates=skipped=batches=offset=unavailable=gaze_unavailable=gaze_raw_known=0
+    task_unavailable=torch.zeros(4,dtype=torch.int64)
+    head_evidence_windows=0
     with torch.set_grad_enabled(training):
         for inputs,target,labels,gaze_target,gaze_labels in loader:
             batches+=1
             inputs={key:value.to(device) for key,value in inputs.items()}
             target,labels,gaze_target,gaze_labels=[value.to(device) for value in (target,labels,gaze_target,gaze_labels)]
-            available=inputs['eligible'].any(-1)
+            task_available=model.behavior_availability(inputs['x'],inputs['eligible'])
+            available=task_available.any(-1)
             gaze_valid=RelationGazeTCN.gaze_availability(inputs['x'],inputs['eligible'])
             label_coverage.update_coverage(target,labels)
             gaze_raw_known+=int(gaze_labels.sum())
             unavailable+=int((~available).sum()); gaze_unavailable+=int((~gaze_valid).sum())
-            effective=labels.bool() & available[:,None]
+            task_unavailable+=(~task_available).sum(0).cpu()
+            if hasattr(model,'head_quality'):
+                head_evidence_windows+=int(model.head_quality(inputs['x'])[0].sum())
+            effective=labels.bool() & task_available
             gaze_effective=gaze_labels.bool() & gaze_valid
             target=target.masked_fill(~effective,0)
             gaze_target=gaze_target.masked_fill(~gaze_effective,0)
@@ -63,6 +69,9 @@ def run_epoch(model,loader,device,task_weights=None,optimizer=None,gradient_clip
                             for parameter in module.parameters(): parameter.grad=None
                 if not batch_counts[4]:
                     for parameter in model.gaze_head.parameters(): parameter.grad=None
+                if hasattr(model,'head_quality') and not (effective[:,3] & model.head_quality(inputs['x'])[0]).any():
+                    for module in (model.head_projection,model.head_blocks):
+                        for parameter in module.parameters(): parameter.grad=None
                 torch.nn.utils.clip_grad_norm_(model.parameters(),gradient_clip_norm,error_if_nonfinite=True)
                 optimizer.step(); updates+=1
             behavior.update(outputs['behavior_logits'],target,effective)
@@ -80,7 +89,9 @@ def run_epoch(model,loader,device,task_weights=None,optimizer=None,gradient_clip
     loss=float(((sums[supported]/counts[supported])*weights[supported]).sum()/weights[supported].sum())
     return {'loss':loss,'loss_sums':sums.tolist(),'known_counts':counts.tolist(),'metrics':behavior.report(),
         'gaze_metrics':gaze.report(),'updates':updates,'skipped_batches':skipped,'batches':batches,
-        'unavailable_windows':unavailable,'gaze_unavailable_windows':gaze_unavailable,'gaze_raw_known':gaze_raw_known,
+        'unavailable_windows':unavailable,'task_unavailable_windows':task_unavailable.tolist(),
+        'head_evidence_windows':head_evidence_windows if hasattr(model,'head_quality') else None,
+        'gaze_unavailable_windows':gaze_unavailable,'gaze_raw_known':gaze_raw_known,
         'label_coverage':{'positive':label_coverage.positive.tolist(),'negative':label_coverage.negative.tolist(),'unknown':label_coverage.unknown.tolist()},
         'groups':{key:{name:{'behavior':value[0].report(),'gaze':value[1].report()} for name,value in entries.items()} for key,entries in groups.items()}}
 
@@ -120,7 +131,7 @@ def run_training(config,resume=None):
             'active_tasks':list(TASKS),'task_order':list(TASKS),'gaze_classes':config['data']['gaze_classes'],
             'feature_schema':corpus.manifest['feature_schema'],'extractor_profile':corpus.manifest['extractor_profile'],
             'label_mapping':corpus.manifest['label_mapping'],'gaze_mapping':corpus.manifest['gaze_mapping'],
-            'model_kind':'relation_gaze_v1','group_profile':config['data']['group_profile'],
+            'model_kind':config['model']['kind'],'group_profile':config['data']['group_profile'],
             'group_profile_sha256':canonical_hash(config['data']['group_profile'])}
         for epoch in range(start+1,settings['epochs']+1):
             train_report=run_epoch(model,train,device,settings['task_weights'],optimizer,settings['gradient_clip_norm'])

@@ -9,7 +9,7 @@ def validate_metadata(payload):
         snapshot=payload.get('best_snapshot')
         if not isinstance(snapshot,dict) or not {'optimizer_state','rng_state','global_step'} <= snapshot.keys():
             raise ValueError('Incomplete joint checkpoint best_snapshot metadata')
-    if payload.get('model_kind') != 'relation_gaze_v1' or payload.get('task_order') != list(TASKS) or payload.get('active_tasks') != list(TASKS):
+    if payload.get('model_kind') != config['model']['kind'] or payload.get('task_order') != list(TASKS) or payload.get('active_tasks') != list(TASKS):
         raise ValueError('Joint checkpoint task/model metadata mismatch')
     if payload.get('gaze_classes') != data['gaze_classes']:
         raise ValueError('Joint checkpoint gaze class metadata mismatch')

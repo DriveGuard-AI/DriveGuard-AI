@@ -14,7 +14,10 @@ def build_model(config):
     settings['window_steps'] = config['data']['window_steps']
     if config['schema_version'] == 'driveguard-training-v3':
         from training.gaze.model import RelationGazeTCN
-        settings.pop('kind')
+        kind = settings.pop('kind')
+        if kind == 'relation_gaze_head_v1':
+            from training.gaze.head_model import RelationGazeHeadTCN
+            return RelationGazeHeadTCN(**settings)
         return RelationGazeTCN(**settings)
     if config['schema_version'] == 'driveguard-training-v2':
         from training.relation.model import RelationGatedTCN

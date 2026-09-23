@@ -1,5 +1,7 @@
 # Body 分心：感知对照与独立头姿补充分支
 
+四组采样/特征缺失/时序对照与自动汇总见 [BODY_DIST_COMPARISON.md](BODY_DIST_COMPARISON.md)。
+
 后续 H 使用条件实验和覆盖审计见 [HEAD_POLICY_EXPERIMENTS.md](HEAD_POLICY_EXPERIMENTS.md)。
 单视频裁剪预览、绑定配置和连续性对照见 [FACE_CROP_EXPERIMENTS.md](FACE_CROP_EXPERIMENTS.md)。
 

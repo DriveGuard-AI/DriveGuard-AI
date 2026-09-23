@@ -2,7 +2,7 @@
 from copy import deepcopy
 from pathlib import Path
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from training.common.checkpoint import (atomic_json,capture_rng,cpu_tree,load_checkpoint,
     restore_rng,save_checkpoint,seed_everything,validate_resume)
 from training.common.config import TASKS,canonical_hash
@@ -120,13 +120,32 @@ def run_training(config,resume=None):
             best_epoch=previous['best_epoch']; best_loss=previous['best_val_loss']; best_state=previous['best_model_state']
             best_snapshot=previous['best_snapshot']
             restore_rng(previous['rng_state'],device,generator)
-        train=DataLoader(corpus.dataset('train',normalizer),batch_size=settings['batch_size'],shuffle=True,generator=generator,num_workers=0)
+        train_dataset=corpus.dataset('train',normalizer)
+        experiment=settings.get('body_dist_experiment')
+        audit=None; sampler=None
+        if experiment is not None:
+            from training.gaze.body_dist import audit_dataset, TrainingDataset
+            train_audit,sampling_weights=audit_dataset(train_dataset,experiment['missing_head_positive_multiplier'])
+            val_audit,_=audit_dataset(corpus.dataset('val',normalizer))
+            audit=dict(schema_version='driveguard-body-dist-input-audit-v1',
+                       data_fingerprint=corpus.summary['fingerprint'],settings=experiment,
+                       train=train_audit,val=val_audit,
+                       notes=['Original unaugmented inputs; weights use train labels only.',
+                              'Sampling changes expected frequency, not epoch sample count.',
+                              'Availability and gate patterns are not causal proof of prediction errors.'])
+            if experiment['missing_head_positive_multiplier'] != 1 and train_audit['weighted_windows']:
+                sampler=WeightedRandomSampler(sampling_weights,len(train_dataset),replacement=True,generator=generator)
+            audit['sampling_active']=sampler is not None
+            if experiment['face_dropout_probability'] > 0:
+                train_dataset=TrainingDataset(train_dataset,experiment['face_dropout_probability'])
+        train=DataLoader(train_dataset,batch_size=settings['batch_size'],shuffle=sampler is None,sampler=sampler,generator=generator,num_workers=0)
         val=DataLoader(corpus.dataset('val',normalizer),batch_size=settings['batch_size'],shuffle=False,
             generator=torch.Generator().manual_seed(settings['seed']),num_workers=0)
         environment=environment_info(device)
         output.mkdir(parents=True,exist_ok=False)
         atomic_json(output/'config.json',config); atomic_json(output/'data_summary.json',{'data':corpus.summary,'supervision':coverage})
         atomic_json(output/'environment.json',environment)
+        if audit is not None: atomic_json(output/'body_dist_audit.json',audit)
         base={'format_version':1,'config':config,'normalizer':normalizer,'data_summary':corpus.summary,'environment':environment,
             'active_tasks':list(TASKS),'task_order':list(TASKS),'gaze_classes':config['data']['gaze_classes'],
             'feature_schema':corpus.manifest['feature_schema'],'extractor_profile':corpus.manifest['extractor_profile'],
@@ -134,7 +153,9 @@ def run_training(config,resume=None):
             'model_kind':config['model']['kind'],'group_profile':config['data']['group_profile'],
             'group_profile_sha256':canonical_hash(config['data']['group_profile'])}
         for epoch in range(start+1,settings['epochs']+1):
+            if hasattr(train_dataset,'reset_stats'): train_dataset.reset_stats()
             train_report=run_epoch(model,train,device,settings['task_weights'],optimizer,settings['gradient_clip_norm'])
+            if hasattr(train_dataset,'stats'): train_report['face_dropout']=dict(train_dataset.stats)
             val_report=run_epoch(model,val,device,settings['task_weights'])
             step+=train_report['updates']
             history.append({'epoch':epoch,'global_step':step,'train':train_report,'val':val_report})
@@ -148,6 +169,9 @@ def run_training(config,resume=None):
             save_checkpoint(output/'last.pt',payload)
             save_checkpoint(output/'best.pt',{**base,**best_snapshot,'kind':'weights','epoch':best_epoch,'model_state':best_state,'best_val_loss':best_loss})
             atomic_json(output/'history.json',history)
+            if experiment is not None:
+                print(f"epoch {epoch}/{settings['epochs']} step={step} "
+                      f"train_loss={train_report['loss']:.6f} val_loss={val_report['loss']:.6f}",flush=True)
         result={'completed_epochs':settings['epochs'],'global_step':step,'best_epoch':best_epoch,'best_val_loss':best_loss,
             'best_checkpoint':str(output/'best.pt'),'last_checkpoint':str(output/'last.pt'),'device':str(device),
             'synthetic':corpus.manifest['extractor_profile'].get('synthetic',False)}

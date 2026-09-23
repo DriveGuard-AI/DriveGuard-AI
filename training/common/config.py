@@ -70,6 +70,8 @@ def validate_config(config):
             keys = keys | {'gaze_label_schema_version','gaze_classes'}
         if gaze and section == 'training':
             keys = keys | {'gaze_enabled','task_weights'}
+            if isinstance(config[section], dict) and 'body_dist_experiment' in config[section]:
+                keys = keys | {'body_dist_experiment'}
         if gaze and section == 'model' and isinstance(config['model'], dict) and config['model'].get('kind') == 'relation_gaze_head_policy_v1':
             keys = keys | {'head_policy'}
         if not isinstance(config[section], dict) or set(config[section]) != keys:
@@ -140,6 +142,11 @@ def validate_config(config):
     if len(set(active)) != len(active):
         raise ValueError('Duplicate active tasks')
     if gaze:
+        if 'body_dist_experiment' in train:
+            from training.gaze.experiment_settings import validate_experiment
+            if model['kind'] != 'relation_gaze_head_policy_v1':
+                raise ValueError('body_dist_experiment requires relation_gaze_head_policy_v1')
+            validate_experiment(train['body_dist_experiment'])
         if active != list(TASKS) or train['gaze_enabled'] is not True:
             raise ValueError('Joint training requires all four active tasks and gaze_enabled=true')
         weights = train['task_weights']

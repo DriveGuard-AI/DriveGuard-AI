@@ -27,7 +27,7 @@ class FeatureCorpus(BaseCorpus):
             dataset=self.dataset(split,normalizer)
             for index in range(len(dataset)):
                 inputs,target,labels,gaze,known=dataset[index]
-                task_available=behavior_availability(inputs,self.config['model']['kind'])
+                task_available=behavior_availability(inputs,self.config['model']['kind'],self.config['model'].get('head_policy'))
                 available=bool(task_available.any())
                 task_unavailable+=~task_available
                 gaze_valid=gaze_available(inputs['x'][:,23:],inputs['eligible'])

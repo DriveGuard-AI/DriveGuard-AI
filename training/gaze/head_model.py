@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from training.gaze.model import RelationGazeTCN
-from training.gaze.head_evidence import HEAD_MIN_VALID_RATIO
+from training.gaze.head_policy import resolve_head_policy, minimum_head_count
 from training.temporal.model import _ResidualBlock
 
 
@@ -14,8 +14,9 @@ def _weights(scores, eligible):
 
 
 class RelationGazeHeadTCN(RelationGazeTCN):
-    def __init__(self, **kwargs):
+    def __init__(self, head_policy=None, **kwargs):
         super().__init__(**kwargs)
+        self.head_policy = resolve_head_policy(head_policy, kwargs.get('window_steps', 100))
         projection = kwargs.get('projection_dim',16)
         hidden = kwargs.get('gate_hidden_dim',16)
         self.head_projection = nn.Sequential(nn.Linear(6,projection),nn.ReLU())
@@ -27,16 +28,21 @@ class RelationGazeHeadTCN(RelationGazeTCN):
         self.head_blocks = nn.Sequential(*blocks)
         self.gates[3] = nn.Sequential(nn.Linear(5*previous+10,hidden),nn.ReLU(),nn.Linear(hidden,5))
 
-    @staticmethod
-    def head_quality(x):
+    def head_statistics(self, x):
         good=x[:,:,28:31].bool().all(-1)
         ratio=good.float().mean(-1)
-        return good[:,-1] & (ratio >= HEAD_MIN_VALID_RATIO),ratio
+        steps = good.shape[-1]
+        last = torch.where(good, torch.arange(steps, device=x.device), -1).amax(-1)
+        gap = steps - 1 - last
+        available = (gap <= self.head_policy['max_gap_steps']) & (good.sum(-1) >= minimum_head_count(self.head_policy, steps))
+        return available, ratio, gap
 
-    @staticmethod
-    def behavior_availability(x,eligible):
+    def head_quality(self, x):
+        return self.head_statistics(x)[:2]
+
+    def behavior_availability(self,x,eligible):
         result=eligible.any(-1)[:,None].expand(-1,4).clone()
-        result[:,3] |= RelationGazeHeadTCN.head_quality(x)[0]
+        result[:,3] |= self.head_quality(x)[0]
         return result
 
     def encode_head(self,x):
@@ -47,15 +53,18 @@ class RelationGazeHeadTCN(RelationGazeTCN):
 
     def forward(self,x,quality,eligible,return_aux=False):
         embeddings=self.checked_embeddings(x,quality,eligible)
-        h_eligible,h_ratio=self.head_quality(x)
+        h_eligible,h_ratio,h_gap=self.head_statistics(x)
         h=self.encode_head(x)[:,:,-1].masked_fill(~h_eligible[:,None],0)
         gate_input=torch.cat((embeddings.flatten(1),quality.flatten(1)),dim=-1)
         ordinary_scores=torch.stack([gate(gate_input) for gate in self.gates[:3]],dim=1)
         ordinary_weights=_weights(ordinary_scores,eligible[:,None,:])
         ordinary_embeddings=torch.matmul(ordinary_weights,embeddings)
         ordinary_logits=torch.cat([head(ordinary_embeddings[:,i]) for i,head in enumerate(self.heads[:3])],dim=-1)
-        # F freshness is based on the same face age; current H implies current F evidence.
-        h_quality=torch.stack((h_ratio,quality[:,0,1]),dim=-1).masked_fill(~h_eligible[:,None],0)
+        # Current H preserves legacy freshness. A permitted gap uses an explicit
+        # slot-recency score; no values/masks are filled or presented as current.
+        recency = (1. - h_gap.float() / (self.head_policy['max_gap_steps'] + 1)).clamp_min(0.)
+        freshness = torch.where(h_gap == 0, quality[:,0,1], recency)
+        h_quality=torch.stack((h_ratio,freshness),dim=-1).masked_fill(~h_eligible[:,None],0)
         dist_embeddings=torch.cat((embeddings,h[:,None,:]),dim=1)
         dist_quality=torch.cat((quality,h_quality[:,None,:]),dim=1)
         dist_eligible=torch.cat((eligible,h_eligible[:,None]),dim=1)
@@ -68,4 +77,5 @@ class RelationGazeHeadTCN(RelationGazeTCN):
             gaze_logits=self.gaze_head(embeddings[:,0]).masked_fill(~gaze_available[:,None],0),
             available=task_available.any(-1),task_available=task_available,gaze_available=gaze_available,
             weights=torch.cat((ordinary_weights,dist_weights[:,None,:4]),dim=1),
-            head_available=h_eligible,head_dist_weight=dist_weights[:,4],head_valid_ratio=h_ratio)
+            head_available=h_eligible,head_dist_weight=dist_weights[:,4],head_valid_ratio=h_ratio,
+            head_gap_steps=h_gap,head_current_valid=h_gap==0)

@@ -70,6 +70,8 @@ def validate_config(config):
             keys = keys | {'gaze_label_schema_version','gaze_classes'}
         if gaze and section == 'training':
             keys = keys | {'gaze_enabled','task_weights'}
+        if gaze and section == 'model' and isinstance(config['model'], dict) and config['model'].get('kind') == 'relation_gaze_head_policy_v1':
+            keys = keys | {'head_policy'}
         if not isinstance(config[section], dict) or set(config[section]) != keys:
             raise ValueError(f'Invalid {section} keys')
     data, model, train, runtime = (config[k] for k in KEYS)
@@ -109,9 +111,12 @@ def validate_config(config):
         else:
             from training.relation.profile import validate_group_profile
         validate_group_profile(data['group_profile'], names)
-        allowed_kinds = ('relation_gaze_v1','relation_gaze_head_v1') if gaze else ('relation_gated_v1',)
+        allowed_kinds = ('relation_gaze_v1','relation_gaze_head_v1','relation_gaze_head_policy_v1') if gaze else ('relation_gated_v1',)
         if model['kind'] not in allowed_kinds:
             raise ValueError('Unsupported v2 model kind')
+        if model['kind'] == 'relation_gaze_head_policy_v1':
+            from training.gaze.head_policy import validate_head_policy
+            validate_head_policy(model['head_policy'], data['window_steps'])
         for key in ('projection_dim', 'gate_hidden_dim'):
             _integer(model[key], key)
         if (data['feature_schema_version'] != ('driveguard-interaction-v2' if gaze else 'driveguard-interaction-v1') or

@@ -15,7 +15,7 @@ def build_model(config):
     if config['schema_version'] == 'driveguard-training-v3':
         from training.gaze.model import RelationGazeTCN
         kind = settings.pop('kind')
-        if kind == 'relation_gaze_head_v1':
+        if kind in ('relation_gaze_head_v1', 'relation_gaze_head_policy_v1'):
             from training.gaze.head_model import RelationGazeHeadTCN
             return RelationGazeHeadTCN(**settings)
         return RelationGazeTCN(**settings)

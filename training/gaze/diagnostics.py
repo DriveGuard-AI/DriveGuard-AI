@@ -19,7 +19,8 @@ from training.common.data import file_sha256
 from training.common.model_factory import load_model
 from training.gaze.data import FeatureCorpus
 from training.gaze.profile import FEATURE_NAMES, GROUP_INDICES
-from training.gaze.head_evidence import HEAD_MODEL_KIND,behavior_availability,head_evidence
+from training.gaze.head_evidence import HEAD_MODEL_KINDS,behavior_availability,head_statistics
+from training.gaze.head_policy import resolve_head_policy, minimum_head_count
 
 DIST = TASKS.index('distraction')
 GROUPS = ('f', 'o', 'ho', 'fo')
@@ -57,11 +58,22 @@ def _window_row(dataset, index, inputs, target, labels):
                window_start_s=start / config['sample_rate_hz'],
                window_end_s=(stop-1) / config['sample_rate_hz'],
                label_known=known, target=int(target[DIST]) if known else None,
-               behavior_available=bool(behavior_availability(inputs,dataset.corpus.config['model']['kind'])[DIST]))
-    if dataset.corpus.config['model']['kind'] == HEAD_MODEL_KIND:
-        head_valid,head_ratio=head_evidence(inputs['x'])
-        row.update(h_eligible=bool(head_valid),h_valid_ratio=float(head_ratio),
-                   distraction_head_evidence_available=bool(head_valid))
+               behavior_available=bool(behavior_availability(inputs,dataset.corpus.config['model']['kind'],
+                   dataset.corpus.config['model'].get('head_policy'))[DIST]))
+    if dataset.corpus.config['model']['kind'] in HEAD_MODEL_KINDS:
+        policy=resolve_head_policy(dataset.corpus.config['model'].get('head_policy'))
+        stats=head_statistics(inputs['x'],policy)
+        gap=int(stats['gap_steps'])
+        reasons=[]
+        if gap == dataset.steps: reasons.append('no_valid_head')
+        else:
+            if gap > policy['max_gap_steps']: reasons.append('head_gap_exceeded')
+            if stats['valid_count'] < minimum_head_count(policy, dataset.steps): reasons.append('low_head_valid_ratio')
+        row.update(h_eligible=bool(stats['eligible']),h_valid_ratio=float(stats['valid_ratio']),
+                   h_current_valid=bool(stats['current_valid']),h_gap_steps=gap if gap < dataset.steps else None,
+                   h_gap_ms=gap*1000/config['sample_rate_hz'] if gap < dataset.steps else None,
+                   h_block_reasons='|'.join(reasons),
+                   distraction_head_evidence_available=bool(stats['eligible']))
     for prefix, masks in (('raw', raw_masks), ('effective', effective)):
         row.update({prefix + '_' + key: value for key, value in _evidence(masks).items()})
         for column, name in enumerate(FEATURE_NAMES):
@@ -144,9 +156,9 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
     if progress:
         progress('Loading checkpoint and checking original feature hashes...')
     model, payload = load_model(checkpoint, backend, device_index)
-    if payload.get('model_kind') not in ('relation_gaze_v1',HEAD_MODEL_KIND):
+    if payload.get('model_kind') not in ('relation_gaze_v1',*HEAD_MODEL_KINDS):
         raise ValueError('Diagnostics require a supported joint checkpoint')
-    head_model=payload['model_kind']==HEAD_MODEL_KIND
+    head_model=payload['model_kind'] in HEAD_MODEL_KINDS
     config = payload['config']
     manifest = manifest or config['runtime']['manifest']
     data_root = data_root or config['runtime']['data_root']
@@ -167,7 +179,9 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
         output.mkdir(parents=True, exist_ok=False)
         overall = _Counts()
         groups = {name: {} for name in ('view', 'subject_id', 'record_id', 'f_eligibility')}
-        if head_model: groups['h_eligibility']={}
+        if head_model:
+            groups['h_eligibility']={}
+            groups['view_h_evidence']={}
         thresholds = {value / 10: _Counts() for value in range(1, 10)}
         device = next(model.parameters()).device
         with (output / 'windows.csv').open('x', encoding='utf-8-sig', newline='') as stream:
@@ -212,6 +226,8 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
                         if name in ('f_eligibility','h_eligibility'):
                             prefix=name[0]
                             group=prefix+('_eligible' if row[prefix+'_eligible'] else '_ineligible')
+                        elif name == 'view_h_evidence':
+                            group=row['view']+':'+(row['h_block_reasons'] or 'h_eligible')
                         else: group=row[name]
                         groups[name].setdefault(group, _Counts()).update(row, threshold)
                     for candidate, counts in thresholds.items():
@@ -245,6 +261,9 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
                 'F block reasons describe filter conditions, not the causal explanation for an error.',
             ],
         }
+        if head_model:
+            summary['head_policy']=resolve_head_policy(config['model'].get('head_policy'))
+            summary['notes'].append('h_gap_ms is the grid interval since the latest valid head slot, not exact source measurement age; missing evidence is never filled.')
         atomic_json(output / 'summary.json', summary)
         return summary
     finally:

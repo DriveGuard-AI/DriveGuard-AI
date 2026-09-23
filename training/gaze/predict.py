@@ -46,6 +46,12 @@ class JointPredictor:
             result['distraction_head_evidence_available']=bool(out['head_available'][0])
             result['distraction_evidence_status']='head_supported' if result['distraction_head_evidence_available'] else (
                 'limited_head_evidence' if task_available[3] else 'unavailable')
+            gap=int(out['head_gap_steps'][0])
+            result['head_current_valid']=bool(out['head_current_valid'][0])
+            result['head_gap_ms']=gap*1000/self.config['data']['sample_rate_hz'] if gap < steps else None
+            result['head_policy']=dict(self.model.head_policy)
+            if result['distraction_head_evidence_available'] and gap > 0:
+                result['distraction_evidence_status']='recent_head_supported'
         return result
 
 

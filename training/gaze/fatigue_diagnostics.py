@@ -232,6 +232,8 @@ def diagnose(checkpoint, *, output_dir, manifest=None, data_root=None, backend='
             ])
         if payload['model_kind'] in HEAD_MODEL_KINDS:
             summary['head_policy'] = resolve_head_policy(config['model'].get('head_policy'), dataset.steps)
+        summary.update(window_steps=dataset.steps, stride_steps=dataset.stride,
+                       manifest_file_sha256=unchanged[manifest])
         atomic_json(output / 'summary.json', summary)
         return summary
     finally:

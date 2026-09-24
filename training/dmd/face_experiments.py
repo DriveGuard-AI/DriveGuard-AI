@@ -61,6 +61,9 @@ def _aggregate(records, variants):
                     for r in rows if r['angle_jumps']['pairs'])/pairs for i in range(3)] if pairs else None,
                 max_abs_degrees=[max(r['angle_jumps']['max_abs_degrees'][i]
                     for r in rows if r['angle_jumps']['pairs']) for i in range(3)] if pairs else None))
+        if rows and 'fatigue_evidence' in rows[0]:
+            from training.dmd.fatigue_replay import aggregate_fatigue
+            result[variant['name']]['fatigue_evidence'] = aggregate_fatigue([r['fatigue_evidence'] for r in rows])
     return result
 
 
@@ -73,6 +76,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
     from training.dmd.face_diagnostics import _stamp
 
     feature, config = item['complete']['feature_record'], item['config']
+    fatigue_settings = item.get('fatigue_settings')
+    label_task = 'fatigue' if fatigue_settings else 'distraction'
     names = feature['feature_schema']['names']
     heads = [names.index('head_'+axis+'_deg') for axis in ('yaw', 'pitch', 'roll')]
     irises = [names.index('iris_'+side+'_'+axis) for side in ('left', 'right') for axis in ('x', 'y')]
@@ -90,9 +95,14 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
         raise ValueError('Source video changed after checksum verification')
     with ExitStack() as stack:
         arrays = {}
-        for name in ('values', 'masks', 'targets', 'label_masks', 'source_pts_ms'):
+        for name in ('values', 'masks', 'targets', 'label_masks', 'source_pts_ms', 'expert_age_ms'):
             arrays[name] = np.load(item['attempt']/item['complete']['arrays'][name], mmap_mode='r', allow_pickle=False)
             stack.callback(arrays[name]._mmap.close)
+        fatigue = None
+        if fatigue_settings:
+            from training.dmd.fatigue_replay import FatigueReplay
+            fatigue = FatigueReplay(item, fatigue_settings, directory, stack)
+        fatigue_samples = Samples(directory, samples_per_reason) if fatigue else None
         adapter = FaceExperimentAdapter(config['face_asset'], driver_roi=config['driver_roi'],
             driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'], variant=variant)
         stack.callback(adapter.close)
@@ -106,7 +116,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             'detected_faces', 'roi_candidates', 'selected_index', 'cached_head_mask', 'variant_head_mask',
             'cached_iris_mask', 'variant_iris_mask', 'cached_head_valid', 'variant_head_valid',
             'cached_iris_valid', 'variant_iris_valid', 'head_mask_matches', 'iris_mask_matches',
-            'dist_label_known', 'dist_target', 'head_yaw_deg', 'head_pitch_deg', 'head_roll_deg',
+            'dist_label_known', 'dist_target', 'label_task', 'label_known', 'label_target',
+            'head_yaw_deg', 'head_pitch_deg', 'head_roll_deg',
             'cached_head_yaw_deg', 'cached_head_pitch_deg', 'cached_head_roll_deg']
         handle = stack.enter_context((directory/'frames.csv').open('x', encoding='utf-8-sig', newline=''))
         writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
@@ -139,6 +150,12 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
                 previous_angles = None if angles is None else np.asarray(angles)
                 last_pts = frame.timestamp_ms; unique += 1
             age = slot-frame.timestamp_ms
+            if fatigue:
+                fatigue_label, eye_reason = fatigue.step(count, slot, frame, observation, detail, arrays)
+                sample_detail = dict(detail, reason='fatigue_'+fatigue_label+'_'+eye_reason)
+                fatigue_samples.add(frame, sample_detail, config['driver_roi'],
+                                    landmarks=observation['landmarks'],
+                                    crop=adapter.crop_pixels if variant['crop_xyxy'] else None)
             fresh = age <= feature['extractor_profile']['max_age_ms']
             head = bool(detail['head_usable'] and fresh)
             left, right = bool(detail['iris_left_valid'] and fresh), bool(detail['iris_right_valid'] and fresh)
@@ -153,9 +170,11 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             reason, iris_reason = (detail['reason'], detail['iris_reason']) if fresh else ('stale_face', 'stale_face')
             counters[reason] += 1; iris_reasons[iris_reason] += 1
             contingency[f'cached_{int(cached_head)}_variant_{int(head)}'] += 1
-            known = bool(arrays['label_masks'][count, TASKS.index('distraction')])
-            target = int(arrays['targets'][count, TASKS.index('distraction')]) if known else ''
-            window=continuity.update(count,cached_head,head,known,target)
+            known = bool(arrays['label_masks'][count, TASKS.index(label_task)])
+            target = int(arrays['targets'][count, TASKS.index(label_task)]) if known else ''
+            dist_known = bool(arrays['label_masks'][count, TASKS.index('distraction')])
+            dist_target = int(arrays['targets'][count, TASKS.index('distraction')]) if dist_known else ''
+            window=continuity.update(count,cached_head,head,dist_known,dist_target)
             if window is not None:
                 window_writer.writerow(window)
             label_group = ('known_positive' if target == 1 else 'known_negative') if known else 'unknown'
@@ -173,7 +192,10 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
                 cached_iris_mask=json.dumps(cached_i), variant_iris_mask=json.dumps(imask),
                 cached_head_valid=cached_head, variant_head_valid=head, cached_iris_valid=cached_iris,
                 variant_iris_valid=left or right, head_mask_matches=hmatch, iris_mask_matches=imatch,
-                dist_label_known=known, dist_target=target)
+                dist_label_known=bool(arrays['label_masks'][count, TASKS.index('distraction')]),
+                dist_target=int(arrays['targets'][count, TASKS.index('distraction')])
+                    if arrays['label_masks'][count, TASKS.index('distraction')] else '',
+                label_task=label_task, label_known=known, label_target=target)
             for index, axis in enumerate(('yaw', 'pitch', 'roll')):
                 row['head_'+axis+'_deg'] = angles[index] if head else ''
                 row['cached_head_'+axis+'_deg'] = float(arrays['values'][count, heads[index]]) if cached_h[index] else ''
@@ -194,7 +216,9 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
     version_matches = {k: versions[k] == original_versions.get(k) for k in versions}
     mask_match = head_diff == iris_diff == pts_diff == 0
     baseline = variant['name'] == 'baseline'
-    return dict(record_id=item['record']['record_id'], view=item['record']['view'], variant=variant,
+    result = dict(record_id=item['record']['record_id'], view=item['record']['view'], variant=variant,
+        subject_id=item['record']['subject_id'], subset=item['record']['subset'], label_task=label_task,
+        head_continuity_label_task='distraction',
         directory=directory.name, slots=count, cached_slots=expected_slots, partial=count<expected_slots,
         unique_inference_frames=unique, video=str(item['source']), video_sha256=item['video_sha256'],
         driver_roi=config['driver_roi'], driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'],
@@ -220,11 +244,18 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             inference_frames_per_second=unique/(inference_total/1000) if inference_total else None,
             scope='Face inference plus conversion/diagnostics, excludes decode and JPEG; wall time includes setup and cleanup.'),
         clock=clock, samples=samples.items)
+    if fatigue:
+        result['fatigue_evidence'] = fatigue.report(baseline)
+        if baseline:
+            result['fatigue_evidence']['baseline_fatigue_reproduced'] &= bool(
+                pts_diff == 0 and result['model_id_matches'] and all(version_matches.values()))
+        result['samples'] += fatigue_samples.items
+    return result
 
 
 def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment_config,
                     view='body', split='val', subset='distraction', record_ids=None,
-                    max_seconds=0, samples_per_reason=2):
+                    max_seconds=0, samples_per_reason=2, fatigue_settings=None):
     from inference.experts.assets import file_sha256
     from training.dmd.cache import write_json
     from training.dmd.face_diagnostics import _prepare, _stamp
@@ -245,7 +276,7 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
     if data.get('schema_version') != 'driveguard-feature-manifest-v3':
         raise ValueError('Original v3 feature manifest required')
     selected = [r for r in data['records'] if (view == 'all' or r['view'] == view) and r['split'] == split
-                and r['subset'] == subset and (record_ids is None or r['record_id'] in record_ids)]
+                and (subset == 'all' or r['subset'] == subset) and (record_ids is None or r['record_id'] in record_ids)]
     if not selected:
         raise ValueError('No records match requested filters')
     identities = [r['record_id'] for r in selected]
@@ -255,9 +286,16 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
         raise ValueError('Crop experiments require exactly one record; crop scope cannot span recordings')
     items = []
     stamps = {manifest: manifest_stamp}
+    if fatigue_settings:
+        diagnostic_path = Path(fatigue_settings['diagnostic_summary'])
+        if file_sha256(diagnostic_path) != fatigue_settings['diagnostic_sha256']:
+            raise ValueError('Fatigue diagnostic changed before replay')
+        stamps[diagnostic_path] = _stamp(diagnostic_path)
     for record in selected:
         print(f'Validating original cache/video: {record["record_id"]}', file=sys.stderr, flush=True)
         item = _prepare(record, root, dataset)
+        if fatigue_settings:
+            item['fatigue_settings'] = fatigue_settings
         paths = [p for p in item['attempt'].rglob('*') if p.is_file()]
         paths += [item['source']] + [Path(item['config'][key]['path']).resolve(strict=True) for key in ('face_asset', 'hands_asset')]
         stamps.update({p: _stamp(p) for p in paths})
@@ -286,6 +324,7 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
             records.append(_replay(item, variant, directory, samples_per_reason, max_seconds))
     unchanged()
     report = dict(schema_version='driveguard-face-experiment-report-v1', status='complete',
+        label_task='fatigue' if fatigue_settings else 'distraction',
         manifest=str(manifest), manifest_sha256=manifest_hash, experiment_config=experiment,
         experiment_config_hash=canonical_hash(experiment), max_seconds=max_seconds,
         filters=dict(view=view, split=split, subset=subset, record_ids=record_ids),
@@ -295,6 +334,23 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
             'Angle continuity and speed are not accuracy; no automatic winner. '
             'Crop matrix angles are experimental crop coordinates, not calibrated original-image pose. '
             'All outputs are diagnostic only and cannot be published as training caches.')
+    if fatigue_settings:
+        report['schema_version'] = 'driveguard-fatigue-recovery-report-v1'
+        report['fatigue_settings'] = fatigue_settings
+        report['interpretation'] = (
+            'Fatigue feature recovery only: no classifier, TP/FP, threshold tuning, training or cache promotion. '
+            'Frame counts use 25 Hz slots; window counts use final-slot fatigue labels and explicit geometry. '
+            'All original positive windows remain denominators, including those without face evidence. '
+            'F eligibility is separate from eye/temporal feature coverage. More valid features are not proof '
+            'of accurate landmarks or improved fatigue detection. Crop pose remains experimental.')
+        expected = fatigue_settings.get('expected_cached_windows')
+        cached = report['variants']['baseline']['fatigue_evidence']['windows']
+        if expected and (any(cached[label]['windows'] != count for label, count in expected.items())
+                         or cached['all'].get('cached_f_eligible', 0) != fatigue_settings['expected_cached_f_eligible']):
+            raise ValueError('Cached window counts/F eligibility differ from the original fatigue diagnostic')
+        report['cached_window_counts_match_diagnostic'] = True if expected else None
+        from training.dmd.fatigue_replay import write_comparison
+        write_comparison(output, report)
     gallery_records = [dict(r, record_id=r['record_id']+' / '+r['variant']['name']) for r in records]
     write_gallery(output, gallery_records)
     write_json(output/'summary.pending.json', report)
@@ -311,7 +367,7 @@ def main(argv=None):
     parser.add_argument('--check-config', action='store_true', help='Validate experiment JSON without loading any runtime or input')
     parser.add_argument('--view', choices=('body', 'face', 'hands', 'all'), default='body')
     parser.add_argument('--split', choices=('train', 'val', 'test'), default='val')
-    parser.add_argument('--subset', choices=('distraction', 'drowsiness', 'gaze'), default='distraction')
+    parser.add_argument('--subset', choices=('distraction', 'drowsiness', 'gaze', 'all'), default='distraction')
     parser.add_argument('--record-id', dest='record_ids', action='append')
     parser.add_argument('--max-seconds', type=float, default=0, help='Explicit prefix from video start; 0 means complete')
     parser.add_argument('--samples-per-reason', type=int, default=2, help='Bounded JPEGs per reason per record/variant; 0 disables')

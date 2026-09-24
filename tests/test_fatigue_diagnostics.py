@@ -74,6 +74,9 @@ class FatigueDiagnosticTests(unittest.TestCase):
 
     def test_real_masks_unknowns_scores_and_conditional_groups(self):
         summary, rows = self.run_report(batch_size=3)
+        self.assertEqual(summary['window_steps'], self.config['data']['window_steps'])
+        self.assertEqual(summary['stride_steps'], self.config['data']['stride_steps'])
+        self.assertEqual(summary['manifest_file_sha256'], file_sha256(self.manifest))
         self.assertEqual(len(rows), 18)
         body = [r for r in rows if r['view'] == 'body']
         self.assertEqual(body[0]['outcome'], 'FN')

@@ -89,6 +89,12 @@ the extraction cause. Validation already participated in checkpoint selection;
 overlapping windows are not independent events or subjects. Synthetic tests verify
 the implementation, not the actual NPU checkpoint accuracy.
 
+New summaries also record `window_steps`, `stride_steps`, and
+`manifest_file_sha256`. To investigate and compare recovery of the missing raw
+eye/temporal inputs, use the [fatigue recovery replay](BODY_FATIGUE_RECOVERY.md).
+That replay measures input evidence, not classification accuracy, and leaves this
+checkpoint and its original feature corpus untouched.
+
 ## Integrity and resource limits
 
 Existing output directories, output/data overlap, corpus fingerprint differences,

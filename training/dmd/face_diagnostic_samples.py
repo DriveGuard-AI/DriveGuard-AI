@@ -58,6 +58,15 @@ def write_gallery(output, records):
                      'mapped to the original image. Crop pose angles are experimental, not calibrated original-camera angles.</p>')
     for record in records:
         parts.append(f'<h2>{escape(record["record_id"])} / {escape(record["view"])}</h2>')
+        if 'fatigue_evidence' in record:
+            evidence = record['fatigue_evidence']
+            pos = evidence['windows']['known_positive']
+            parts.append(f'<p>Fatigue input audit (not detection accuracy): positive windows {pos["windows"]}; '
+                         f'F eligible cached {pos.get("cached_f_eligible", 0)}, candidate {pos.get("variant_f_eligible", 0)}. '
+                         f'Baseline fatigue reproduction: {evidence["baseline_fatigue_reproduced"]}. '
+                         f'<a href="{record["directory"]}/fatigue_frames.csv">fatigue_frames.csv</a> · '
+                         f'<a href="{record["directory"]}/fatigue_windows.csv">fatigue_windows.csv</a>. '
+                         'Head continuity below retains distraction labels; fatigue tables use fatigue labels.</p>')
         parts.append(f'<p>Slots: {record["slots"]}; partial: {record["partial"]}; '
                      f'head mask mismatches: {record["head_mask_mismatches"]}; '
                      f'iris mask mismatches: {record["iris_mask_mismatches"]}</p>')

@@ -80,3 +80,7 @@ env -u PYTHONPATH -u PYTHONHOME PYTHONNOUSERSITE=1 \
 ## 4. 实验边界
 
 本次没有用两张截图直接决定裁剪框、阈值或新模型，没有降低正式缓存的几何有效性标准，没有恢复缺失标签，也不保证47个窗口全部恢复。当前val已参与模型选择和原因诊断，后续对照结果属于验证集开发指标；最终泛化需要未参与调整的数据评估。
+
+## 5. 冻结 RGB 视觉分支对照
+
+后续以 gap80 为固定基线，对比 RGB 单分支和 RGB + 冻结原特征融合。三组共用相同验证窗口和固定的头姿缺失分组，详见 [BODY_VISUAL_COMPARISON.md](BODY_VISUAL_COMPARISON.md)。该实验独立于原联合模型，不会训练 MediaPipe 或改写已有缓存。

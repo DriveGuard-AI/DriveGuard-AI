@@ -7,7 +7,7 @@ from training.common.checkpoint import atomic_json,load_checkpoint,save_checkpoi
 from training.common.config import read_json
 from training.common.data import file_sha256
 from training.visual.data import PreparedData
-from training.visual.train import train_probe,_settings
+from training.visual.train import train_probe,_settings,_validate_payload,is_terminal
 from training.visual.report import evaluate,summarize,write_rows,write_comparison
 
 
@@ -17,6 +17,7 @@ DEFAULTS=dict(epochs=20,batch_size=64,seed=42,learning_rate=.001,weight_decay=.0
 
 def _verify(path,mode,settings,provenance,payload=None):
     payload=load_checkpoint(path) if payload is None else payload
+    _validate_payload(payload)
     if (payload.get('model_kind')!='visual_probe_v1' or payload.get('settings')!=settings
         or payload.get('provenance')!=provenance or payload['model_params']['mode']!=mode):
         raise ValueError('Checkpoint configuration/provenance mismatch')
@@ -41,20 +42,27 @@ def _train(stage,train,val,mode,settings,provenance):
         result_path=attempt/'result.json'
         if result_path.exists():
             result=read_json(result_path)
+            verified={}
             for key in ('best_checkpoint','last_checkpoint'):
                 expected=attempt/('best.pt' if key=='best_checkpoint' else 'last.pt')
                 if Path(result[key]).resolve()!=expected.resolve():raise ValueError('Stage checkpoint identity mismatch')
-                _verify(expected,mode,settings,provenance)
-            if result['completed_epochs']!=settings['epochs']:raise ValueError('Incomplete stage result')
+                verified[key]=_verify(expected,mode,settings,provenance)
+            terminal=verified['last_checkpoint']
+            stopped=bool(terminal.get('early_stopping_state',{}).get('stopped_early',False))
+            if (not is_terminal(terminal,settings) or result['completed_epochs']!=terminal['epoch']
+                or result['best_epoch']!=verified['best_checkpoint']['epoch']
+                or result.get('stopped_early',False)!=stopped):raise ValueError('Incomplete/inconsistent stage result')
             return result
-    if latest is not None and latest['epoch']==settings['epochs']:
+    if latest is not None and is_terminal(latest,settings):
         # A crash after final last.pt publication can be finalized from its saved best state.
         attempt=resume.parent
         best=dict(latest,kind='weights',epoch=latest['best_epoch'],model_state=latest['best_model_state'])
         for key in ('optimizer_state','rng_state','history','best_model_state','global_step'):best.pop(key,None)
         save_checkpoint(attempt/'best.pt',best)
         atomic_json(attempt/'history.json',latest['history'])
-        result=dict(completed_epochs=settings['epochs'],global_step=latest['global_step'],mode=mode,
+        result=dict(completed_epochs=latest['epoch'],max_epochs=settings['epochs'],
+                    stopped_early=bool(latest.get('early_stopping_state',{}).get('stopped_early',False)),
+                    global_step=latest['global_step'],mode=mode,
                     best_epoch=latest['best_epoch'],best_val_loss=latest['best_val_loss'],
                     selection_metric='binary_validation_bce',best_checkpoint=str(attempt/'best.pt'),
                     last_checkpoint=str(resume),device=settings['backend'])

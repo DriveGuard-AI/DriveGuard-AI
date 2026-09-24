@@ -75,10 +75,17 @@ def evaluate(dataset,checkpoint=None,backend='cpu',device_index=0,batch_size=64)
 
 def summarize(rows,**identity):
     labels=[{k:r[k] for k in ('record_id','start_slot','end_slot','label_known','target','h_eligible')} for r in rows]
+    point=operating_point(rows,.03)
+    threshold=point['threshold_logit']
+    fixed_groups=dict(
+        baseline_h_ineligible=metrics([r for r in rows if not r['h_eligible']],threshold),
+        baseline_h_eligible=metrics([r for r in rows if r['h_eligible']],threshold),
+        by_subject={s:metrics([r for r in rows if r['subject_id']==s],threshold) for s in sorted({r['subject_id'] for r in rows})},
+        by_record={s:metrics([r for r in rows if r['record_id']==s],threshold) for s in sorted({r['record_id'] for r in rows})})
     return dict(identity,window_label_hash=canonical_hash(labels),overall=metrics(rows),
                 baseline_h_ineligible=metrics([r for r in rows if not r['h_eligible']]),
                 baseline_h_eligible=metrics([r for r in rows if r['h_eligible']]),
-                validation_fpr03=operating_point(rows,.03),
+                validation_fpr03=point,validation_fpr03_groups=fixed_groups,
                 by_subject={s:metrics([r for r in rows if r['subject_id']==s]) for s in sorted({r['subject_id'] for r in rows})},
                 by_record={s:metrics([r for r in rows if r['record_id']==s]) for s in sorted({r['record_id'] for r in rows})})
 

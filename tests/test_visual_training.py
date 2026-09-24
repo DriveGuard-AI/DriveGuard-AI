@@ -73,6 +73,27 @@ class VisualTrainingTests(unittest.TestCase):
         self.assertEqual(float(context.grad[5].abs().sum()), 0)
         self.assertEqual(float(visual.grad[5].abs().sum()), 0)
 
+    def test_context_is_exact_fusion_initialization_with_zero_visual_input(self):
+        torch.manual_seed(21)
+        fusion = self.model_type()(512, 6, hidden_dim=8, mode='fusion').eval()
+        fusion_rng = torch.get_rng_state().clone()
+        torch.manual_seed(21)
+        context = self.model_type()(512, 6, hidden_dim=8, mode='context').eval()
+        torch.testing.assert_close(torch.get_rng_state(), fusion_rng, atol=0, rtol=0)
+        self.assertEqual(fusion.state_dict().keys(), context.state_dict().keys())
+        for key, value in fusion.state_dict().items():
+            torch.testing.assert_close(value, context.state_dict()[key], atol=0, rtol=0)
+        data = ProbeDataset()
+        expected = fusion(torch.zeros_like(data.visual), data.context, data.mask)
+        for visual in (data.visual, data.visual * 100,
+                       torch.full_like(data.visual, float('nan'))):
+            out = context(visual, data.context, data.mask)
+            torch.testing.assert_close(out['logits'], expected['logits'], atol=0, rtol=0)
+            torch.testing.assert_close(out['available'], expected['available'], atol=0, rtol=0)
+        self.assertEqual(expected['available'].tolist(), [True] * 5 + [False, True])
+        with self.assertRaisesRegex(ValueError, 'context_dim'):
+            self.model_type()(512, 0, mode='context')
+
     def test_unknown_and_unavailable_rows_do_not_change_updates_or_rng(self):
         model = self.model_type()(512, 6, hidden_dim=8, dropout=.2, mode='fusion')
         self.trainer()

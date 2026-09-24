@@ -105,3 +105,5 @@ runs/body-visual-comparison-001/comparison/comparison.csv
 - B/C 独立初始化，使用相同随机种子和训练日程。编码器全程冻结，不训练 MediaPipe；不会写回原缓存和原 checkpoint。
 
 本地验证覆盖真实官方权重的 CPU 编码、合成数据端到端、时间对齐、摘要/来源校验、固定评估分母和中断恢复。真实数据上的提升幅度、服务器总耗时以及 NPU 兼容性，需以此次服务器实际结果为准。
+
+第一轮融合结果后的后续对照见 [BODY_VISUAL_STABILITY.md](BODY_VISUAL_STABILITY.md)：复用 prepared 缓存，加入关闭 RGB 输入的配对对照、三个随机种子和早停，不必重新安装或提取 RGB。

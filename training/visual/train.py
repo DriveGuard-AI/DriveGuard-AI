@@ -18,8 +18,9 @@ def _settings(settings):
     settings = deepcopy(settings)
     required = {'epochs', 'batch_size', 'seed', 'learning_rate', 'weight_decay',
                 'gradient_clip_norm', 'hidden_dim', 'dropout', 'backend', 'device_index'}
-    if set(settings) != required:
-        raise ValueError('Probe settings must contain exactly the documented training settings')
+    optional = {'early_stopping_patience', 'early_stopping_min_delta'}
+    if not required <= settings.keys() or not settings.keys() <= required | optional:
+        raise ValueError('Probe settings must contain only the documented training settings')
     for key in ('epochs', 'batch_size', 'hidden_dim'):
         if type(settings[key]) is not int or settings[key] <= 0:
             raise ValueError(f'{key} must be a positive integer')
@@ -38,7 +39,22 @@ def _settings(settings):
         raise ValueError('dropout must be in [0,1)')
     if settings['backend'] not in ('cpu', 'cuda', 'npu'):
         raise ValueError('Unknown backend')
+    if 'early_stopping_patience' in settings:
+        patience = settings['early_stopping_patience']
+        if type(patience) is not int or patience <= 0:
+            raise ValueError('early_stopping_patience must be a positive integer')
+    if 'early_stopping_min_delta' in settings:
+        delta = settings['early_stopping_min_delta']
+        if isinstance(delta, bool) or not isinstance(delta, (int, float)) or not math.isfinite(delta) or delta < 0:
+            raise ValueError('early_stopping_min_delta must be finite and nonnegative')
     return settings
+
+
+def is_terminal(payload, settings=None):
+    """Recognize a completed stage even if the process died just after last.pt."""
+    settings = payload['settings'] if settings is None else settings
+    return (bool(payload.get('early_stopping_state', {}).get('stopped_early', False))
+            or payload['epoch'] >= settings['epochs'])
 
 
 def _check_supervision(dataset, split):
@@ -125,6 +141,16 @@ def _validate_payload(payload):
         raise ValueError('Checkpoint provenance normalizer mismatch')
     if payload['config'] != {'model': payload['model_params'], 'training': payload['settings']}:
         raise ValueError('Checkpoint configuration metadata mismatch')
+    patience = payload['settings'].get('early_stopping_patience')
+    if payload['kind'] == 'training' and patience is not None:
+        state = payload.get('early_stopping_state')
+        if not isinstance(state, dict) or set(state) != {'best', 'bad_epochs', 'stopped_early'}:
+            raise ValueError('Missing or invalid early_stopping_state')
+        best, bad, stopped = state['best'], state['bad_epochs'], state['stopped_early']
+        if (isinstance(best, bool) or not isinstance(best, (int, float)) or not math.isfinite(best)
+                or best < 0 or type(bad) is not int or not 0 <= bad <= payload['epoch']
+                or type(stopped) is not bool or stopped != (bad >= patience)):
+            raise ValueError('Invalid early_stopping_state')
 
 
 def load_probe(path, backend='cpu', device_index=0):
@@ -165,6 +191,8 @@ def train_probe(train_dataset, val_dataset, mode, settings, output_dir, provenan
         current.pop('epochs')
         if old != current or previous['model_params'] != params:
             raise ValueError('Resume configuration mismatch; only total epochs/output may change')
+        if previous.get('early_stopping_state', {}).get('stopped_early', False):
+            raise ValueError('Cannot resume an early-stopped checkpoint')
         if settings['epochs'] < old_epochs or settings['epochs'] <= previous['epoch']:
             raise ValueError('Resume total epochs must increase past the completed epoch')
         if 'val_loader' not in previous['rng_state']:
@@ -180,6 +208,9 @@ def train_probe(train_dataset, val_dataset, mode, settings, output_dir, provenan
     start = step = best_epoch = 0
     best_loss = float('inf')
     best_state = None
+    patience = settings.get('early_stopping_patience')
+    min_delta = settings.get('early_stopping_min_delta', 0.)
+    early_stopping = dict(best=float('inf'), bad_epochs=0, stopped_early=False) if patience else None
     if previous is not None:
         model.load_state_dict(previous['model_state'], strict=True)
         optimizer.load_state_dict(previous['optimizer_state'])
@@ -187,6 +218,8 @@ def train_probe(train_dataset, val_dataset, mode, settings, output_dir, provenan
         start, step = previous['epoch'], previous['global_step']
         best_epoch, best_loss = previous['best_epoch'], previous['best_val_loss']
         best_state = previous['best_model_state']
+        if patience:
+            early_stopping = deepcopy(previous['early_stopping_state'])
         restore_rng(previous['rng_state'], device, generator)
         val_generator.set_state(previous['rng_state']['val_loader'])
     train_loader = DataLoader(train_dataset, batch_size=settings['batch_size'], shuffle=True,
@@ -209,18 +242,29 @@ def train_probe(train_dataset, val_dataset, mode, settings, output_dir, provenan
         if val_report['loss'] < best_loss:
             best_loss, best_epoch = val_report['loss'], epoch
             best_state = cpu_tree(model.state_dict())
+        if early_stopping is not None:
+            if val_report['loss'] < early_stopping['best'] - min_delta:
+                early_stopping.update(best=val_report['loss'], bad_epochs=0)
+            else:
+                early_stopping['bad_epochs'] += 1
+            early_stopping['stopped_early'] = early_stopping['bad_epochs'] >= patience
         rng = capture_rng(device, generator)
         rng['val_loader'] = val_generator.get_state()
+        stopping_metadata = {'early_stopping_state': early_stopping} if early_stopping is not None else {}
         save_checkpoint(output/'last.pt', dict(base, kind='training', epoch=epoch, global_step=step,
                         model_state=model.state_dict(), optimizer_state=optimizer.state_dict(),
                         best_val_loss=best_loss, best_epoch=best_epoch, best_model_state=best_state,
-                        rng_state=rng, history=history))
+                        rng_state=rng, history=history, **stopping_metadata))
         save_checkpoint(output/'best.pt', dict(base, kind='weights', epoch=best_epoch,
                         model_state=best_state, best_val_loss=best_loss))
         atomic_json(output/'history.json', history)
         print(f"{mode} epoch {epoch}/{settings['epochs']} step={step} "
               f"train_bce={train_report['loss']:.6f} val_bce={val_report['loss']:.6f}", flush=True)
-    result = dict(completed_epochs=settings['epochs'], global_step=step, mode=mode,
+        if early_stopping is not None and early_stopping['stopped_early']:
+            break
+    result = dict(completed_epochs=epoch, max_epochs=settings['epochs'],
+                  stopped_early=bool(early_stopping and early_stopping['stopped_early']),
+                  global_step=step, mode=mode,
                   best_epoch=best_epoch, best_val_loss=best_loss, selection_metric='binary_validation_bce',
                   best_checkpoint=str(output/'best.pt'), last_checkpoint=str(output/'last.pt'), device=str(device))
     atomic_json(output/'result.json', result)

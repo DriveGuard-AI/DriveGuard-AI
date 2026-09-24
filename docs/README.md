@@ -6,6 +6,7 @@
 
 | 文档 | 主要读者 | 作用 | 当前状态 |
 | --- | --- | --- | --- |
+| [coverage25＋C_fusion 全任务对照](training/COVERAGE25_COMPOSITE.md) | 算法、服务器操作者 | 保留 gap80 上下文、更换其他任务输出、成本记录和疲劳证据审计 | 真实新组合效果待服务器执行 |
 | [C_fusion 组合全任务评估](training/VISUAL_ALL_TASKS.md) | 算法、服务器操作者 | 仅替换 body 分心、全任务及分视角指标、逐窗口一致性核验 | 真实组合结果待服务器执行 |
 | [body 分心后续对照策略](body-dist-next-strategies.md) | 算法、评审者 | H 分组互补、单裁剪与时序采样实验及停止条件 | 基于已有验证报告的待验证假设 |
 | [服务器后台并行提取](training/SERVER_EXTRACTION.md) | shadow、服务器操作者 | YOLO11s NPU、MediaPipe CPU、6/3/3并发、nohup及自动发布 | 工程实现；新版真实NPU及吞吐待服务器验证 |

@@ -9,13 +9,15 @@ import numpy as np
 import torch
 
 from training.common.checkpoint import atomic_json
-from training.common.config import TASKS, read_json
+from training.common.config import TASKS, canonical_hash, read_json
 from training.common.data import file_sha256
 from training.common.model_factory import load_model
 from training.gaze.data import FeatureCorpus
 from training.gaze.metrics import GazeMetrics
 from training.visual.data import METADATA, PreparedData
 from training.visual.report import evaluate, metrics, summarize, write_rows
+from training.visual.evaluation_cost import measure_pass, model_footprint, modelstate_footprint
+from training.visual.model import VisualProbe
 
 LOGIT_ATOL = 1e-4
 
@@ -91,6 +93,63 @@ def compose(baseline, probe_rows, threshold):
                  passed=score_equal and mask_equal and gaze_equal)
     if not audit['passed']:
         raise ValueError('Composition equality audit failed')
+    return result, audit
+
+
+def _align_output_base(baseline, alternate):
+    left, right = _indexed(baseline), _indexed(alternate)
+    if set(left) != set(right):
+        raise ValueError('Output-base window identity set mismatch')
+    for key, row in left.items():
+        other = right[key]
+        if any(row[field] != other[field] for field in METADATA):
+            raise ValueError('Output-base window metadata mismatch')
+        if any(row[field] != other[field] for field in
+               ('targets', 'label_known', 'gaze_target', 'gaze_label_known')):
+            raise ValueError('Output-base window label mismatch')
+        for prediction in (row, other):
+            _finite(prediction['behavior_logits'])
+            _finite(prediction['gaze_logits'])
+            for threshold in prediction['thresholds']:
+                if threshold is not None:
+                    _finite(threshold)
+    return right
+
+
+def replace_output_base(gap80_composite, coverage_rows):
+    """Replace non-C outputs by identity; retain gap80 fallback and H cohorts."""
+    coverage = _align_output_base(gap80_composite, coverage_rows)
+    result = deepcopy(gap80_composite)
+    behavior_fields = ('behavior_logits', 'task_available', 'thresholds')
+    gaze_fields = ('gaze_logits', 'gaze_available', 'gaze_target', 'gaze_label_known')
+    branch_fields = ('body_probe_available', 'body_probe_logit', 'body_probe_threshold',
+                     'body_distraction_source')
+    for row in result:
+        alternate = coverage[_key(row)]
+        columns = range(3) if row['view'] == 'body' else range(4)
+        for field in behavior_fields:
+            for column in columns:
+                row[field][column] = deepcopy(alternate[field][column])
+        for field in gaze_fields:
+            row[field] = deepcopy(alternate[field])
+        row['output_base_h_eligible'] = alternate['h_eligible']
+    branch_equal = behavior_equal = gaze_equal = cohorts_equal = True
+    for original, row in zip(gap80_composite, result):
+        alternate = coverage[_key(row)]
+        columns = range(3) if row['view'] == 'body' else range(4)
+        behavior_equal &= all(row[field][column] == alternate[field][column]
+                              for field in behavior_fields for column in columns)
+        gaze_equal &= all(row[field] == alternate[field] for field in gaze_fields)
+        cohorts_equal &= row['h_eligible'] == original['h_eligible']
+        if row['view'] == 'body':
+            branch_equal &= all(row[field][3] == original[field][3] for field in behavior_fields)
+            branch_equal &= all(row.get(field) == original.get(field) for field in branch_fields)
+    audit = dict(c_branch_and_gap80_fallback_equal=branch_equal,
+                 output_base_behavior_logits_thresholds_masks_equal=behavior_equal,
+                 output_base_gaze_equal=gaze_equal, frozen_gap80_h_cohorts_equal=cohorts_equal,
+                 passed=branch_equal and behavior_equal and gaze_equal and cohorts_equal)
+    if not audit['passed']:
+        raise ValueError('Output-base composition equality audit failed')
     return result, audit
 
 
@@ -243,7 +302,7 @@ def _source_entries(source):
 
 
 def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_index=0,
-        batch_size=64, split='val'):
+        batch_size=64, split='val', output_base_checkpoint=None):
     """Evaluate three preselected candidates without training or threshold tuning."""
     if split != 'val':
         raise ValueError('Only val is supported; test threshold selection is prohibited')
@@ -256,18 +315,28 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
     source = read_json(source_path)
     entries = _source_entries(source)
     prepared = PreparedData(prepared_dir)
-    corpus = None
+    corpus = output_corpus = None
     try:
         reference = prepared.report
         baseline_path = Path(reference['baseline_checkpoint']).resolve(strict=True)
+        output_base_path = (Path(output_base_checkpoint).resolve(strict=True)
+                            if output_base_checkpoint is not None else None)
         checkpoints = [Path(e['checkpoint']).resolve(strict=True) for e in entries]
         sources = [prepared.root, prepared.cache.root, Path(reference['data_root']).resolve(strict=True),
-                   baseline_path.parent, *(p.parent for p in checkpoints)]
+                   baseline_path.parent, *(p.parent for p in checkpoints),
+                   *([output_base_path.parent] if output_base_path else [])]
         if (any(output.is_relative_to(p) or p.is_relative_to(output) for p in sources) or
                 source_path.is_relative_to(output) or Path(reference['manifest']).resolve().is_relative_to(output)):
             raise ValueError('Output overlaps input artifacts')
         watched = [baseline_path, *checkpoints, source_path, prepared.root/'prepared.json',
-                   Path(reference['manifest']), prepared.cache.root/'manifest.json']
+                   Path(reference['manifest']), prepared.cache.root/'manifest.json',
+                   *([output_base_path] if output_base_path else [])]
+        watched += [p.with_suffix(p.suffix+'.sha256.json')
+                    for p in [baseline_path, *checkpoints, *([output_base_path] if output_base_path else [])]]
+        watched += [prepared.root/entry['rows'] for entry in reference['splits'].values()]
+        watched += [prepared.cache.root/'input.json',
+                    *(prepared.cache.root/entry['directory']/'record.json'
+                      for entry in prepared.cache.records.values())]
         hashes = {p: file_sha256(p) for p in watched}
         if hashes[baseline_path] != reference['baseline_checkpoint_sha256']:
             raise ValueError('Baseline checkpoint hash mismatch')
@@ -286,14 +355,57 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
         if corpus.summary != payload['data_summary'] or corpus.summary['fingerprint'] != reference['data_fingerprint']:
             raise ValueError('Corpus/baseline data fingerprint mismatch')
         print('Evaluating frozen gap80 baseline on all validation views', flush=True)
-        baseline = _baseline_rows(model, corpus.dataset(split, payload['normalizer']), batch_size)
+        inventory = {'gap80': dict(checkpoint=str(baseline_path), checkpoint_sha256=hashes[baseline_path],
+                                   **model_footprint(model))}
+        baseline, baseline_cost = measure_pass(
+            lambda: _baseline_rows(model, corpus.dataset(split, payload['normalizer']), batch_size),
+            backend, device_index)
+        stages = [dict(name='gap80_cached_feature_inference', includes_model_load=False, **baseline_cost)]
         alignment = _verify_baseline(baseline, prepared.rows[split])
         del model
         composites = []
         predictions = [('A_gap80', baseline)]
+        output_base = None
+        coverage = None
+        if output_base_path is not None:
+            model, output_payload = load_model(output_base_path, backend, device_index)
+            model.eval().requires_grad_(False)
+            output_config = output_payload['config']
+            if (output_config['model']['kind'] != 'relation_gaze_head_policy_v1' or
+                    output_config['model']['head_policy'] != dict(min_valid_ratio=.25, max_gap_steps=0)):
+                raise ValueError('Expected frozen coverage25 output base')
+            output_corpus = FeatureCorpus(output_config, reference['manifest'], reference['data_root'])
+            if (output_corpus.summary != output_payload['data_summary'] or
+                    output_corpus.summary['fingerprint'] != corpus.summary['fingerprint']):
+                raise ValueError('Output-base corpus/checkpoint data fingerprint mismatch')
+            inventory['coverage25'] = dict(checkpoint=str(output_base_path),
+                checkpoint_sha256=hashes[output_base_path], **model_footprint(model))
+            print('Evaluating frozen coverage25 output base with its own normalizer', flush=True)
+            coverage, cost = measure_pass(lambda: _baseline_rows(
+                model, output_corpus.dataset(split, output_payload['normalizer']), batch_size), backend, device_index)
+            stages.append(dict(name='coverage25_cached_feature_inference', includes_model_load=False, **cost))
+            _align_output_base(baseline, coverage)
+            output_base = dict(name='A_coverage25', checkpoint=str(output_base_path),
+                checkpoint_sha256=hashes[output_base_path], checkpoint_epoch=output_payload['epoch'],
+                normalizer_sha256=canonical_hash(output_payload['normalizer']),
+                head_policy=output_config['model']['head_policy'],
+                data_fingerprint=output_corpus.summary['fingerprint'], model_dependencies=['coverage25'],
+                **summarize_all(coverage))
+            predictions.append((output_base['name'], coverage))
+            del model
         for entry, checkpoint in zip(entries, checkpoints):
             print(f"Evaluating C_fusion seed{entry['seed']} best body predictions", flush=True)
-            probe_rows, probe_payload = evaluate(prepared.dataset(split), checkpoint, backend, device_index, batch_size)
+            (probe_rows, probe_payload), cost = measure_pass(
+                lambda: evaluate(prepared.dataset(split), checkpoint, backend, device_index, batch_size),
+                backend, device_index)
+            probe_name = f"C_fusion_seed{entry['seed']}"
+            stages.append(dict(name=probe_name+'_cached_feature_inference', includes_model_load=True, **cost))
+            # A metadata-only model distinguishes parameters from buffers without
+            # loading another checkpoint, running inference, or allocating weights.
+            with torch.device('meta'):
+                probe_shape = VisualProbe(**probe_payload['model_params'])
+            inventory[probe_name] = dict(checkpoint=str(checkpoint), checkpoint_sha256=hashes[checkpoint],
+                state_payload=modelstate_footprint(probe_payload['model_state']), **model_footprint(probe_shape))
             if (probe_payload['model_params']['mode'] != 'fusion' or
                     probe_payload['settings']['seed'] != entry['seed'] or probe_payload['epoch'] != entry['epoch']):
                 raise ValueError('Candidate checkpoint identity mismatch')
@@ -315,11 +427,21 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
                 name = f"C_fusion_seed{entry['seed']}_{kind}"
                 rows, audit = compose(baseline, probe_rows, threshold)
                 composites.append(dict(name=name, seed=entry['seed'], checkpoint=str(checkpoint),
+                    output_base='A_gap80', model_dependencies=['gap80', probe_name],
                     checkpoint_sha256=hashes[checkpoint], checkpoint_epoch=entry['epoch'],
                     body_threshold_logit=threshold, threshold_source=kind,
                     window_label_hash=entry['window_label_hash'], equality_audit=audit,
                     paired_body_errors=paired_errors(baseline, rows), **summarize_all(rows)))
                 predictions.append((name, rows))
+                if coverage is not None:
+                    alternate_rows, alternate_audit = replace_output_base(rows, coverage)
+                    alternate_name = name+'_coverage25_outputs'
+                    item = deepcopy(composites[-1])
+                    item.update(name=alternate_name, output_base='A_coverage25',
+                        model_dependencies=['gap80', 'coverage25', probe_name], equality_audit=alternate_audit,
+                        paired_body_errors=paired_errors(baseline, alternate_rows), **summarize_all(alternate_rows))
+                    composites.append(item)
+                    predictions.append((alternate_name, alternate_rows))
         for path, digest in hashes.items():
             if file_sha256(path) != digest:
                 raise ValueError('Input artifact changed during evaluation')
@@ -329,23 +451,29 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
                 stability_report=str(source_path), stability_report_sha256=hashes[source_path],
                 baseline_checkpoint=str(baseline_path), baseline_checkpoint_sha256=hashes[baseline_path],
                 data_fingerprint=corpus.summary['fingerprint'], manifest_sha256=file_sha256(reference['manifest'])),
-            baseline_alignment=alignment, baseline=dict(name='A_gap80', **summarize_all(baseline)),
+            baseline_alignment=alignment, baseline=dict(name='A_gap80', model_dependencies=['gap80'], **summarize_all(baseline)),
+            evaluation_cost=dict(stages=stages, model_inventory=inventory,
+                scope='Cached-feature evaluation only; stage timings are not combined deployment latency.',
+                excluded='RGB encoder, raw-video decode/extraction, and combined-device production peak memory.'),
             composites=composites, notes=[
                 'Fresh validation inference only; no training, held-out evaluation or deployment claim.',
                 'Body distraction uses C_fusion only when RGB is available; otherwise baseline logit, mask and zero threshold remain.',
                 'Unknown labels are excluded; unavailable positives remain in all-positive denominators.',
                 'Effective F1/recall use known available rows; gaze accuracy/macro F1/confusion use known available rows.',
-                'Gaze and all behavior outputs except body distraction are copied exactly from the single baseline pass.',
+                'Gaze and non-body-distraction behavior outputs are copied exactly from each composition output base.',
+                'Coverage25 composites retain original gap80 missing-RGB fallback and frozen gap80 H cohorts.',
                 'Source thresholds are validation-selected; recomputed sweeps verify source identity and never choose a replacement threshold.',
                 'Baseline/probe floating-point comparisons allow absolute tolerance 0.0001; counts and labels must match.',
                 'Paired all-labeled errors treat unavailable predictions as no detection; strict counts require both outputs available.'])
+        if output_base is not None:
+            report['output_base'] = output_base
         output.mkdir(parents=True, exist_ok=False)
         with (output/'predictions.jsonl').open('w', encoding='utf-8') as handle:
             for name, rows in predictions:
                 for row in rows:
                     handle.write(json.dumps(dict(candidate=name, **row), allow_nan=False)+'\n')
         flat = []
-        for item in (report['baseline'], *composites):
+        for item in (report['baseline'], *([output_base] if output_base else []), *composites):
             for group, values in [('overall', {'all': item['overall']}),
                                   *((key, item[key]) for key in ('by_view', 'by_subject', 'by_subset'))]:
                 for value, summary in values.items():
@@ -365,6 +493,8 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
         prepared.close()
         if corpus is not None:
             corpus.close()
+        if output_corpus is not None:
+            output_corpus.close()
 
 
 def main(argv=None):
@@ -375,6 +505,7 @@ def main(argv=None):
     parser.add_argument('--device-index', type=int, default=0)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--split', choices=('val',), default='val')
+    parser.add_argument('--output-base-checkpoint')
     try:
         args = parser.parse_args(argv)
         result = run(**vars(args))

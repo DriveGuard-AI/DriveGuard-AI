@@ -23,6 +23,15 @@ bash scripts/server/setup_body_visual.sh
 
 脚本用原 NPU Python 创建 `.venv-visual-npu`，继承已有 torch、torch_npu 和 NumPy，只安装 PyAV 12.3.0 / Pillow 10.4.0，不安装 torchvision。权重来自 `https://download.pytorch.org/models/resnet18-f37072fd.pth`，完整 SHA256 必须是 `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`。已有文件摘要不符会报错，不覆盖。离线机器可手动放置同一文件到 `models/local/resnet18-f37072fd.pth`，仍会校验。
 
+若已看到 `Visual dependencies ready` 后出现下载超时，依赖安装已完成，只需重试权重下载，无需重新安装环境。下载器默认每次网络操作超时 300 秒、最多尝试 3 次；失败的临时文件会清理，下次尝试从头下载。只有验证通过的完整权重才会发布。
+
+```bash
+.venv-visual-npu/bin/python -m training.visual.weights --download \
+  --timeout 300 --attempts 3
+```
+
+该命令成功后再启动训练。自编 `test.sh` 应加 `set -e`，或用 `if`/`&&` 连接准备与启动步骤，避免安装/下载失败后仍启动后台进程。后台 PID 不代表训练成功。如果服务器持续无法访问官方下载地址，可在能联网的机器下载同一权重并传到上述位置，再运行不带 `--download` 的校验命令。
+
 启动后台流水线：
 
 ```bash

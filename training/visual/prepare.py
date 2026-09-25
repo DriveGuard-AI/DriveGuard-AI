@@ -14,7 +14,7 @@ from training.visual.data import VisualCache,METADATA
 
 
 @torch.no_grad()
-def frozen_context(model,inputs):
+def frozen_context(model,inputs,task_index=3):
     if model.training: raise ValueError('Reference model must be frozen in eval mode')
     output=model(**inputs)
     embeddings=model.checked_embeddings(**inputs)
@@ -24,7 +24,7 @@ def frozen_context(model,inputs):
     head_quality=torch.stack((ratio,freshness),dim=-1).masked_fill(~eligible[:,None],0)
     quality=inputs['quality'].masked_fill(~inputs['eligible'][:,:,None],0)
     return torch.cat((embeddings.flatten(1),head,quality.flatten(1),head_quality,
-                      inputs['eligible'].float(),eligible[:,None].float(),output['behavior_logits'][:,3:4]),dim=1),output
+                      inputs['eligible'].float(),eligible[:,None].float(),output['behavior_logits'][:,task_index:task_index+1]),dim=1),output
 
 
 def fit_statistics(chunks,size):
@@ -40,7 +40,10 @@ def fit_statistics(chunks,size):
     return dict(count=count,mean=mean.tolist(),std=np.maximum(np.sqrt(np.maximum(m2,0)/count),1e-6).tolist())
 
 
-def prepare(*,checkpoint,visual_cache,output_dir,manifest=None,data_root=None,backend='cpu',device_index=0,batch_size=64):
+def prepare(*,checkpoint,visual_cache,output_dir,manifest=None,data_root=None,backend='cpu',device_index=0,batch_size=64,task='distraction'):
+    from training.common.config import TASKS
+    if task not in ('distraction','fatigue'):raise ValueError('Unsupported visual task')
+    task_index=TASKS.index(task)
     if type(batch_size)!=int or batch_size<1: raise ValueError('Invalid preparation batch size')
     output=Path(output_dir).resolve()
     if output.exists():raise FileExistsError('Use a NEW preparation output_dir')
@@ -79,18 +82,20 @@ def prepare(*,checkpoint,visual_cache,output_dir,manifest=None,data_root=None,ba
                 for start in range(0,len(indices),batch_size):
                     items=[dataset[i] for i in indices[start:start+batch_size]]
                     tensors={k:torch.as_tensor(np.stack([item[0][k] for item in items]),device=device) for k in items[0][0]}
-                    encoded,predictions=frozen_context(model,tensors)
+                    encoded,predictions=frozen_context(model,tensors,task_index)
                     context[start:start+len(items)]=encoded.cpu().numpy()
-                    logits=predictions['behavior_logits'][:,3].cpu().tolist()
-                    available=predictions['task_available'][:,3].cpu().tolist()
+                    logits=predictions['behavior_logits'][:,task_index].cpu().tolist()
+                    available=predictions['task_available'][:,task_index].cpu().tolist()
                     heads=predictions['head_available'].cpu().tolist()
                     for offset,(inputs,target,known,*_) in enumerate(items):
                         record,slot=dataset.locate(indices[start+offset])
                         rows.append(dict(**{k:record[k] for k in METADATA},start_slot=slot,end_slot=slot+99,
-                                         visual_start=slot//25*2,label_known=bool(known[3]),target=int(target[3]),
+                                         visual_start=slot//25*2,label_known=bool(known[task_index]),
+                                         target=int(target[task_index]) if known[task_index] else 0,
                                          baseline_available=bool(available[offset]),
                                          baseline_logit=float(logits[offset]) if available[offset] else None,
                                          h_eligible=bool(heads[offset])))
+                        if task=='fatigue':rows[-1]['f_eligible']=bool(inputs['eligible'][0])
                 context.flush()
             finally: context._mmap.close()
             row_path=output/(split+'-windows.json');atomic_json(row_path,rows)
@@ -115,9 +120,11 @@ def prepare(*,checkpoint,visual_cache,output_dir,manifest=None,data_root=None,ba
                     manifest=str(manifest),data_root=str(data_root),visual_cache=str(visual_cache),
                     visual_cache_sha256=cache.manifest_sha256,context_dim=dimension,
                     normalization=normalization,splits=split_report,
-                    notes=['Reference model frozen; only body distraction probes are trained.',
+                    notes=[f'Reference model frozen; only body {task} probes are trained.',
                            'RGB normalization uses unique train samples; context normalization uses train windows only.',
                            'Reference epoch selected by original joint validation loss; probes use binary validation BCE.'])
+        if task=='fatigue':
+            report.update(schema_version='driveguard-visual-prepared-v2',task=task)
         atomic_json(output/'prepared.json',report)
         return report
     finally:
@@ -130,6 +137,7 @@ def main(argv=None):
     for name in ('checkpoint','visual-cache','output-dir'):parser.add_argument('--'+name,required=True)
     for name in ('manifest','data-root'):parser.add_argument('--'+name)
     parser.add_argument('--backend',choices=('cpu','cuda','npu'),default='cpu')
+    parser.add_argument('--task',choices=('distraction','fatigue'),default='distraction')
     parser.add_argument('--device-index',type=int,default=0);parser.add_argument('--batch-size',type=int,default=64)
     try:
         args=parser.parse_args(argv);result=prepare(**vars(args))

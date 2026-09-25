@@ -75,6 +75,7 @@ def run_suite(prepared_dir,output_dir,settings=None,continue_run=False):
     settings=_settings(dict(DEFAULTS if settings is None else settings))
     output=Path(output_dir).resolve();prepared=PreparedData(prepared_dir)
     try:
+        if prepared.task!='distraction':raise ValueError('This suite requires distraction prepared data')
         for source in (prepared.root,prepared.cache.root,Path(prepared.report['baseline_checkpoint']).parent):
             if output.is_relative_to(source) or source.is_relative_to(output):raise ValueError('Suite output overlaps input artifacts')
         plan=dict(schema_version='driveguard-visual-suite-v1',settings=settings,provenance=prepared.provenance)

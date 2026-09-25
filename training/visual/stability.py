@@ -108,6 +108,7 @@ def run_stability(*,prepared_dir,output_dir,backend='npu',device_index=0,epochs=
     base=_settings(base)
     prepared=PreparedData(prepared_dir);output=Path(output_dir).resolve()
     try:
+        if prepared.task!='distraction':raise ValueError('This suite requires distraction prepared data')
         sources=(prepared.root,prepared.cache.root,Path(prepared.report['baseline_checkpoint']).parent,
                  Path(prepared.report['data_root']))
         if any(output.is_relative_to(p) or p.is_relative_to(output) for p in sources):

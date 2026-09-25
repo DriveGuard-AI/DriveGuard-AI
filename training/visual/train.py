@@ -18,7 +18,7 @@ def _settings(settings):
     settings = deepcopy(settings)
     required = {'epochs', 'batch_size', 'seed', 'learning_rate', 'weight_decay',
                 'gradient_clip_norm', 'hidden_dim', 'dropout', 'backend', 'device_index'}
-    optional = {'early_stopping_patience', 'early_stopping_min_delta'}
+    optional = {'early_stopping_patience', 'early_stopping_min_delta', 'positive_weight'}
     if not required <= settings.keys() or not settings.keys() <= required | optional:
         raise ValueError('Probe settings must contain only the documented training settings')
     for key in ('epochs', 'batch_size', 'hidden_dim'):
@@ -47,6 +47,9 @@ def _settings(settings):
         delta = settings['early_stopping_min_delta']
         if isinstance(delta, bool) or not isinstance(delta, (int, float)) or not math.isfinite(delta) or delta < 0:
             raise ValueError('early_stopping_min_delta must be finite and nonnegative')
+    weight = settings.get('positive_weight', 1.)
+    if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight) or weight <= 0:
+        raise ValueError('positive_weight must be finite and positive')
     return settings
 
 
@@ -67,7 +70,7 @@ def _check_supervision(dataset, split):
     raise ValueError(f'{split} has no usable supervision')
 
 
-def run_epoch(model, loader, device, optimizer=None, gradient_clip_norm=1.):
+def run_epoch(model, loader, device, optimizer=None, gradient_clip_norm=1., positive_weight=1.):
     """Supervise known, available rows; retain all rows in coverage reporting."""
     training = optimizer is not None
     model.train(training)
@@ -99,7 +102,9 @@ def run_epoch(model, loader, device, optimizer=None, gradient_clip_norm=1.):
                 optimizer.zero_grad(set_to_none=True)
             outputs = model(**selected)
             logits = outputs['logits']
-            losses = F.binary_cross_entropy_with_logits(logits, selected_target, reduction='none')
+            # Validation remains unweighted so checkpoint selection is comparable.
+            weight = logits.new_tensor(positive_weight) if training and positive_weight != 1. else None
+            losses = F.binary_cross_entropy_with_logits(logits, selected_target, reduction='none', pos_weight=weight)
             loss = losses.mean()
             if not bool(torch.isfinite(loss)):
                 raise ValueError('Nonfinite binary probe loss')
@@ -235,7 +240,10 @@ def train_probe(train_dataset, val_dataset, mode, settings, output_dir, provenan
     atomic_json(output/'config.json', base['config'])
     atomic_json(output/'provenance.json', provenance)
     for epoch in range(start + 1, settings['epochs'] + 1):
-        train_report = run_epoch(model, train_loader, device, optimizer, settings['gradient_clip_norm'])
+        weight_options = ({'positive_weight': settings['positive_weight']}
+                          if settings.get('positive_weight', 1.) != 1. else {})
+        train_report = run_epoch(model, train_loader, device, optimizer, settings['gradient_clip_norm'],
+                                 **weight_options)
         val_report = run_epoch(model, val_loader, device)
         step += train_report['updates']
         history.append(dict(epoch=epoch, global_step=step, train=train_report, val=val_report))

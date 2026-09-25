@@ -317,6 +317,8 @@ def run(*, prepared_dir, stability_report, output_dir, backend='cpu', device_ind
     prepared = PreparedData(prepared_dir)
     corpus = output_corpus = None
     try:
+        if prepared.task != 'distraction':
+            raise ValueError('Body distraction composition requires distraction prepared data')
         reference = prepared.report
         baseline_path = Path(reference['baseline_checkpoint']).resolve(strict=True)
         output_base_path = (Path(output_base_checkpoint).resolve(strict=True)

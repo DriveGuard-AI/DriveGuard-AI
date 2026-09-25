@@ -157,8 +157,12 @@ def scale(values,state):
 class PreparedData:
     def __init__(self,root):
         self.root=Path(root).resolve(strict=True);self.report=read_json(self.root/'prepared.json')
-        if self.report.get('schema_version') != 'driveguard-visual-prepared-v1' or self.report.get('status') != 'complete':
+        schema=self.report.get('schema_version')
+        if schema not in ('driveguard-visual-prepared-v1','driveguard-visual-prepared-v2') or self.report.get('status') != 'complete':
             raise ValueError('Prepared visual data incomplete')
+        self.task=self.report.get('task','distraction')
+        if (schema=='driveguard-visual-prepared-v1' and self.task!='distraction') or (schema=='driveguard-visual-prepared-v2' and self.task!='fatigue'):
+            raise ValueError('Invalid prepared task/schema identity')
         self.cache=VisualCache(self.report['visual_cache']);self.contexts={};self.rows={}
         self.normalizer=self.report['normalization']
         try:
@@ -177,6 +181,7 @@ class PreparedData:
                     if not np.isfinite(context[start:start+2048]).all(): raise ValueError('Invalid prepared context')
                 seen=set()
                 for row in rows:
+                    if self.task=='fatigue' and type(row.get('f_eligible'))!=bool:raise ValueError('Missing baseline F eligibility')
                     record=self.cache.records[row['record_id']]
                     if any(row[k]!=record[k] for k in METADATA) or row['split'] != split: raise ValueError('Prepared split/metadata mismatch')
                     start=row['start_slot'];key=(row['record_id'],start)

@@ -1,0 +1,34 @@
+{
+  "schema_version": "driveguard-face-experiments-v1",
+  "crop_scope": {
+    "record_id": "4b680f020a0947c1fdebfea8",
+    "video_sha256": "afd10c8218d4bb49e68722ec7664f7fbb044ff8097125fb3cf15d8aa5c646481",
+    "image_size": [
+      1280,
+      720
+    ]
+  },
+  "variants": [
+    {
+      "name": "baseline",
+      "mode": "VIDEO",
+      "detection": 0.5,
+      "presence": 0.5,
+      "tracking": 0.5,
+      "crop_xyxy": null
+    },
+    {
+      "name": "head_crop",
+      "mode": "VIDEO",
+      "detection": 0.5,
+      "presence": 0.5,
+      "tracking": 0.5,
+      "crop_xyxy": [
+        0.2392344505467428,
+        0.03086787319639653,
+        0.4383971154320008,
+        0.39450423683276015
+      ]
+    }
+  ]
+}

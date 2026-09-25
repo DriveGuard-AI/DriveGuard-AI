@@ -32,16 +32,28 @@ def _candidate(face, index, width, height, roi):
     return detail
 
 
-def inspect_face(faces, matrices, observation, width, height, roi, exclusive):
+def inspect_face(faces, matrices, observation, width, height, roi, exclusive, *, head_roi=None, enforce_head_roi=False):
     """Reason precedence mirrors face_observation; raw candidates never become evidence."""
     candidates = [_candidate(face, i, width, height, roi) for i,face in enumerate(faces)]
+    for candidate in candidates:
+        bounds = candidate['bbox']
+        candidate['inside_head_region'] = (None if head_roi is None else bool(
+            candidate['invalid_reason'] is None and bounds is not None and
+            head_roi[0] <= bounds[0] <= bounds[2] <= head_roi[2] and
+            head_roi[1] <= bounds[1] <= bounds[3] <= head_roi[3]))
     selected = [c['index'] for c in candidates if c['invalid_reason'] is None and c['inside_roi']]
+    outside = [i for i in selected if candidates[i]['inside_head_region'] is False]
+    driver_selected = list(selected)
+    if enforce_head_roi:
+        selected = [i for i in selected if candidates[i]['inside_head_region'] is True]
     if not faces:
         reason = 'no_face_detected'
     elif any(c['invalid_reason'] for c in candidates):
         reason = 'invalid_landmarks'  # Existing adapter rejects ALL if any candidate is invalid.
-    elif not selected:
+    elif not driver_selected:
         reason = 'outside_roi'
+    elif not selected:
+        reason = 'outside_head_region'
     elif len(selected) > 1:
         reason = 'ambiguous_faces'
     elif not exclusive:
@@ -59,6 +71,10 @@ def inspect_face(faces, matrices, observation, width, height, roi, exclusive):
     left = iris.get('iris_left_x') is not None and iris.get('iris_left_y') is not None
     right = iris.get('iris_right_x') is not None and iris.get('iris_right_y') is not None
     return dict(reason=reason, detected_faces=len(faces), roi_candidates=len(selected),
+                head_region_pixels=head_roi, head_region_enforced=enforce_head_roi,
+                outside_head_region_candidates=len(outside),
+                head_region_rejected_candidates=len(outside) if enforce_head_roi else 0,
+                accepted_face_outside_head_region=bool(face_usable and len(selected) == 1 and selected[0] in outside),
                 selected_index=selected[0] if len(selected)==1 and not any(c['invalid_reason'] for c in candidates) else None,
                 candidates=candidates, face_usable=face_usable,
                 head_usable=face_usable and observation['head_pose'] is not None,

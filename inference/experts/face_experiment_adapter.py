@@ -6,13 +6,20 @@ from types import SimpleNamespace
 
 from inference.experts.assets import model_identity, verify_asset
 from inference.experts.mediapipe_adapter import face_observation, to_rgb
-from training.dmd.face_experiment_config import BASELINE, validate_config
+from training.dmd.face_experiment_config import BASELINE, validate_rectangle, validate_variants
 
 
 class FaceExperimentAdapter:
-    def __init__(self, face_asset, *, driver_roi, driver_region_confirmed_exclusive, variant):
-        validate_config(dict(schema_version='driveguard-face-experiments-v1',
-                            variants=[variant] if variant == BASELINE else [BASELINE, variant]))
+    def __init__(self, face_asset, *, driver_roi, driver_region_confirmed_exclusive, variant, head_region=None):
+        regional = 'head_region_mode' in variant
+        baseline = dict(BASELINE, head_region_mode='none') if regional else BASELINE
+        validate_variants([variant] if variant == baseline else [baseline, variant], regional=regional)
+        if head_region is not None:
+            validate_rectangle(head_region)
+        self._region_mode = variant.get('head_region_mode', 'none')
+        if self._region_mode != 'none' and head_region is None:
+            raise ValueError('Scoped head region is required for gate/crop')
+        self._head_region = list(head_region) if head_region is not None else None
         if type(driver_region_confirmed_exclusive) is not bool:
             raise ValueError('Driver exclusivity must be an explicit boolean')
         if not isinstance(driver_roi, (tuple, list)) or len(driver_roi) != 4 or not all(
@@ -32,12 +39,14 @@ class FaceExperimentAdapter:
             delegate='CPU', mode='VIDEO', num_faces=2, num_hands=4, confidence=.5,
             coordinates='full-frame-unmirrored-xy', driver_roi=self._roi,
             driver_region_confirmed_exclusive=self._exclusive, gaze_geometry='mediapipe-matrix-iris-v1')
-        self.baseline_face_model_id = model_identity('mediapipe-face', asset, original_settings) if variant == BASELINE else None
+        self.baseline_face_model_id = model_identity('mediapipe-face', asset, original_settings) if variant == baseline else None
         settings = dict(implementation='driveguard-face-experiment-v1', version=self._mp.__version__,
             delegate='CPU', num_faces=2, variant=self.variant, driver_roi=self._roi,
             driver_region_confirmed_exclusive=self._exclusive, gaze_geometry='mediapipe-matrix-iris-v1',
             landmark_coordinates='original-image-pixels',
-            pose_coordinate_frame='crop-experimental' if variant['crop_xyxy'] else 'full-frame')
+            pose_coordinate_frame='crop-experimental' if variant['crop_xyxy'] or self._region_mode == 'crop' else 'full-frame')
+        if regional:
+            settings['head_region'] = self._head_region
         self.experiment_model_id = model_identity('mediapipe-face-experiment', asset, settings)
         try:
             self._face = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
@@ -62,6 +71,11 @@ class FaceExperimentAdapter:
         if self._roi[2] > width or self._roi[3] > height or self._shape not in (None, (height, width)):
             raise ValueError('Image size changed or ROI is outside original image')
         crop = self.variant['crop_xyxy']
+        if self._region_mode == 'crop':
+            crop = self._head_region
+        self.head_region_pixels = ([self._head_region[i]*v for i, v in enumerate((width, height, width, height))]
+                                   if self._head_region is not None else None)
+        self.has_crop = crop is not None
         box = [0, 0, width, height] if crop is None else [
             math.floor(crop[0]*width), math.floor(crop[1]*height),
             math.ceil(crop[2]*width), math.ceil(crop[3]*height)]
@@ -82,9 +96,11 @@ class FaceExperimentAdapter:
                 faces = [[mapped(point) for point in face] for face in faces]
             matrices = raw.facial_transformation_matrixes
             observation = face_observation(faces, width, height, self._roi, self._exclusive,
-                timestamp_ms, self.experiment_model_id, matrices=matrices)
+                timestamp_ms, self.experiment_model_id, matrices=matrices,
+                head_roi=self.head_region_pixels if self._region_mode != 'none' else None)
             from inference.experts.face_diagnostics import inspect_face
-            self.last_face_diagnostics = inspect_face(faces, matrices, observation, width, height, self._roi, self._exclusive)
+            self.last_face_diagnostics = inspect_face(faces, matrices, observation, width, height, self._roi, self._exclusive,
+                head_roi=self.head_region_pixels, enforce_head_roi=self._region_mode != 'none')
         except BaseException:
             self.close()
             raise

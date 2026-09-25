@@ -28,10 +28,14 @@ class Samples:
         box(roi, (0,255,255))
         if crop is not None:
             box(crop, (255,180,0))
+        if detail.get('head_region_pixels') is not None:
+            box(detail['head_region_pixels'], (255,0,255))
         for candidate in detail['candidates']:
             if candidate['bbox'] is not None:
                 color = (0,165,255) if candidate['invalid_reason'] else (
-                    (0,255,0) if candidate['inside_roi'] else (0,0,255))
+                    (0,255,0) if candidate['inside_roi'] and not (
+                        detail.get('head_region_enforced') and candidate.get('inside_head_region') is False)
+                    else (0,0,255))
                 box(candidate['bbox'], color)
         if landmarks is not None:
             for x,y in landmarks:
@@ -53,6 +57,9 @@ def write_gallery(output, records):
              '<h1>Face replay diagnostics</h1><p>Yellow: driver ROI; green: accepted candidate; '
              'red: outside ROI; orange: invalid landmarks. Boxes are landmark bounds, not detector boxes. '
              'Samples are illustrative; use frames.csv for frequencies. No face result does not prove no person is visible.</p>']
+    parts.append('<p>Magenta: configured head region. Green/cyan and eye_pair_available indicate numeric '
+                 'acceptance only, not independently verified faces or eyes. Red candidates may be outside '
+                 'the enforced head region. Spatial rejection does not establish a false detection.</p>')
     if any('head_continuity' in r for r in records):
         parts.append('<p>Crop previews: blue rectangle is the inference crop; cyan dots are accepted landmarks '
                      'mapped to the original image. Crop pose angles are experimental, not calibrated original-camera angles.</p>')

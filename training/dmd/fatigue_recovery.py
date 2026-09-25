@@ -14,6 +14,10 @@ def run(*, diagnostic_summary, dataset_root, output_dir,
         subset='all', record_ids=None, max_seconds=0, samples_per_reason=2):
     from inference.experts.assets import file_sha256
     from training.dmd.face_experiments import run_experiments
+    from training.dmd.face_experiment_config import load_config, validate_config
+    experiment = validate_config(experiment_config) if isinstance(experiment_config, dict) else load_config(experiment_config)
+    if experiment.get('head_regions') and record_ids is None:
+        record_ids = [region['record_id'] for region in experiment['head_regions']]
     summary_path = Path(diagnostic_summary).resolve(strict=True)
     digest = file_sha256(summary_path)
     summary = read_json(summary_path)

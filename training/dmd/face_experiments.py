@@ -104,7 +104,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             fatigue = FatigueReplay(item, fatigue_settings, directory, stack)
         fatigue_samples = Samples(directory, samples_per_reason) if fatigue else None
         adapter = FaceExperimentAdapter(config['face_asset'], driver_roi=config['driver_roi'],
-            driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'], variant=variant)
+            driver_region_confirmed_exclusive=config['driver_region_confirmed_exclusive'], variant=variant,
+            head_region=item.get('head_region', {}).get('head_roi_xyxy'))
         stack.callback(adapter.close)
         versions = {name: str(importlib.import_module(name).__version__) for name in ('numpy', 'mediapipe', 'av')}
         baseline_id = (adapter.baseline_face_model_id+':runtime-'+runtime_signature(config)
@@ -140,7 +141,7 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
                 candidates.write(json.dumps(dict(source_pts_ms=frame.timestamp_ms,
                     crop_pixels=adapter.crop_pixels, **detail), allow_nan=False)+'\n')
                 samples.add(frame, detail, config['driver_roi'],landmarks=observation['landmarks'],
-                            crop=adapter.crop_pixels if variant['crop_xyxy'] else None)
+                            crop=adapter.crop_pixels if adapter.has_crop else None)
                 angles = ([observation['head_pose'][axis+'_deg'] for axis in ('yaw', 'pitch', 'roll')]
                           if detail['head_usable'] else None)
                 if angles is not None and previous_angles is not None:
@@ -152,10 +153,12 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
             age = slot-frame.timestamp_ms
             if fatigue:
                 fatigue_label, eye_reason = fatigue.step(count, slot, frame, observation, detail, arrays)
+                if eye_reason == 'eye_pair_available' and detail.get('accepted_face_outside_head_region'):
+                    eye_reason = 'eye_pair_outside_head_region'
                 sample_detail = dict(detail, reason='fatigue_'+fatigue_label+'_'+eye_reason)
                 fatigue_samples.add(frame, sample_detail, config['driver_roi'],
                                     landmarks=observation['landmarks'],
-                                    crop=adapter.crop_pixels if variant['crop_xyxy'] else None)
+                                    crop=adapter.crop_pixels if adapter.has_crop else None)
             fresh = age <= feature['extractor_profile']['max_age_ms']
             head = bool(detail['head_usable'] and fresh)
             left, right = bool(detail['iris_left_valid'] and fresh), bool(detail['iris_right_valid'] and fresh)
@@ -233,7 +236,8 @@ def _replay(item, variant, directory, samples_per_reason, max_seconds):
         baseline_runtime_and_masks_match=(mask_match and baseline_id == feature['expert_models']['face'] and
                                           all(version_matches.values())) if baseline else None,
         coverage=coverage, head_continuity=continuity.report(), reason_counts=dict(counters), iris_reason_counts=dict(iris_reasons),
-        pose_coordinate_frame='crop-experimental' if variant['crop_xyxy'] else 'full-frame',
+        head_region=item.get('head_region'),
+        pose_coordinate_frame='crop-experimental' if adapter.has_crop else 'full-frame',
         training_cache_compatible=False,
         angle_jumps=dict(pairs=jump_pairs, axes=['yaw', 'pitch', 'roll'],
             mean_abs_degrees=(jump_sum/jump_pairs).tolist() if jump_pairs else None,
@@ -282,6 +286,9 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
     identities = [r['record_id'] for r in selected]
     if len(set(identities)) != len(identities) or (record_ids and set(record_ids)-set(identities)):
         raise ValueError('Duplicate or unmatched record IDs')
+    regions = {r['record_id']: r for r in experiment.get('head_regions', [])}
+    if regions and set(regions) != set(identities):
+        raise ValueError('Head region scope must exactly match selected records; supply explicit --record-id filters')
     if any(v['crop_xyxy'] is not None for v in experiment['variants']) and len(selected)!=1:
         raise ValueError('Crop experiments require exactly one record; crop scope cannot span recordings')
     items = []
@@ -294,6 +301,12 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
     for record in selected:
         print(f'Validating original cache/video: {record["record_id"]}', file=sys.stderr, flush=True)
         item = _prepare(record, root, dataset)
+        if regions:
+            region = regions[record['record_id']]
+            if (region['video_sha256'] != item['video_sha256'] or
+                    region['image_size'] != item['complete']['feature_record']['image_size']):
+                raise ValueError('Head region scope does not match original video/image size')
+            item['head_region'] = region
         if fatigue_settings:
             item['fatigue_settings'] = fatigue_settings
         paths = [p for p in item['attempt'].rglob('*') if p.is_file()]
@@ -334,6 +347,9 @@ def run_experiments(*, manifest, data_root, dataset_root, output_dir, experiment
             'Angle continuity and speed are not accuracy; no automatic winner. '
             'Crop matrix angles are experimental crop coordinates, not calibrated original-image pose. '
             'All outputs are diagnostic only and cannot be published as training caches.')
+    report['face_acceptance_semantics'] = (
+        'Accepted landmarks and eye_pair_available mean numeric validity under configured rules, not verified faces/eyes. '
+        'Head-region rejection is a spatial rule, not a measured false-face rate. Inspect accepted and rejected samples.')
     if fatigue_settings:
         report['schema_version'] = 'driveguard-fatigue-recovery-report-v1'
         report['fatigue_settings'] = fatigue_settings

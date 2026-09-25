@@ -30,7 +30,11 @@ def _inside(points, roi):
     return all(roi[0] <= x <= roi[2] and roi[1] <= y <= roi[3] for x, y in points)
 
 
-def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_id, *, matrices=None):
+def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_id, *, matrices=None, head_roi=None):
+    if head_roi is not None and (not isinstance(head_roi, (tuple, list)) or len(head_roi) != 4 or
+            not all(type(v) in (int, float) and math.isfinite(v) for v in head_roi) or
+            not (0 <= head_roi[0] < head_roi[2] <= width and 0 <= head_roi[1] < head_roi[3] <= height)):
+        raise ValueError('head_roi must be a finite nondegenerate original-pixel rectangle inside the image')
     result = dict(status='ok', timestamp_ms=timestamp_ms, model_id=model_id,
                   driver_confirmed=False, landmarks=None, head_pose=None)
     try:
@@ -38,7 +42,8 @@ def face_observation(faces, width, height, roi, exclusive, timestamp_ms, model_i
     except (ValueError, TypeError, AttributeError, OverflowError):
         result['status'] = 'missing'
         return result
-    selected = [(index,points) for index,points in enumerate(candidates) if _inside(points, roi)]
+    selected = [(index,points) for index,points in enumerate(candidates)
+                if _inside(points, roi) and (head_roi is None or _inside(points, head_roi))]
     candidates = [points for _,points in selected]
     if len(candidates) == 1:
         result.update(landmarks=candidates[0], driver_confirmed=exclusive)

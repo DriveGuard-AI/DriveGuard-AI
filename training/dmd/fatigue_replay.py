@@ -12,6 +12,8 @@ FEATURES = ('ear_left', 'ear_right', 'mar', 'perclos_4s',
             'closed_duration_s', 'blink_rate_per_min')
 INDICES = [FEATURE_NAMES.index(name) for name in FEATURES]
 LABELS = ('all', 'known_positive', 'known_negative', 'unknown')
+REGION_COUNTS = ('head_region_audited_slots', 'outside_head_region_candidate_slots',
+                 'head_region_rejected_slots', 'eye_pair_outside_head_region')
 
 
 def _groups():
@@ -67,6 +69,7 @@ def write_comparison(output, report):
                         key = f'{side}_{feature}_{level}'
                         row[key+'_slot_ratio'] = frames['rates'].get(key)
             row.update(f_recovered=windows.get('f_recovered', 0), f_lost=windows.get('f_lost', 0))
+            row.update({key: frames.get(key, 0) for key in REGION_COUNTS})
             rows.append(row)
     with (output/'fatigue_comparison.csv').open('x', encoding='utf-8-sig', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
@@ -143,6 +146,11 @@ class FatigueReplay:
         self.value_diff += int(not same_value)
         # Eye validity is independent of iris validity and matrix/head success.
         pair = bool(vm[:2].all())
+        region_flags = dict(
+            head_region_audited_slots=detail.get('head_region_pixels') is not None,
+            outside_head_region_candidate_slots=detail.get('outside_head_region_candidates', 0) > 0,
+            head_region_rejected_slots=detail.get('head_region_rejected_candidates', 0) > 0,
+            eye_pair_outside_head_region=pair and detail.get('accepted_face_outside_head_region', False))
         if pair:
             reason = 'eye_pair_available'
         elif age > max_age:
@@ -156,6 +164,7 @@ class FatigueReplay:
         row = dict(slot_index=index, slot_ms=slot, source_pts_ms=frame.timestamp_ms,
                    fatigue_label_known=known, fatigue_target=target, eye_reason=reason,
                    face_reason=detail['reason'], raw_masks_match=same_mask, raw_values_match=same_value)
+        row.update(region_flags)
         for side, masks in current.items():
             values = arrays['values'][index] if side == 'cached' else derived['values']
             for name, col in zip(FEATURES, INDICES):
@@ -165,6 +174,7 @@ class FatigueReplay:
         self._write('frames', row)
         for group in ('all', label):
             counts = self.frames[group]; counts['slots'] += 1
+            counts.update({key: int(value) for key, value in region_flags.items()})
             self.reasons[group][reason] += 1
             for side, masks in current.items():
                 counts[f'{side}_eye_pair'] += int(masks[:2].all())
@@ -211,5 +221,7 @@ class FatigueReplay:
                     eye_failure_reasons={k: dict(v) for k, v in self.reasons.items()},
                     window_steps=self.steps, stride_steps=self.stride,
                     interpretation='F eligibility uses saved supported columns and group policy; it is not fatigue prediction. '
+                    'Eye-pair validity means numeric acceptance, not visually verified eyes. '
+                    'Head-region rejection counts spatial exclusions, not proven false detections. '
                     'Eye coverage80 is a diagnostic count, not a changed model gate. Values use original units. '
                     'Fatigue labels use the final slot; unknowns are never negatives. Value parity compares jointly valid cells.')

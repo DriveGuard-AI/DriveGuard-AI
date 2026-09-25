@@ -141,12 +141,14 @@ def _validate_record(output, row, identity, item):
     return row
 
 
-def _extract_record(output, directory, item, identity, encoder, batch_size):
+def _extract_record(output, directory, item, identity, encoder, batch_size, crop=None):
     import numpy as np
     from inference.experts.assets import file_sha256
     from inference.perception.video_source import decode_video, sample_frames
     from training.dmd.cache import validate_complete
     from training.visual.encoder import preprocess
+    from training.visual.spatial import crop_roi
+    spatial_roi = crop_roi(item['source']['driver_roi'],crop) if crop is not None else item['source']['driver_roi']
     indices = selected_slots(identity['slots'])
     count = len(indices)
     arrays = {}
@@ -200,7 +202,7 @@ def _extract_record(output, directory, item, identity, encoder, batch_size):
                     arrays['source_pts_ms'][selected] = frame.timestamp_ms
                     arrays['valid'][selected] = fresh
                     if fresh:
-                        pending.append(preprocess(frame.bgr,item['source']['driver_roi']))
+                        pending.append(preprocess(frame.bgr,spatial_roi))
                         positions.append(selected)
                         if len(pending) == batch_size:
                             flush()
@@ -226,11 +228,13 @@ def _extract_record(output, directory, item, identity, encoder, batch_size):
 
 
 def extract(manifest, data_root, dataset_root, weights, weights_sha256, output_dir,
-            backend='cpu', device_index=0, batch_size=32, continue_run=False):
+            backend='cpu', device_index=0, batch_size=32, continue_run=False, crop=None):
     from inference.experts.assets import file_sha256
     from training.common.config import canonical_hash, read_json
     from training.dmd.cache import _unlinked
     from training.visual.encoder import FrozenEncoder, encoder_metadata
+    from training.visual.spatial import validate_crop
+    if crop is not None:validate_crop(crop)
     _validate_options(weights_sha256,backend,device_index,batch_size)
     root,dataset = _unlinked(data_root),_unlinked(dataset_root)
     manifest = _unlinked(manifest)
@@ -251,6 +255,10 @@ def extract(manifest, data_root, dataset_root, weights, weights_sha256, output_d
         raise ValueError('No body records or duplicate record identities')
     run = dict(schema_version='driveguard-visual-extract-v1',manifest_sha256=digest,
                encoder=encoder_metadata(weights_sha256),backend=backend,device_index=device_index,batch_size=batch_size)
+    cache_schema = 'driveguard-visual-cache-v1'
+    if crop is not None:
+        run.update(schema_version='driveguard-visual-extract-v2',crop=crop)
+        cache_schema = 'driveguard-visual-cache-v2'
     if output.exists():
         output = _unlinked(output)
         if read_json(_contained(output,'input.json')) != run:
@@ -258,7 +266,8 @@ def extract(manifest, data_root, dataset_root, weights, weights_sha256, output_d
     items = [_prepare(record,root,dataset) for record in records]
     if output.exists() and (output/'manifest.json').exists():
         report = read_json(_contained(output,'manifest.json'))
-        if (report.get('schema_version') != 'driveguard-visual-cache-v1' or report.get('status') != 'complete'
+        if (report.get('schema_version') != cache_schema or report.get('status') != 'complete'
+                or report.get('crop') != crop
                 or report.get('manifest_sha256') != digest or report.get('encoder') != run['encoder']
                 or len(report.get('records',[])) != len(items)):
             raise ValueError('Invalid completed visual manifest')
@@ -291,12 +300,14 @@ def extract(manifest, data_root, dataset_root, weights, weights_sha256, output_d
             print('Extracting RGB: '+identity['record_id'],file=sys.stderr,flush=True)
             directory = record_dir/('attempt-'+uuid4().hex)
             directory.mkdir()
-            reusable = _extract_record(output,directory,item,identity,encoder,batch_size)
+            options = {'crop':crop} if crop is not None else {}
+            reusable = _extract_record(output,directory,item,identity,encoder,batch_size,**options)
         completed.append(reusable)
     if _stamp(manifest) != manifest_stamp or file_sha256(manifest) != digest:
         raise ValueError('Original manifest changed during extraction')
-    report = dict(schema_version='driveguard-visual-cache-v1',status='complete',manifest_sha256=digest,
+    report = dict(schema_version=cache_schema,status='complete',manifest_sha256=digest,
                   encoder=run['encoder'],records=completed)
+    if crop is not None:report['crop']=crop
     write_json(output/'manifest.json',report)
     return report
 
@@ -318,8 +329,12 @@ def main(argv=None):
     parser.add_argument('--device-index',type=int,default=0)
     parser.add_argument('--batch-size',type=int,default=32)
     parser.add_argument('--continue-run',action='store_true')
+    parser.add_argument('--crop',type=float,nargs=4,help='Normalized driver-relative xyxy, shared by all records')
     parser.add_argument('--check-config',action='store_true')
     options = vars(parser.parse_args(argv))
+    if options['crop'] is not None:
+        from training.visual.spatial import crop_policy
+        options['crop']=crop_policy(options['crop'])
     check = options.pop('check_config')
     _validate_options(options['weights_sha256'],options['backend'],options['device_index'],options['batch_size'])
     if check:

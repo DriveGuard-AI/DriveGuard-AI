@@ -62,11 +62,18 @@ def _validate_run(root,report):
     except (OSError,ValueError) as error:
         raise ValueError('Missing or invalid visual run identity') from error
     required={'schema_version','manifest_sha256','encoder','backend','device_index','batch_size'}
+    cropped=report.get('schema_version')=='driveguard-visual-cache-v2'
+    if cropped:required.add('crop')
     if (not isinstance(run,dict) or set(run)!=required
-            or run['schema_version']!='driveguard-visual-extract-v1'
+            or run['schema_version']!=('driveguard-visual-extract-v2' if cropped else 'driveguard-visual-extract-v1')
             or not _sha256(run['manifest_sha256'])
             or run['manifest_sha256']!=report.get('manifest_sha256')):
         raise ValueError('Visual run/manifest identity mismatch')
+    if cropped:
+        from training.visual.spatial import validate_crop
+        validate_crop(run['crop'])
+        if report.get('crop')!=run['crop']:raise ValueError('Visual crop identity mismatch')
+    elif 'crop' in report:raise ValueError('Legacy visual cache cannot contain spatial crop metadata')
     encoder=run['encoder']
     if not isinstance(encoder,dict) or not _sha256(encoder.get('weights_sha256')):
         raise ValueError('Invalid visual encoder provenance')
@@ -81,7 +88,7 @@ class VisualCache:
         self.root=Path(root).resolve(strict=True); self.report=read_json(self.root/'manifest.json')
         self.manifest_sha256=file_sha256(self.root/'manifest.json')
         self._opened=OrderedDict();self.records={}
-        if self.report.get('schema_version') != 'driveguard-visual-cache-v1' or self.report.get('status') != 'complete':
+        if self.report.get('schema_version') not in ('driveguard-visual-cache-v1','driveguard-visual-cache-v2') or self.report.get('status') != 'complete':
             raise ValueError('Visual cache incomplete or unsupported')
         try:
             run=_validate_run(self.root,self.report)

@@ -1,0 +1,35 @@
+{
+  "schema_version": "driveguard-fatigue-head-region-preview-v1",
+  "status": "complete",
+  "recovery_summary": "/mnt/workspace/DriveGuard-AI/runs/body-fatigue-recovery-001/summary.json",
+  "recovery_sha256": "3922465b4c68654fc55b2445001f6eb70db28e7fa4a66bcb737a2b66b347d61e",
+  "record_ids": [
+    "4b680f020a0947c1fdebfea8",
+    "cc3234cf4419361ccc018468"
+  ],
+  "previews": [
+    {
+      "directory": "record-001",
+      "crop_scope": {
+        "record_id": "4b680f020a0947c1fdebfea8",
+        "video_sha256": "afd10c8218d4bb49e68722ec7664f7fbb044ff8097125fb3cf15d8aa5c646481",
+        "image_size": [
+          1280,
+          720
+        ]
+      }
+    },
+    {
+      "directory": "record-002",
+      "crop_scope": {
+        "record_id": "cc3234cf4419361ccc018468",
+        "video_sha256": "a6aa47bfbfd9302b9cfb4af1590a517a4de5a0dd347ca55095b2aa20eec6d947",
+        "image_size": [
+          1280,
+          720
+        ]
+      }
+    }
+  ],
+  "region_selection": "No region guessed; each picker requires an explicit selection."
+}

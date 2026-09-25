@@ -29,7 +29,7 @@ def encoder_metadata(weights_sha256):
                 sampling=dict(hz=25, offsets=[12,24], max_age_ms=80))
 
 
-def preprocess(bgr, driver_roi):
+def preprocess_pixels(bgr, driver_roi):
     """Include every ROI pixel (floor/ceil bounds), bilinear resize, black pad."""
     if (not isinstance(bgr, np.ndarray) or bgr.dtype != np.uint8 or bgr.ndim != 3
             or bgr.shape[2] != 3 or min(bgr.shape[:2]) < 1):
@@ -48,7 +48,13 @@ def preprocess(bgr, driver_roi):
     canvas = np.zeros((224,224,3),np.uint8)
     left,top = (224-size[0])//2,(224-size[1])//2
     canvas[top:top+size[1],left:left+size[0]] = np.asarray(rgb)
-    return np.ascontiguousarray(((canvas.astype(np.float32)/255-MEAN)/STD).transpose(2,0,1))
+    return np.ascontiguousarray(canvas.transpose(2,0,1))
+
+
+def preprocess(bgr, driver_roi):
+    """Normalize the exact RGB pixels also used by encoder adaptation."""
+    pixels = preprocess_pixels(bgr, driver_roi)
+    return (pixels.astype(np.float32)/255-MEAN[:,None,None])/STD[:,None,None]
 
 
 class ResidualBlock(nn.Module):

@@ -33,6 +33,8 @@ def write_audit(output, head_cache, eye_cache, labels, windows, duration):
         counts['positive_coverage']=counts['positive_with_eye']/counts['positive'] if counts['positive'] else None
         counts['negative_coverage']=counts['negative_with_eye']/counts['negative'] if counts['negative'] else None
         coverage.append(counts)
+        if 'origin' in eye:
+            counts.update(detected_frames=int((eye['origin']==1).sum()),tracked_frames=int((eye['origin']==2).sum()))
         decoder=EventDecoder(duration); evidence=[]
         for i,t in enumerate(head['source_pts_ms']):
             value=decoder.step(int(t),1.,-1e6,bool(valid[i]),reset=bool(label['reset'][i]))
@@ -56,6 +58,7 @@ def write_audit(output, head_cache, eye_cache, labels, windows, duration):
                 right=Image.fromarray(eye['images'][i].transpose(1,2,0).copy()) if valid[i] else Image.new('RGB',(224,224))
                 canvas=Image.new('RGB',(448,280)); canvas.paste(left,(0,36));canvas.paste(right,(224,36))
                 text=f"subject={record['subject_id']} {record['split']} {name}\nslot={int(head['slot_indices'][i])} PTS={int(head['source_pts_ms'][i])}ms"
+                if 'origin' in eye:text+=f" origin={int(eye['origin'][i])} age={int(eye['track_age_ms'][i])}ms"
                 draw=ImageDraw.Draw(canvas);draw.text((4,2),text,fill='white')
                 draw.text((4,263),'head input / native eye input; labels are annotations',fill='white')
                 file=f'{canonical_hash(rid)[:12]}-{name}-{j+1}.png'

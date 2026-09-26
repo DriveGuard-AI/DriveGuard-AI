@@ -16,6 +16,7 @@ from training.visual.eye_audit import write_audit
 from training.visual.eye_composition import infer_eyes, compose_events, frame_metrics
 from training.visual.eye_diagnostics import _inputs, DEFAULT_VARIANT, IDENTITY
 from training.visual.eye_frames import EyeCache
+from training.visual.eye_support import summarize_support, require_eye_support
 from training.visual.eye_train import EyeDataset, train_eye, load_eye, SELECTION
 from training.visual.fatigue_spatial_suite import _summary, _stats
 from training.visual.head_adaptation import paired_changes
@@ -26,7 +27,7 @@ from training.visual.report import write_rows
 ARMS = (('A_head_independent','head',False),('B_eye_native','eye',False),('C_eye_subject_balanced','eye',True))
 
 
-def _stage(stage, train, val, reference, settings, provenance, balanced):
+def _stage(stage, train, val, reference, settings, provenance, balanced, support):
     stage.mkdir(exist_ok=True)
     attempts=sorted(stage.glob('train-*'));latest=None;latest_epoch=-1
     def checked(path):
@@ -64,6 +65,7 @@ def _stage(stage, train, val, reference, settings, provenance, balanced):
             payload=checked(attempt/'last.pt')
             if payload['epoch']>latest_epoch:latest,latest_epoch=attempt/'last.pt',payload['epoch']
     number=max([int(p.name.split('-')[-1]) for p in attempts]+[0])+1
+    require_eye_support(support)
     return train_eye(train,val,reference,settings,stage/f'train-{number:03d}',provenance,
                      subject_balanced=balanced,resume=latest)
 
@@ -132,6 +134,8 @@ def run(*,action_report,dataset_root,eye_cache,output_dir,variant=DEFAULT_VARIAN
             reference_state=cpu_tree(data['model'].state_dict())
             _with_subtypes(reference,baseline,labels)
             coverage=write_audit(output,head,eyes,labels,baseline,labels.closed_eye_min_ms)
+            support=summarize_support(coverage['windows'])
+            atomic_json(output/'eye-support.json',support)
             print(json.dumps(dict(stage='eye_input_audit_ready',path=str(output/'input-audit/index.html'),
                                   train=datasets['train']['head'].summary,val=datasets['val']['head'].summary)),flush=True)
             write_rows(output/'reference-windows.csv',baseline)
@@ -142,7 +146,7 @@ def run(*,action_report,dataset_root,eye_cache,output_dir,variant=DEFAULT_VARIAN
                 for seed in seeds:
                     name=f'{arm}-seed{seed}';current=dict(settings,seed=seed)
                     print(json.dumps(dict(stage='train_independent_eye',variant=name)),flush=True)
-                    result=_stage(output/name,datasets['train'][mode],datasets['val'][mode],data['model'],current,provenance,balanced)
+                    result=_stage(output/name,datasets['train'][mode],datasets['val'][mode],data['model'],current,provenance,balanced,support)
                     results[name]=result
                     _,initial=load_eye(result['initial_checkpoint'])
                     digest=_state_hash(initial['model_state'])

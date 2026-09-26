@@ -154,10 +154,18 @@ class SuiteTests(unittest.TestCase):
             settings=dict(DEFAULTS,epochs=1,batch_size=16,accumulation_steps=1,early_stopping_patience=7,backend='cpu')
             with patch('training.visual.fatigue_eyes._inputs',inputs), \
                     patch('training.visual.fatigue_eyes.EyeCache',return_value=eye_cache),redirect_stdout(io.StringIO()):
+                previous=eyes['v']['valid'].copy();eyes['v']['valid'][:]=False
+                with patch('training.visual.fatigue_eyes.train_eye',side_effect=AssertionError('training must not start')):
+                    with self.assertRaisesRegex(ValueError,'continuous eye support'):
+                        run(action_report=report_path,dataset_root=source,eye_cache=source/'eyes',
+                            output_dir=root/'blocked',settings=settings)
+                self.assertTrue((root/'blocked/eye-support.json').exists())
+                eyes['v']['valid'][:]=previous
                 report=run(action_report=report_path,dataset_root=source,eye_cache=source/'eyes',
                            output_dir=root/'out',settings=settings)
-                repeated=run(action_report=report_path,dataset_root=source,eye_cache=source/'eyes',
-                             output_dir=root/'out',settings=settings,continue_run=True)
+                with patch('training.visual.fatigue_eyes.require_eye_support',side_effect=AssertionError('completed run must be reusable')):
+                    repeated=run(action_report=report_path,dataset_root=source,eye_cache=source/'eyes',
+                                 output_dir=root/'out',settings=settings,continue_run=True)
                 self.assertEqual(report,repeated)
                 self.assertEqual(report['training_runs'],6)
                 self.assertEqual(len(report['comparisons']),25)

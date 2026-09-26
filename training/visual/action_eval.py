@@ -28,7 +28,7 @@ def evaluate_events(cache,model,rows,resets,closed_eye_min_ms):
     rather than pretending each overlapping four-second window is a new event.
     """
     model.eval(); device=next(model.parameters()).device
-    predictions={}; events={}
+    predictions={}
     for rid in sorted({r['record_id'] for r in rows}):
         arrays=cache.arrays(rid)
         count=len(arrays['slot_indices'])
@@ -41,12 +41,36 @@ def evaluate_events(cache,model,rows,resets,closed_eye_min_ms):
                 values=model.frame_actions(images).cpu().numpy()
                 if not np.isfinite(values).all(): raise ValueError('Nonfinite frame action logits')
                 logits[start:start+len(valid)][valid]=values
+        predictions[rid]=logits
+    return replay_events(cache,predictions,rows,resets,closed_eye_min_ms),predictions
+
+
+def replay_events(cache,predictions,rows,resets,closed_eye_min_ms,*,eye_threshold=0.,branches='both'):
+    """Replay cached predictions causally; no action or fatigue labels are read.
+
+    Eye threshold changes restart/recompute sustained closure. They do not
+    shift the final max(yawn, closure) score or the yawn threshold. None disables
+    eye positives (the reject-all point of a diagnostic threshold curve).
+    """
+    if branches not in ('both','eye','yawn'):
+        raise ValueError('Unknown event branches')
+    if eye_threshold is not None and not np.isfinite(eye_threshold):
+        raise ValueError('Eye threshold must be finite or None')
+    events={}
+    for rid in sorted({r['record_id'] for r in rows}):
+        arrays=cache.arrays(rid); logits=np.asarray(predictions[rid])
+        if logits.shape!=(len(arrays['slot_indices']),2) or len(resets[rid])!=len(logits):
+            raise ValueError('Event prediction/clock shape mismatch')
+        if not np.isfinite(logits[arrays['valid']]).all():
+            raise ValueError('Nonfinite valid action score')
         decoder=EventDecoder(closed_eye_min_ms)
         scores=[]
         for i,t in enumerate(arrays['source_pts_ms']):
-            scores.append(decoder.step(int(t),float(logits[i,0]),float(logits[i,1]),
+            eye=float(logits[i,0])-eye_threshold if eye_threshold is not None and branches!='yawn' else -1e6
+            yawn=float(logits[i,1]) if branches!='eye' else -1e6
+            scores.append(decoder.step(int(t),eye,yawn,
                                        bool(arrays['valid'][i]),reset=bool(resets[rid][i])))
-        predictions[rid]=logits; events[rid]=scores
+        events[rid]=scores
     result=[]
     for row in rows:
         rid=row['record_id']; arrays=cache.arrays(rid)
@@ -54,9 +78,11 @@ def evaluate_events(cache,model,rows,resets,closed_eye_min_ms):
         if index<0 or arrays['slot_indices'][index]!=row['end_slot']:
             raise ValueError('Event readout must align with original window endpoint')
         first=row['start_slot']//25*8
-        available=bool(arrays['valid'][first:first+32].all()) and events[rid][index] is not None
+        mask=arrays['valid'][first:first+32]
+        if first<0 or len(mask)!=32: raise ValueError('Incomplete event window')
+        available=bool(mask.all()) and events[rid][index] is not None
         result.append(dict(row,available=available,logit=events[rid][index] if available else None))
-    return result,predictions
+    return result
 
 
 def action_metrics(predictions,labels,cache):

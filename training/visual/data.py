@@ -55,7 +55,7 @@ def _validate_source(source):
 
 
 def _validate_run(root,report):
-    from training.visual.encoder import encoder_metadata
+    from training.visual.encoder_metadata import encoder_metadata
     from training.visual.extract import _validate_options
     try:
         run=read_json(contained(root,'input.json'))

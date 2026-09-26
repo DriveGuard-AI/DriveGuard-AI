@@ -16,17 +16,10 @@ from torch import nn
 
 from inference.experts.assets import file_sha256
 from training.common.device import select_device
+from training.visual.encoder_metadata import encoder_metadata
 
 MEAN = np.array([.485, .456, .406], np.float32)
 STD = np.array([.229, .224, .225], np.float32)
-
-
-def encoder_metadata(weights_sha256):
-    return dict(architecture='resnet18', weights='IMAGENET1K_V1', weights_sha256=weights_sha256,
-                output_dim=512, preprocessing=dict(version='driver-roi-letterbox-v1', size=[224,224],
-                    color='RGB', interpolation='bilinear', padding=[0,0,0],
-                    mean=[.485,.456,.406], std=[.229,.224,.225]),
-                sampling=dict(hz=25, offsets=[12,24], max_age_ms=80))
 
 
 def preprocess_pixels(bgr, driver_roi):

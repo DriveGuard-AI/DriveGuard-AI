@@ -317,7 +317,24 @@ def _verify_dataset_identity(dataset, provenance):
     if hasattr(dataset, 'prepared'):
         source = provenance.get('source', {})
         expected = dataset.prepared.provenance
-        if any(source.get(key) != expected.get(key) for key in ('prepared_sha256','preparation')):
+        preparation = deepcopy(source.get('preparation'))
+        expected_preparation = expected.get('preparation')
+        # Legacy SpatialDataset provenance shares its normalization dict with
+        # preparation.normalization. Adding head statistics therefore also
+        # extended the latter, without changing the original prepared.json.
+        # Accept only that exact, independently recorded extension; preserve
+        # strict comparison of every original preparation field and file hash.
+        if isinstance(preparation, dict) and isinstance(expected_preparation, dict):
+            normalization = preparation.get('normalization')
+            expected_normalization = expected_preparation.get('normalization')
+            head_normalization = source.get('normalization', {}).get('head')
+            if (isinstance(normalization, dict) and isinstance(expected_normalization, dict)
+                    and 'head' not in expected_normalization and 'head' in normalization
+                    and head_normalization is not None
+                    and normalization['head'] == head_normalization):
+                del normalization['head']
+        if (source.get('prepared_sha256') != expected.get('prepared_sha256')
+                or preparation != expected_preparation):
             raise ValueError('Adaptation prepared provenance mismatch')
 
 

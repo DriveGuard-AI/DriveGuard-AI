@@ -95,5 +95,31 @@ class AdaptationReferenceTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError,'reference'):
                 with _inputs(path,'C_regularized-seed42-best',self.root/'local-weights','cpu',0): pass
 
+    def test_real_spatial_checkpoint_matches_original_prepared_data(self):
+        from training.visual.head_adaptation import _inputs
+        from training.visual.head_adapt_train import _verify_dataset_identity
+        with patch('training.visual.encoder.FrozenEncoder',return_value=self.encoder):
+            with _inputs(self.path,'C_regularized-seed42-best',self.root/'local-weights','cpu',0) as data:
+                dataset = SimpleNamespace(prepared=data['base'])
+                provenance = dict(source=deepcopy(data['payload']['provenance']))
+                original = deepcopy(provenance)
+                expected = deepcopy(dataset.prepared.provenance)
+                self.assertIn('head', provenance['source']['preparation']['normalization'])
+                self.assertNotIn('head', expected['preparation']['normalization'])
+                _verify_dataset_identity(dataset, provenance)
+                self.assertEqual(provenance, original)
+                self.assertEqual(dataset.prepared.provenance, expected)
+                for field in ('prepared_sha256', 'cohort', 'normalization', 'head'):
+                    changed = deepcopy(provenance)
+                    source = changed['source']
+                    # Detach nested metadata, as JSON/checkpoint serialization may do.
+                    source['preparation'] = deepcopy(source['preparation'])
+                    if field == 'prepared_sha256': source[field] = 'changed'
+                    elif field == 'cohort': source['preparation']['records'] = ['changed']
+                    elif field == 'normalization': source['preparation']['normalization']['extra'] = 1
+                    else: source['preparation']['normalization']['head'] = {'mean': [999]}
+                    with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'prepared provenance mismatch'):
+                        _verify_dataset_identity(dataset, changed)
+
 
 if __name__=='__main__': unittest.main()

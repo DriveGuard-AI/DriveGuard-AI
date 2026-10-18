@@ -10,7 +10,7 @@ FastAPI + SQLite 的驾驶风险监测后端，实现 `docs/requirements/REQUIRE
 
 | 项目 | 要求 |
 | --- | --- |
-| Python | **≥ 3.9**（Pydantic v2 要求），推荐 3.11 / 3.12 |
+| Python | **锁定 3.11**（见 `.python-version`），`run.ps1` 会校验实际解释器版本 |
 | pip | 建议 `python -m pip install --upgrade pip`（旧版 pip 读取 requirements 会报编码错误） |
 | 数据库 | SQLite（标准库自带，无需额外安装） |
 
@@ -46,10 +46,10 @@ Windows PowerShell：
 
 ```powershell
 cd backend
-py -3.11 -m venv .venv
+py -3.11 -m venv .venv                       # 版本见 .python-version
 .\.venv\Scripts\Activate.ps1                 # 注意必须带路径，Activate.ps1 不在 PATH 中
 python -m pip install --upgrade pip
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock.txt
 
 $env:DGB_ADMIN_TOKEN = "dev-token"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -60,7 +60,7 @@ macOS / Linux：
 ```bash
 cd backend
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock.txt     # 与 Windows 使用同一份锁文件
 
 export DGB_ADMIN_TOKEN=dev-token
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -105,7 +105,7 @@ requirements 文件历史上含中文注释，旧版 pip 按系统编码读取�
 
 **`ERROR: Could not find a version that satisfies the requirement pydantic>=2.7`**
 当前解释器过旧。先确认 **`python --version`**：若显示 2.7 或 3.7，请用 `py -3.11 -m venv .venv`
-创建新虚拟环境，并在激活后使用该环境里的 `python`。
+（版本以 `.python-version` 为准）创建新虚拟环境，并在激活后使用该环境里的 `python`。
 
 **Dashboard 打不开（`GET /` 返回 `dashboard: not-built`）**
 先构建前端：`cd ../frontend && npm install && npm run build`，然后重启后端。

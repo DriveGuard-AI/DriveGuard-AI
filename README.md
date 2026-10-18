@@ -12,7 +12,8 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 ## 快速开始
 
-> **Python 版本要求：≥ 3.9**（Pydantic v2 要求），推荐 3.11 / 3.12。
+> **解释器锁定 Python 3.11**：版本写在 `backend/.python-version`，`run.ps1` 会读取它并校验实际解释器。
+> **依赖锁定 `backend/requirements-dev.lock.txt`**（运行时用 `requirements.lock.txt`）：锁文件记录的是后端测试通过时的精确版本；`requirements.txt` 只保留可读的直接依赖范围。
 > 若 `python --version` 显示 3.7（例如旧版 Anaconda），**必须另建虚拟环境**，否则依赖无法安装。
 
 ### 后端（FastAPI + SQLite）
@@ -29,10 +30,10 @@ cd backend
 
 ```powershell
 cd backend
-py -3.11 -m venv .venv                       # 也可换成任意 Python >= 3.9 的路径
+py -3.11 -m venv .venv                       # 版本见 .python-version
 .\.venv\Scripts\Activate.ps1                 # 必须带路径，Activate.ps1 不在 PATH 中
 python -m pip install --upgrade pip          # 旧版 pip 请先升级
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock.txt     # 锁定版本；改依赖后重新生成锁文件
 
 $env:DGB_ADMIN_TOKEN = "dev-token"           # PowerShell 环境变量写法
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -43,7 +44,7 @@ macOS / Linux / Git Bash：
 ```bash
 cd backend
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock.txt     # 与 Windows 使用同一份锁文件
 
 export DGB_ADMIN_TOKEN=dev-token             # `VAR=value cmd` 仅 Bash 支持
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000

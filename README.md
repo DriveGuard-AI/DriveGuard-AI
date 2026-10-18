@@ -8,7 +8,67 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 > **驾驶员过去几秒钟的行为是否正在形成驾驶风险。**
 
-> 当前状态：**Planning / Early Development**。仓库正在建立需求、架构和 MVP 基础能力，暂未提供可运行版本。
+> 当前状态：**MVP 前后端骨架已可运行**；**模型识别与判断尚未实现**，推理由脚本化回放提供（`inference_mode = fake`），详见[实现状态](docs/implementation/MVP_STATUS.md)。
+
+## 快速开始
+
+> **Python 版本要求：≥ 3.9**（Pydantic v2 要求），推荐 3.11 / 3.12。
+> 若 `python --version` 显示 3.7（例如旧版 Anaconda），**必须另建虚拟环境**，否则依赖无法安装。
+
+### 后端（FastAPI + SQLite）
+
+最省事的方式（自动建虚拟环境 + 装依赖 + 启动）：
+
+```powershell
+cd backend
+.\run.ps1                    # Windows；macOS/Linux 用 ./run.sh
+.\stop.ps1                   # 停止（等价于在运行终端按 Ctrl+C）
+```
+
+手动方式，Windows PowerShell：
+
+```powershell
+cd backend
+py -3.11 -m venv .venv                       # 也可换成任意 Python >= 3.9 的路径
+.\.venv\Scripts\Activate.ps1                 # 必须带路径，Activate.ps1 不在 PATH 中
+python -m pip install --upgrade pip          # 旧版 pip 请先升级
+pip install -r requirements-dev.txt
+
+$env:DGB_ADMIN_TOKEN = "dev-token"           # PowerShell 环境变量写法
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+macOS / Linux / Git Bash：
+
+```bash
+cd backend
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+
+export DGB_ADMIN_TOKEN=dev-token             # `VAR=value cmd` 仅 Bash 支持
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### 前端（React + TypeScript + Vite）
+
+```bash
+cd frontend
+npm install
+npm run dev      # 开发模式，Vite 代理 /api 与 /ws 到 127.0.0.1:8000
+npm run build    # 构建产物 frontend/dist，由 FastAPI 托管
+```
+
+### 验证
+
+```bash
+cd backend
+python -m pytest -q          # 40 项测试
+alembic upgrade head         # 版本化迁移
+```
+
+关键环境变量：`DGB_DATABASE_URL`、`DGB_ADMIN_TOKEN`、`DGB_INFERENCE_HZ`、`DGB_INFERENCE_SCENARIO`（`default` / `safe` / `fatigue` / `degraded`）。
+
+更多排障说明见 [backend/README.md](backend/README.md)。
 
 ## 核心能力
 
@@ -82,6 +142,7 @@ Camera
 - [API 设计](docs/api/API_DESIGN.md) / [OpenAPI](docs/api/openapi.yaml)
 - [测试策略](docs/testing/TEST_STRATEGY.md)
 - [文档协作规范](docs/governance/DOCUMENTATION_GOVERNANCE.md)
+- [实现状态](docs/implementation/MVP_STATUS.md)
 
 ## 目标
 

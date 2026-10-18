@@ -1,0 +1,16 @@
+# 统一换行符策略
+# Git 内部以 LF 存储，检出时按文件类型处理，避免跨平台脚本失效。
+
+* text=auto
+
+# Shell 脚本必须保持 LF，否则在 Linux / macOS / Git Bash 下会报 "$'\r': command not found"
+*.sh text eol=lf
+
+# Windows PowerShell 脚本使用 CRLF（PowerShell 5.1 解析最稳妥）
+*.ps1 text eol=crlf
+
+# 二进制类型不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary

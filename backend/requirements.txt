@@ -1,0 +1,7 @@
+# DriveGuard AI backend runtime dependencies
+# Baseline: Python 3.11 (see README.md). Minimum: Python 3.9 (Pydantic v2 requirement).
+fastapi>=0.111,<1.0
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0.30
+alembic>=1.13
+pydantic>=2.7

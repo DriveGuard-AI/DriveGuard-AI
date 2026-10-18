@@ -21,6 +21,7 @@
 | [完整多专家模型](architecture/MULTI_EXPERT_DESIGN.md) | 算法、推理、测试 | YOLO/MediaPipe/交互特征/TCN/融合整体设计 | Baseline v0.3 |
 | [应用层与技术选型](architecture/APPLICATION_DESIGN.md) | 前后端、架构 | FastAPI、React、视频预览、数据访问和进程边界 | Baseline v0.2 |
 | [训练与边缘部署](deployment/DEPLOYMENT_DESIGN.md) | 算法、部署 | GPU/NPU 训练、Jetson 推理、Docker、导出回滚 | Baseline v0.3 |
+| [本机 CPU 联调](deployment/LOCAL_CPU_DEV.md) | 本机开发、联调 | 无 NPU 时的开发副本、三解释器启动、耗时构成与实时性边界 | 仅适用 CPU；非发布，不作为能力结论 |
 | [需求文档](requirements/REQUIREMENTS.md) | 产品、算法、开发、测试 | 业务目标、范围、需求和验收指标 | Baseline v0.3 |
 | [架构设计](architecture/ARCHITECTURE.md) | 架构、开发、运维 | 分层架构、组件边界、数据流和部署设计 | Baseline v0.2 |
 | [项目 Spec](specs/PROJECT_SPEC.md) | 开发、测试、评审者 | RFC 2119 行为规则和 Given/When/Then 场景 | Baseline v0.3 |

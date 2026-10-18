@@ -139,102 +139,11 @@ logit、score、threshold_logit、detected、source。不可用的 score/detecte
 端到端延迟、断流重连以及四任务/注视输出。此前验证集成绩不会自动成为新摄像头成绩。
 当前未重新训练，也未宣称完成真实 NPU/摄像头验收。
 
-## 4. Windows 本机 CPU 开发联调（非发布）
+## 4. 本机 CPU 联调
 
-只有 CPU 的开发机不能直接加载 `models/releases/live-composite-v1/`：`bundle.json`
-绑定了导出时的 `code_identity`（`inference/` 与 `training/**` 全部 `.py` 的哈希）和
-NPU 加速器，源码一旦有新提交或没有 NPU，`load_bundle` 会拒绝加载。此时不要修改发布
-目录，改用一份本地开发副本：
+没有 NPU 的开发机如何跑通联调、能测出什么，见
+[本机 CPU 联调（非发布）](LOCAL_CPU_DEV.md)。该页包含开发副本生成、三个解释器的
+启动顺序、每帧耗时构成与实时性边界。
 
-```powershell
-py -3.11 -m venv .venv-perception
-.\.venv-perception\Scripts\python.exe -m pip install numpy==1.26.4 Pillow opencv-contrib-python==4.11.0.86 mediapipe==0.10.21
-
-py -3.11 -m venv .venv-detector
-.\.venv-detector\Scripts\python.exe -m pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cpu
-.\.venv-detector\Scripts\python.exe -m pip install ultralytics==8.3.199
-```
-
-`.venv` 仍承担模型装配与测试（torch 2.7.1+cpu）。感知子进程、检测器服务的主线程
-必须分开解释器，与第 2 节在服务器上的拆分一致。三个环境都要用同一个 Python 3.11。
-
-生成开发副本（权重和资产用硬链接，不复制、不占空间；发布目录保持只读）：
-
-```powershell
-.\.venv\Scripts\python.exe -c "import secrets;from pathlib import Path;d=Path('runs/live-local');d.mkdir(parents=True,exist_ok=True);(d/'api.token').write_text(secrets.token_urlsafe(32),encoding='ascii');(d/'detector.token').write_text(secrets.token_urlsafe(32),encoding='ascii')"
-.\.venv\Scripts\python.exe scripts\local\prepare_dev_bundle.py --output runs\live-local\bundle --detector-token-file runs\live-local\detector.token
-```
-
-该脚本会重写 `code_identity`、把 `objects.backend` 换成 `cpu`、把检测器令牌指向本机
-绝对路径，并用 `load_bundle` 自校验；代码或权重变化后要换一个新的 `--output` 重新生成。
-它拒绝覆盖已存在的目录，也拒绝把任何会被改写的文件做成硬链接，所以发布目录不会被破坏。
-
-启动顺序（检测器先就绪，再加载组合模型）：
-
-```powershell
-.\.venv-detector\Scripts\python.exe -u -m inference.experts.detector_service `
-  --config runs\live-local\bundle\runtime.json --ready-file runs\live-local\detector-ready.json
-
-.\.venv\Scripts\python.exe -u -m inference.live.server --bundle runs\live-local\bundle\bundle.json `
-  --perception-python "$PWD\.venv-perception\Scripts\python.exe" `
-  --token-file runs\live-local\api.token --port 8765 --backend cpu --device-index 0
-```
-
-不带摄像头的链路检查，用合成 JPEG 走同一套 HTTP 契约（证明传输、感知子进程、
-检测器服务和时序窗口都在工作，不证明识别效果）：
-
-```powershell
-.\.venv\Scripts\python.exe scripts\local\smoke_live.py --frames 170 --interval-ms 40
-```
-
-2026-10-18 在 8 核 CPU 上实测：单帧处理 141ms（中位数；启用 channels_last 前为
-156ms），第 100 槽后状态由 warming 变为 ready，密集喂帧时四任务 available 均为 true、
-detected 均为 false（合成帧不含人脸）。真实摄像头请打开
-`http://localhost:8765/#token=<runs/live-local/api.token 的内容>`，
-在预览画面上拖拽框选驾驶员区域后开始推理。
-
-### 每帧耗时构成（CPU，8 线程）
-
-| 阶段 | 耗时 |
-|---|---|
-| YOLO11s 前向 + NMS（640×640，float32） | 92ms（channels_last）／114ms（NCHW） |
-| MediaPipe face + hands | 17ms |
-| eye locator（第二个 face 图，头部裁剪） | 4ms |
-| JPEG 解码 + 裁剪 + base64 | 6ms |
-| 跨进程 JSON 传输（RGB 采样帧约 200 KB） | 约 10ms |
-| 服务端模型窗口（每 25 槽一次） | +78ms，仅边界帧 |
-
-`torch.compile` 在缺少 MSVC 编译器的机器上不可用；`torch.jit.trace` 只快 1.10×，
-且会把 ultralytics 检测头的 `self.shape != shape` 分支固化成常量，因此没有采用。
-线程数保持默认（8 实测最优，4/6/16 都更慢）。
-
-### 为什么本机不能用实时摄像头
-
-浏览器一次只提交一帧，下一帧在上一帧返回后才采集，所以上传速率就是 1/单帧耗时。
-单帧 141ms 时，25 Hz 网格（40ms 一格）只有约 28% 的槽位拿到新像素，其余槽位
-`fresh=false`、`ages` 达到上限。实测两种喂帧方式的差别：
-
-| 喂帧方式 | 槽位覆盖 | 每结果可用任务数 |
-|---|---|---|
-| 密集（视频文件按 40ms 步进） | 100% | 4 / 4 |
-| 实时（浏览器一帧一发） | 19–23% | 0 / 4 |
-
-这不是调参能解决的：疲劳分支要求 `len(head_valid)==32 and all(head_valid)`，
-也就是连续 32 个 head 采样槽都必须是新鲜帧，等价于覆盖率约 100%，即端到端
-≤40ms/帧。当前 CPU 上 YOLO11s 一个前向就要 92ms，即使换 ONNX Runtime 拿到 3×，
-端到端也只有约 87ms（覆盖约 46%），疲劳分支仍不可用。所以本机的定位是
-**离线视频分析**（密集喂帧、慢于实时），不是实时摄像头。
-
-结论：浏览器摄像头页面保留用于联调与人工检查，但不要把本机结果当作实时检测
-能力；实时性需要 GPU/NPU 或更廉价的执行后端。
-
-本机排障要点：
-
-- 本副本沿用发布的 `webcam_integration_candidate_not_live_validated` 资格，不得当作
-  已验证准确率的结果对外使用。
-- `core.autocrlf=true` 的 Windows 检出会把发布目录里的文本文件改成 CRLF，导致
-  SHA-256 校验失败；`.gitattributes` 已用 `models/releases/** -text` 固定字节内容，
-  旧的检出需要重新 checkout 才能恢复。
-- 服务端每 250ms 的会话过期巡检曾经和请求抢同一把锁，使几乎每个请求都返回 409。
-  现在巡检在最近 1 秒内有新连接时直接跳过（`/api/live/status` 本身也做过期检查），
-  回归测试见 `tests/test_live_http.py`。
+其中的性能与可用性结论**只适用于 CPU 环境**，不能当作模型能力或 NPU/GPU 部署结论；
+实时性（源帧率、端到端延迟）仍属未验证项，需要在目标加速器上实测。

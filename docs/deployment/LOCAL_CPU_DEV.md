@@ -51,8 +51,11 @@ py -3.11 -m venv .venv-detector
 一致，否则 `settings_identity` 与检测器服务对不上。
 
 仓库另有一份更完整的感知依赖快照 `requirements-perception-win-cpu.lock.txt`
-（Python 3.12.14，含 torchvision/av/scikit-image 等）。上表是本次实测实际使用的
-Python 3.11 组合，两者未做交叉验证；需要完整离线抽取能力时以锁文件为准。
+（Python 3.12.14，含 torchvision/av/scikit-image 等），用于**完整离线视频抽取**。
+上表是本页 live 联调实际使用的 Python 3.11 组合。两者用途不同、版本不同，
+**不要混装进同一个环境**：live 只需要 numpy / Pillow / opencv / mediapipe，
+装进 torch、scikit-image 会让感知子进程变重、启动变慢，也会模糊"感知环境不含
+模型"的隔离；需要离线抽取能力时另建环境并按该锁文件安装。
 
 ## 3. 生成开发副本
 

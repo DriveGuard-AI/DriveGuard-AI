@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DriveGuard 摄像头联调</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#101923;color:#eef4fa;margin:0;padding:24px;max-width:1250px;margin:auto}
+h1{font-size:24px}p{color:#b8c8d8}button,input,select{font:inherit;padding:8px;border-radius:6px;border:1px solid #687e91}
+button{cursor:pointer;background:#c2f19e}button:disabled{opacity:.5;cursor:default}label{display:inline-block;margin:7px 10px 7px 0}
+.view{position:relative;max-width:900px;background:#000;margin:18px 0}.view video{width:100%;display:block}.view canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.card{padding:14px;background:#203044;border-radius:8px;white-space:pre-line}
+#status{padding:12px;background:#263b50;border-radius:8px;white-space:pre-wrap}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#c5d3e4}#error{color:#ffb5a9}
+</style>
+<h1>DriveGuard · 最新组合模型摄像头联调</h1>
+<p>实时采集 → 感知 → 多任务模型。首次预热约 4 秒，随后每秒输出。分数未校准，不生成综合安全等级。</p>
+<label>服务令牌 <input id="token" type="password" autocomplete="off"></label>
+<label>视角 <select id="view"><option value="body">body 车内全身视角</option><option value="face">face 面部视角</option></select></label>
+<br><label>驾驶员区域 x₀,y₀,x₁,y₁（0–1） <input id="roi" value="0,0,1,1" size="24"></label>
+<label><input id="exclusive" type="checkbox">确认该区域仅属于驾驶员</label>
+<p>绿色框为驾驶员区域，紫色框为 body 模型头部裁剪区。调整区域或摄像头位置，让头部在紫框内；修改后需重新开始推理。上传画面不镜像。</p>
+<button id="preview">打开摄像头</button> <button id="start" disabled>开始推理</button> <button id="stop" disabled>停止</button>
+<div class="view"><video id="video" autoplay muted playsinline></video><canvas id="overlay"></canvas></div>
+<div id="status">等待摄像头</div><p id="error" role="alert"></p><div id="cards"></div>
+<details><summary>接口原始输出与分支来源</summary><pre id="details"></pre></details>
+<script src="/camera.js"></script></html>

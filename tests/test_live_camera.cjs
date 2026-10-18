@@ -9,10 +9,13 @@ function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {
 function harness(fetch){
   const elements={};let now=0;const timers=[];
   function element(id){return elements[id]??={value:id==='view'?'body':id==='roi'?'0,0,1,1':'',
-    checked:true,disabled:false,videoWidth:640,videoHeight:480,textContent:'',children:[],
+    checked:true,disabled:false,videoWidth:640,videoHeight:480,textContent:'',children:[],listeners:{},
     replaceChildren(){this.children=[];},append(x){this.children.push(x);},
     getContext(){return {clearRect(){},strokeRect(){}};},play:async()=>{},
-    cancelVideoFrameCallback(){},requestVideoFrameCallback(){return 1;}};}
+    cancelVideoFrameCallback(){},requestVideoFrameCallback(){return 1;},
+    addEventListener(type,handler){(this.listeners[type]??=[]).push(handler);},
+    dispatch(type,event){(this.listeners[type]||[]).forEach(handler=>handler(event));},
+    getBoundingClientRect(){return {left:0,top:0,width:640,height:480};}};}
   const context=vm.createContext({document:{getElementById:element,createElement:()=>element(Symbol()),addEventListener(){}},
     window:{isSecureContext:true,addEventListener(){}},navigator:{mediaDevices:{}},
     location:{hash:'',pathname:'/'},history:{replaceState(){}},URLSearchParams,
@@ -55,4 +58,39 @@ test('cancel pending camera permission stops late tracks',async()=>{
   permission.resolve({getTracks:()=>[{stop(){stopped++;}}]});await preview;
   assert.equal(stopped,1);assert.equal(h.run('media'),null);
   assert.equal(h.element('preview').disabled,false);
+});
+
+test('dragging on the preview sets a normalized driver ROI',()=>{
+  const h=harness(()=>{});
+  h.run('media={}');
+  const overlay=h.element('overlay');
+  const pointer=(x,y)=>({clientX:x,clientY:y,pointerId:1,preventDefault(){}});
+  overlay.dispatch('pointerdown',pointer(64,96));
+  overlay.dispatch('pointermove',pointer(320,288));
+  overlay.dispatch('pointerup',pointer(320,288));
+  assert.equal(h.element('roi').value,'0.1000,0.2000,0.5000,0.6000');
+  assert.match(h.element('roiInfo').textContent,/已更新驾驶员区域/);
+});
+
+test('dragging is ignored while inference is running',()=>{
+  const h=harness(()=>{});
+  h.run('media={};running=true');
+  const overlay=h.element('overlay');
+  const pointer=(x,y)=>({clientX:x,clientY:y,pointerId:1,preventDefault(){}});
+  overlay.dispatch('pointerdown',pointer(64,96));
+  overlay.dispatch('pointermove',pointer(320,288));
+  overlay.dispatch('pointerup',pointer(320,288));
+  assert.equal(h.element('roi').value,'0,0,1,1');
+});
+
+test('a tiny drag is rejected instead of producing a degenerate ROI',()=>{
+  const h=harness(()=>{});
+  h.run('media={}');
+  const overlay=h.element('overlay');
+  const pointer=(x,y)=>({clientX:x,clientY:y,pointerId:1,preventDefault(){}});
+  overlay.dispatch('pointerdown',pointer(100,100));
+  overlay.dispatch('pointermove',pointer(104,104));
+  overlay.dispatch('pointerup',pointer(104,104));
+  assert.equal(h.element('roi').value,'0,0,1,1');
+  assert.match(h.element('roiInfo').textContent,/过小/);
 });

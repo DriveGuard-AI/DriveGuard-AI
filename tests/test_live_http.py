@@ -63,6 +63,22 @@ class HttpTests(unittest.TestCase):
     def test_unknown_api_is_not_html(self):
         self.assertEqual(self.request('/api/v1/risk')[0],404)
 
+    def test_expiry_sweep_does_not_take_the_lock_from_a_new_request(self):
+        # serve_forever runs the advisory expiry sweep immediately after it hands
+        # a connection to a worker thread. When the sweep shares the request lock
+        # a slower status call makes nearly every request answer 409, so the
+        # sweep must stand down while traffic is arriving.
+        original=self.service.status
+        def slow_status():
+            time.sleep(.05)
+            return original()
+        self.service.status=slow_status
+        try:
+            codes=[self.request('/api/live/status')[0] for _ in range(5)]
+        finally:
+            del self.service.status
+        self.assertEqual(codes,[200]*5)
+
     def test_stop_waits_for_inflight_frame(self):
         session=self.open();bridge=self.service.bridge
         entered=threading.Event();release=threading.Event();original=bridge.call

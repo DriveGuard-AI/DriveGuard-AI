@@ -86,7 +86,7 @@ class SessionService:
 
 def create_server(service,token,port=8765,executor=None):
     if not token:raise ValueError('A nonempty bearer token is required')
-    lock=Lock();pool=executor
+    lock=Lock();pool=executor;accepted=[float('-inf')]
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def reply(self,status,value,kind='application/json; charset=utf-8'):
@@ -145,8 +145,21 @@ def create_server(service,token,port=8765,executor=None):
             except Exception as error:self.reply(503,dict(error=str(error),result=None))
         do_GET=do_POST=do_DELETE=dispatch
     class Server(ThreadingHTTPServer):
+        def process_request(self,request,client_address):
+            # serve_forever calls service_actions() right after this returns, so
+            # record the accept before the sweep can consider itself idle.
+            accepted[0]=time.monotonic()
+            super().process_request(request,client_address)
         def service_actions(self):
-            # serve_forever calls this even when the browser has disappeared.
+            # serve_forever calls this even when the browser has disappeared, but
+            # it also calls it immediately after accepting a connection. The
+            # sweep is advisory and /api/live/status performs the same 60 second
+            # expiry check, so stand down while requests arrive instead of
+            # holding the lock the new request is about to need. One second of
+            # quiet is enough: an accepted connection is recorded before this
+            # runs, so the post-accept collision is excluded deterministically
+            # while a vanished browser still loses its session promptly.
+            if time.monotonic()-accepted[0]<1.:return
             if not lock.acquire(blocking=False):return
             try:
                 if pool:pool.submit(service.status).result()

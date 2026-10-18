@@ -34,6 +34,9 @@ def selected_slots(slots):
 
 def _contained(root, relative):
     from training.dmd.cache import _unlinked
+    # Normalize the root to the same absolute, link-free form as the candidate path;
+    # otherwise a relative data_root (e.g. "runs/xyz/cache") makes is_relative_to() fail.
+    root = _unlinked(root)
     if not isinstance(relative,str) or Path(relative).is_absolute() or '..' in Path(relative).parts:
         raise ValueError('Expected contained relative path')
     path = _unlinked(root/relative)

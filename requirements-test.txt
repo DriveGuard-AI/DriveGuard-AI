@@ -1,0 +1,8 @@
+# Test dependencies (used on top of requirements.txt).
+#   python -m pip install -r requirements-test.txt
+#
+# OpenCV is required by the eye-tracking / face-diagnostic test modules
+# (training/perception/eye_tracking.py, training/dmd/face_*). Tests that only
+# need an optional OpenCV API are guarded by unittest.skipUnless.
+-r requirements.txt
+opencv-python

@@ -2,6 +2,8 @@
 # Framework baseline; not a complete environment lock (NumPy is not pinned).
 numpy
 torch==2.7.1
+# Runtime import for the visual / eye / fatigue pipelines (PIL.Image).
+Pillow
 
 # Install the platform-matched PyTorch build BEFORE this file.
 # CUDA: select the wheel matching the target GPU runtime.

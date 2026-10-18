@@ -19,6 +19,12 @@ python -m training.temporal.npu_train --check-config
 
 ## 2. 先做显式 CPU 合成测试
 
+运行完整测试前先补齐测试依赖（OpenCV；Pillow 已随 `requirements.txt` 提供）：
+
+```bash
+python -m pip install -r requirements-test.txt
+```
+
 ```bash
 python -m unittest discover -s tests -v
 python -m training.temporal.smoke --output-dir runs/temporal-smoke

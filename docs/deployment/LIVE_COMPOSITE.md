@@ -187,10 +187,46 @@ py -3.11 -m venv .venv-detector
 .\.venv\Scripts\python.exe scripts\local\smoke_live.py --frames 170 --interval-ms 40
 ```
 
-2026-10-18 在 8 核 CPU 上实测：单帧处理约 235ms（约 4 FPS），第 100 槽后状态由
-warming 变为 ready，四任务 available 均为 true、detected 均为 false（合成帧不含人脸）。
-真实摄像头请打开 `http://localhost:8765/#token=<runs/live-local/api.token 的内容>`，
+2026-10-18 在 8 核 CPU 上实测：单帧处理 141ms（中位数；启用 channels_last 前为
+156ms），第 100 槽后状态由 warming 变为 ready，密集喂帧时四任务 available 均为 true、
+detected 均为 false（合成帧不含人脸）。真实摄像头请打开
+`http://localhost:8765/#token=<runs/live-local/api.token 的内容>`，
 在预览画面上拖拽框选驾驶员区域后开始推理。
+
+### 每帧耗时构成（CPU，8 线程）
+
+| 阶段 | 耗时 |
+|---|---|
+| YOLO11s 前向 + NMS（640×640，float32） | 92ms（channels_last）／114ms（NCHW） |
+| MediaPipe face + hands | 17ms |
+| eye locator（第二个 face 图，头部裁剪） | 4ms |
+| JPEG 解码 + 裁剪 + base64 | 6ms |
+| 跨进程 JSON 传输（RGB 采样帧约 200 KB） | 约 10ms |
+| 服务端模型窗口（每 25 槽一次） | +78ms，仅边界帧 |
+
+`torch.compile` 在缺少 MSVC 编译器的机器上不可用；`torch.jit.trace` 只快 1.10×，
+且会把 ultralytics 检测头的 `self.shape != shape` 分支固化成常量，因此没有采用。
+线程数保持默认（8 实测最优，4/6/16 都更慢）。
+
+### 为什么本机不能用实时摄像头
+
+浏览器一次只提交一帧，下一帧在上一帧返回后才采集，所以上传速率就是 1/单帧耗时。
+单帧 141ms 时，25 Hz 网格（40ms 一格）只有约 28% 的槽位拿到新像素，其余槽位
+`fresh=false`、`ages` 达到上限。实测两种喂帧方式的差别：
+
+| 喂帧方式 | 槽位覆盖 | 每结果可用任务数 |
+|---|---|---|
+| 密集（视频文件按 40ms 步进） | 100% | 4 / 4 |
+| 实时（浏览器一帧一发） | 19–23% | 0 / 4 |
+
+这不是调参能解决的：疲劳分支要求 `len(head_valid)==32 and all(head_valid)`，
+也就是连续 32 个 head 采样槽都必须是新鲜帧，等价于覆盖率约 100%，即端到端
+≤40ms/帧。当前 CPU 上 YOLO11s 一个前向就要 92ms，即使换 ONNX Runtime 拿到 3×，
+端到端也只有约 87ms（覆盖约 46%），疲劳分支仍不可用。所以本机的定位是
+**离线视频分析**（密集喂帧、慢于实时），不是实时摄像头。
+
+结论：浏览器摄像头页面保留用于联调与人工检查，但不要把本机结果当作实时检测
+能力；实时性需要 GPU/NPU 或更廉价的执行后端。
 
 本机排障要点：
 

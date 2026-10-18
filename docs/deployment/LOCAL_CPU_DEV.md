@@ -116,6 +116,17 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
 .\.venv\Scripts\python.exe scripts\local\smoke_live.py --frames 170 --interval-ms 40
 ```
 
+有视频文件时按 25 Hz 网格喂入（离线分析，比实时慢约 7 倍）。`--retries` 会在会话
+因推理错误关闭后重开会话并从失败帧继续，长视频不会因为一次抖动前功尽弃：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\local\smoke_live_video.py `
+  --video "D:\path\to\clip.mp4" --output runs\live-local\video.jsonl --retries 2
+```
+
+2026-10-18 实测（1280×720 会话、1114 帧 / 44.6 秒时间线）：0 次中断、1014 个结果，
+四任务始终 `available`，处理耗时 p50 250ms，墙钟 322 秒（0.14× 实时）。
+
 ## 6. 实测性能（8 核 CPU，yolo11s @640）
 
 服务端 `processing_ms` 口径（`server.py` 的 `frame()` 包围 `bridge.call` + `stream.consume`）：

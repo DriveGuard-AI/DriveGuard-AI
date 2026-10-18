@@ -8,13 +8,14 @@ real warmup prediction completes on the explicitly selected device.
 """
 import argparse
 import hmac
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import logging
 import os
 from pathlib import Path
 import signal
 import socket
+import threading
 
 from inference.experts.protocol import (MAX_RESPONSE, TIMEOUT_SECONDS, VERSION, read_token,
     settings_identity, validate_dimensions, validate_result, validate_service)
@@ -22,7 +23,11 @@ from inference.experts.protocol import (MAX_RESPONSE, TIMEOUT_SECONDS, VERSION, 
 LOG = logging.getLogger(__name__)
 
 
-class DetectorHTTPServer(HTTPServer):
+class DetectorHTTPServer(ThreadingHTTPServer):
+    # Connections are accepted in their own threads so one slow frame cannot
+    # block /health or new connections until clients time out. Inference itself
+    # stays strictly serialized by server.inference_lock.
+    daemon_threads = True
     request_queue_size = 64
 
     def server_bind(self):
@@ -111,9 +116,12 @@ class DetectorHandler(BaseHTTPRequestHandler):
         try:
             import numpy as np
             frame = np.frombuffer(raw, np.uint8).reshape(height, width, 3)
-            result = self.server.detector.predict(frame, timestamp)
-            validate_result(result, self.server.detector.model_id, timestamp, width, height,
-                            self.server.max_predictions)
+            # One model, batch one: concurrent callers wait here instead of
+            # running the detector concurrently.
+            with self.server.inference_lock:
+                result = self.server.detector.predict(frame, timestamp)
+                validate_result(result, self.server.detector.model_id, timestamp, width, height,
+                                self.server.max_predictions)
         except Exception:
             LOG.exception('Detector inference failed; no backend fallback')
             self._reply(503, {'error': 'detector inference failed; no backend fallback'})
@@ -128,6 +136,7 @@ def create_server(settings, service, detector=None, *, port=None):
     identity = settings_identity(**settings)
     server = DetectorHTTPServer((service['host'], service['port'] if port is None else port), DetectorHandler)
     server.detector, server.token, server.request_identity = None, token, identity
+    server.inference_lock = threading.Lock()
     server.ready_file = None
     server.ready_stat = None
     server.settings = dict(settings)

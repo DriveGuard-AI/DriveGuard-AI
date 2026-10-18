@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import types
 import unittest
 from unittest.mock import patch
@@ -281,6 +282,71 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(server.health['status'], 'warming')
         finally:
             server.server_close()
+
+    def test_health_answers_while_a_frame_is_being_inferred(self):
+        # A single-threaded accept loop let one slow frame block /health and every
+        # new connection until clients timed out, which aborted a whole video run.
+        client = self.client()
+        entered, release = threading.Event(), threading.Event()
+        original = self.detector.predict
+
+        def blocked(frame, timestamp_ms):
+            entered.set()
+            release.wait(5)
+            return original(frame, timestamp_ms)
+
+        self.detector.predict = blocked
+        worker = threading.Thread(target=lambda: client.predict(np.zeros((2, 2, 3), np.uint8), 0), daemon=True)
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            headers = {'Authorization': 'Bearer ' + 'a' * 64,
+                       'X-Detector-Identity': client.request_identity}
+            started = time.monotonic()
+            code, _ = self.request('GET', '/health', headers=headers)
+            self.assertEqual(code, 200)
+            self.assertLess(time.monotonic() - started, 1.5)
+        finally:
+            release.set()
+            worker.join(5)
+            client.close()
+
+    def test_concurrent_callers_stay_serialized_and_all_succeed(self):
+        client = self.client()
+        original = self.detector.predict
+        active = peak = 0
+        guard = threading.Lock()
+
+        def tracked(frame, timestamp_ms):
+            nonlocal active, peak
+            with guard:
+                active += 1
+                peak = max(peak, active)
+            try:
+                time.sleep(.05)
+                return original(frame, timestamp_ms)
+            finally:
+                with guard:
+                    active -= 1
+
+        self.detector.predict = tracked
+        codes = []
+
+        def call(index):
+            try:
+                client.predict(np.zeros((2, 2, 3), np.uint8), index)
+                codes.append(200)
+            except Exception:
+                codes.append(0)
+
+        threads = [threading.Thread(target=call, args=(index,)) for index in range(3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(10)
+        client.close()
+        self.assertEqual(codes, [200, 200, 200])
+        self.assertEqual(peak, 1)
 
     def test_restart_model_identity_and_bad_result_are_rejected(self):
         client = self.client()

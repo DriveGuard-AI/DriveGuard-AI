@@ -142,6 +142,11 @@ logit、score、threshold_logit、detected、source。不可用的 score/detecte
 端到端延迟、断流重连以及四任务/注视输出。此前验证集成绩不会自动成为新摄像头成绩。
 当前未重新训练，也未宣称完成真实 NPU/摄像头验收。
 
+已知限制集中在 [已知限制与未解决问题](../testing/KNOWN_LIMITATIONS.md)。本机真实视频
+验证发现：body 视角 `drinking` 在“手持手机贴耳”素材上恒为 detected（误报）；body 视角
+`gaze` 标记 `unvalidated_body_view`；CPU 上无法满足 25 Hz 实时输入。原始数据与命令见
+[Live 视频端到端验证](../experiments/20261018-live-video-validation.md)。
+
 ## 4. 本机 CPU 联调
 
 没有 NPU 的开发机如何跑通联调、能测出什么，见

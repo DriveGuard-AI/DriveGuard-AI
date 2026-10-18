@@ -29,6 +29,8 @@
 | [API 设计](api/API_DESIGN.md) | 前后端、测试 | REST 与 WebSocket 契约、错误码和联调规则 | Baseline v0.2 |
 | [OpenAPI 草案](api/openapi.yaml) | 前后端、工具链 | 可机读的 REST API 契约 | Draft v0.2 |
 | [测试策略](testing/TEST_STRATEGY.md) | 开发、测试、算法 | 分层测试、数据切分、性能与验收方案 | Baseline v0.2 |
+| [已知限制与未解决问题](testing/KNOWN_LIMITATIONS.md) | 全体贡献者 | 已发现但未解决的限制、后果、证据与状态 | 持续更新 |
+| [Live 视频端到端验证](experiments/20261018-live-video-validation.md) | 算法、部署、测试 | 真实视频跑 live 服务的耗时、任务可用性与发现的问题 | 本机 CPU；非精度报告 |
 | [文档协作规范](governance/DOCUMENTATION_GOVERNANCE.md) | 全体贡献者 | 代码迭代时的文档同步与审核流程 | Active v0.1 |
 | [shadow 训练职责约定](training/TRAINING_CHARTER.md) | 算法、推理集成、项目负责人 | 训练分工、GPU/NPU、数据与权重交付 | Active v0.2 |
 | [TCN 子模型设计](training/MODEL_DESIGN.md) | 算法 | 因果网络、24 通道基线、部分监督与 checkpoint | Baseline v0.2 |

@@ -153,3 +153,12 @@
 **证据**: 两个现有CPU环境各128项测试；合成2轮续训到3轮与连续3轮权重/history完全一致、best重载有限；独立规格/质量审查通过。
 **边界**: 可在准备好v2特征、真实标签、主体清单后指定服务器路径训练；不能只输入DMD原始视频目录。未验证GPU/NPU、不自动恢复数据任务、不安装依赖或发布合成权重。业务任务支持/告警、DMD标签解析、可选随机缺失增强另行实施。
 **恢复入口**: docs/training/RELATION_RUNBOOK.md、docs/experiments/20260919-relation-training.md。
+
+### Decision Record: 本机 CPU 联调基线 + 真实视频验证
+
+**日期**: 2026-10-18
+**问题**: 无 NPU 的本机要验证 live 复合服务与真实视频链路，并明确离应用层接入还差什么；同时不能污染发布工件。
+**选择**: (1) 发布 bundle 绑定 `code_identity` 与 NPU，禁止改发布目录，改用 `scripts/local/prepare_dev_bundle.py` 生成 `runs/` 下的开发副本（硬链接权重、backend=cpu、刷新 identity）；(2) 三解释器：`.venv` 主服务/测试、`.venv-perception` MediaPipe、`.venv-detector` YOLO11；(3) 真实视频按 40ms 网格喂入（离线分析，非实时）；(4) 发现的运行时缺陷直接修，模型质量问题只记录不调阈值。
+**证据/边界**: 真实素材 1114 帧、0 中断、1014 个结果、四任务全程 available、p50 250ms（0.14× 实时）。发现并修复：检测器单线程接收导致连接超时（改线程化接收 + 推理锁）、会话巡检抢锁导致 409、`core.autocrlf` 破坏发布包校验、开发副本硬链接反向写坏发布文件。未解决已记录：body 视角 `drinking` 在"手持手机贴耳"素材上 1014/1014 误报、`fatigue` 29 秒单点、body gaze 标记 unvalidated、CPU 无法满足 25Hz 输入（疲劳门控要求连续 32 个 head 槽全新鲜）。均为 CPU 环境结论，未验证 NPU/GPU 帧率与长时间稳定性。
+**撤销条件**: 目标加速器实测达到 25Hz 且丢帧≈0，或产品决定放弃实时摄像头只做离线分析时，对应更新本基线。
+**恢复入口**: `docs/testing/KNOWN_LIMITATIONS.md`、`docs/experiments/20261018-live-video-validation.md`、`docs/deployment/LOCAL_CPU_DEV.md`。

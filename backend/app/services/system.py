@@ -59,6 +59,8 @@ class SystemService:
 
     def status(self) -> SystemStatus:
         engine_status = self._engine.status()
+        detail = self._engine.inference_status()
+        live = (self._config.inference_mode or "fake").lower() == "live"
 
         with self._db.session() as session:
             SettingsRepository(session).ensure_defaults(now_iso=to_iso_z(utcnow()))
@@ -69,9 +71,10 @@ class SystemService:
         return SystemStatus(
             service_version=self._config.service_version,
             camera=CameraStatus(
-                available=False,
-                device_id=f"cam-{self._config.inference_scenario}",
-                source="scripted-stub",
+                # live 模式下输入是 JPEG 序列（由外部工具抽帧），不是摄像头
+                available=bool(live and detail.get("state") == "streaming"),
+                device_id="frame-sequence" if live else f"cam-{self._config.inference_scenario}",
+                source="jpeg-sequence" if live else "scripted-stub",
             ),
             pipeline=PipelineStatus(
                 state=engine_status["state"],
@@ -91,7 +94,8 @@ class SystemService:
                 max_hz=self._config.ws_max_hz,
             ),
             model=ModelStatus(
-                loaded=False,  # 无真实模型：如实声明未加载
+                # 只有 live 模式且已收到真实结果时才算“已加载模型”
+                loaded=bool(live and (detail.get("results_seen") or 0) > 0),
                 bundle_version=str(bundle_version) if bundle_version is not None else "unknown",
                 active_models=active_models,
             ),

@@ -60,9 +60,12 @@ class EventRepository:
             event_id=event_id,
             session_id=session_id,
             event_type=event_type,
-            started_at=to_iso_z(snapshot.captured_at),
+            # 事件时刻一律取调用方给的事件时钟（离线为素材时间轴），
+            # 不能取 snapshot.captured_at：那是墙钟，与 accumulate/close 用的
+            # 时钟不同，离线分析下会写出 ended_at < started_at。
+            started_at=timestamp,
             ended_at=None,
-            duration_ms=duration_ms(to_iso_z(snapshot.captured_at), timestamp),
+            duration_ms=0,
             max_confidence=snapshot.confidence,
             max_risk_level=snapshot.risk_level,
             status="active",

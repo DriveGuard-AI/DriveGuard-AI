@@ -14,7 +14,13 @@ from ..schemas import RiskSnapshot
 
 
 class InferencePort(Protocol):
-    """风险推理端口。"""
+    """风险推理端口。
+
+    实现可以额外提供两个**可选**生命周期方法，`InferenceEngine` 会按需调用：
+
+    - `start()`：启动后台采集（例如从 live 服务拉帧）；
+    - `close()`：释放会话与线程。
+    """
 
     @property
     def mode(self) -> str:

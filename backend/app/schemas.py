@@ -84,6 +84,9 @@ class RiskSnapshot(BaseModel):
     detections: list[Detection] = Field(default_factory=list)
     reason_codes: list[str] = Field(default_factory=list)
     inference_mode: InferenceMode = "fake"
+    # 视频时间轴位置（毫秒）。离线分析时由 live 服务的 window_end_ms 提供，
+    # 用于把事件锚定到素材时间轴；实时模式与无证据时为 None。
+    source_timestamp_ms: int | None = None
 
 
 class EventOut(BaseModel):

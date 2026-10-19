@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from ..database import Database
 from ..errors import EventNotFoundError
@@ -107,9 +108,65 @@ class EventTracker:
 
     def __init__(self, db: Database) -> None:
         self._db = db
+        # 会话 → 最近一次时间轴时刻。离线运行结束后快照会退化为 RESULT_STALE 且
+        # 不再带 source_timestamp_ms，若此时回落墙钟，同一会话里就会混用两种时钟：
+        # 事件时长按墙钟被放大，且时钟可能倒退，撞上 ck_events_time 约束。
+        self._timeline: dict[str, datetime] = {}
 
-    def process(self, snapshot: RiskSnapshot) -> EventChange | None:
-        now = utcnow()
+    def _clock(self, snapshot: RiskSnapshot, timeline_anchor: datetime | None) -> datetime:
+        """事件计时基准。
+
+        离线分析的真实运行时间比素材慢数倍（实测 38 秒素材跑了 324 秒），用墙钟
+        会把「视频里 20 秒的喝水」写成 161 秒。只要调用方给出会话起点锚点、快照
+        又带有素材时间轴位置，事件时刻就取「锚点 + 素材偏移」；时间轴一旦建立，
+        后续没有位置的快照沿用最后位置，不再回退墙钟，也不允许倒退。
+        实时模式没有锚点，仍用墙钟。
+        """
+
+        session = snapshot.session_id
+        position = snapshot.source_timestamp_ms
+        previous = self._timeline.get(session)
+        if timeline_anchor is not None and position is not None:
+            value = timeline_anchor + timedelta(milliseconds=max(0, int(position)))
+            if previous is not None and value < previous:
+                value = previous
+            self._timeline[session] = value
+            return value
+        if timeline_anchor is not None and previous is not None:
+            return previous
+        return utcnow()
+
+    def finalize(self, session_id: str) -> EventChange | None:
+        """离线素材跑完后收尾：按最后的时间轴位置关闭仍在活动的事件。
+
+        时间轴时钟在停滞期间保持不动，合并间隔永远不会被判超时，所以不显式收尾
+        的话事件会一直挂在 active。
+        """
+
+        now = self._timeline.get(session_id)
+        if now is None:
+            return None
+        with self._db.session() as session:
+            repo = EventRepository(session)
+            active = repo.get_active(session_id)
+            if active is None:
+                return None
+            min_duration_ms = SettingsRepository(session).get_int("event.min_duration_ms", 1500)
+            closed = repo.close(active, ended_at=now, min_duration_ms=min_duration_ms)
+            AuditRepository(session).add(
+                action="event.closed",
+                resource_type="driving_event",
+                resource_id=closed.event_id,
+                result="success",
+                occurred_at=to_iso_z(now),
+                details={"status": closed.status, "duration_ms": closed.duration_ms, "reason": "source_completed"},
+            )
+            return EventChange(closed.status, event_to_schema(closed))
+
+    def process(
+        self, snapshot: RiskSnapshot, *, timeline_anchor: datetime | None = None
+    ) -> EventChange | None:
+        now = self._clock(snapshot, timeline_anchor)
         recordable = snapshot.primary_risk is not None and snapshot.risk_level in ("WARNING", "DANGER")
 
         with self._db.session() as session:

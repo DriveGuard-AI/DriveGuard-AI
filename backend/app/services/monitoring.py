@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from collections import deque
@@ -24,11 +25,13 @@ from ..repositories.models_registry import ModelRegistryRepository
 from ..repositories.sessions import SessionRepository
 from ..repositories.settings import SettingsRepository
 from ..schemas import RiskSnapshot
-from ..timeutil import to_iso_z, utcnow
+from ..timeutil import parse_iso, to_iso_z, utcnow
 from .events import EventTracker
 
 MAX_LATENCY_SAMPLES = 240
 MAX_TICK_SAMPLES = 120
+
+logger = logging.getLogger(__name__)
 
 
 class InferenceEngine:
@@ -46,6 +49,8 @@ class InferenceEngine:
         self._tracker = EventTracker(db)
 
         self._session_id: str | None = None
+        self._session_started_at: datetime | None = None
+        self._last_error: str | None = None
         self._sequence = 0
         self._latest: RiskSnapshot | None = None
         self._task: asyncio.Task | None = None
@@ -71,6 +76,7 @@ class InferenceEngine:
             if existing is not None:
                 # 服务重启后恢复既有活动会话，避免重复写入
                 self._session_id = existing.session_id
+                self._session_started_at = parse_iso(existing.started_at)
             else:
                 bundle_version = SettingsRepository(session).get_value("model.bundle_version")
                 created = sessions.create(
@@ -81,8 +87,12 @@ class InferenceEngine:
                     model_bundle_version=str(bundle_version or "unknown"),
                 )
                 self._session_id = created.session_id
+                self._session_started_at = now
 
         self._state = "running"
+        starter = getattr(self._inference, "start", None)
+        if callable(starter):
+            starter()
         self._task = asyncio.create_task(self._run(), name="driveguard-inference")
 
     async def stop(self) -> None:
@@ -95,6 +105,9 @@ class InferenceEngine:
             pass
         self._task = None
         self._state = "stopped"
+        closer = getattr(self._inference, "close", None)
+        if callable(closer):
+            closer()
 
         if self._session_id:
             with self._db.session() as session:
@@ -107,28 +120,55 @@ class InferenceEngine:
         try:
             while True:
                 tick_started = time.perf_counter()
-                now = utcnow()
-                snapshot = self._inference.next_snapshot(
-                    session_id=self._session_id or "unknown",
-                    sequence=self._sequence,
-                    now=now,
-                )
-                self._sequence += 1
-                self._latest = snapshot
-                self._tick_times.append(time.monotonic())
-
-                change = self._tracker.process(snapshot)
-                await self._hub.broadcast_snapshot(snapshot)
-                if change is not None:
-                    await self._hub.broadcast_event_changed(change)
-
-                self._latencies.append((time.perf_counter() - tick_started) * 1000.0)
-                await self._maybe_heartbeat(now)
-
+                try:
+                    await self._tick(tick_started)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:  # noqa: BLE001 - 单轮失败不得终止采样
+                    # 之前这里没有兜底：任何一轮异常都会让任务静默退出，而 status
+                    # 仍报 running，表现为"服务在跑但快照不再更新"。
+                    message = f"{type(error).__name__}: {error}"[:400]
+                    self._last_error = message
+                    logger.exception("推理循环本轮失败，继续下一轮: %s", message)
                 elapsed = time.perf_counter() - tick_started
                 await asyncio.sleep(max(0.0, interval - elapsed))
         except asyncio.CancelledError:  # pragma: no cover - 正常关闭路径
             raise
+
+    async def _tick(self, tick_started: float) -> None:
+        now = utcnow()
+        snapshot = self._inference.next_snapshot(
+            session_id=self._session_id or "unknown",
+            sequence=self._sequence,
+            now=now,
+        )
+        self._sequence += 1
+        self._latest = snapshot
+        self._tick_times.append(time.monotonic())
+
+        # 离线素材跑完后时间轴停止推进，合并间隔不会再判超时。此时只收尾、
+        # 不再根据快照建事件：否则每轮都会「建一个 → 立刻关掉」，产生大量 0ms 碎片。
+        if self._source_completed():
+            change = self._tracker.finalize(self._session_id or "unknown")
+        else:
+            change = self._tracker.process(snapshot, timeline_anchor=self._session_started_at)
+        await self._hub.broadcast_snapshot(snapshot)
+        if change is not None:
+            await self._hub.broadcast_event_changed(change)
+
+        self._latencies.append((time.perf_counter() - tick_started) * 1000.0)
+        await self._maybe_heartbeat(now)
+
+    def _source_completed(self) -> bool:
+        """推理源是否已经跑完（离线分析专用；实时模式永远为 False）。"""
+
+        reporter = getattr(self._inference, "status", None)
+        if not callable(reporter):
+            return False
+        try:
+            return (reporter() or {}).get("state") == "completed"
+        except Exception:  # noqa: BLE001 - 状态查询失败按未完成处理
+            return False
 
     async def _maybe_heartbeat(self, now: datetime) -> None:
         monotonic_now = time.monotonic()
@@ -160,11 +200,25 @@ class InferenceEngine:
             "dropped_frame_rate": self._dropped_frame_rate(),
             "inference_mode": self._inference.mode,
             "degraded": self._inference.degraded,
+            # 最近一次主循环异常。非空表示快照可能在停滞，供运维判定。
+            "last_error": self._last_error,
         }
 
     @property
     def inference_mode(self) -> str:
         return self._inference.mode
+
+    def inference_status(self) -> dict[str, Any]:
+        """推理实现的详细状态（可选）；失败时返回空字典，不影响主循环。"""
+
+        reporter = getattr(self._inference, "status", None)
+        if not callable(reporter):
+            return {}
+        try:
+            value = reporter()
+        except Exception:  # noqa: BLE001 - 状态查询不能拖垮监控
+            return {}
+        return value if isinstance(value, dict) else {}
 
     @property
     def degraded(self) -> bool:

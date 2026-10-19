@@ -20,9 +20,8 @@ from .config import AppConfig, load_config
 from .database import Database
 from .deps import AppContext
 from .errors import register_exception_handlers
-from .inference.fake import FakeInference
+from .inference.factory import build_inference
 from .inference.port import InferencePort
-from .inference.scenarios import get_scenario
 from .services.events import EventService
 from .services.monitoring import InferenceEngine
 from .services.settings import SettingsService
@@ -49,7 +48,7 @@ def build_context(
 ) -> AppContext:
     db = Database(config.database_url)
     hub = ConnectionManager(config)
-    inference_impl = inference or FakeInference(get_scenario(config.inference_scenario))
+    inference_impl = inference or build_inference(config)
     engine = InferenceEngine(db, config, hub, inference_impl)
 
     return AppContext(

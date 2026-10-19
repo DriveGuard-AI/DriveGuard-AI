@@ -13,6 +13,15 @@ import {
 import type { MonitoringFeed } from '../hooks/useMonitoringSocket'
 import type { RiskSnapshot } from '../api/types'
 
+/** 毫秒时间轴 → m:ss.s。离线分析时表示素材播放位置，不是墙钟。 */
+function formatTimeline(ms: number): string {
+  const tenthsTotal = Math.max(0, Math.floor(ms / 100))
+  const minutes = Math.floor(tenthsTotal / 600)
+  const seconds = Math.floor((tenthsTotal % 600) / 10)
+  const tenths = tenthsTotal % 10
+  return `${minutes}:${String(seconds).padStart(2, '0')}.${tenths}`
+}
+
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const percent = Math.round(Math.max(0, Math.min(1, value)) * 100)
   return (
@@ -35,6 +44,9 @@ export function MonitoringPage({ feed }: { feed: MonitoringFeed }) {
         <h2>实时监控</h2>
         <div className="page-head-meta">
           <StatusDot state={feed.connection} />
+          {snapshot?.source_timestamp_ms != null ? (
+            <span className="muted">素材时间：{formatTimeline(snapshot.source_timestamp_ms)}</span>
+          ) : null}
           <span className="muted">最近消息：{formatLocalTime(feed.lastMessageAt)}</span>
         </div>
       </div>

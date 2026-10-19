@@ -115,7 +115,9 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        模型识别与判断暂未实现，风险数据来自脚本化回放（inference_mode = fake），仅用于前后端联调。
+        {status?.pipeline.inference_mode === 'fake'
+          ? '模型识别与判断暂未实现，风险数据来自脚本化回放（inference_mode = fake），仅用于前后端联调。'
+          : '风险数据来自 live 推理服务（inference_mode = real）；发布包限定为联调候选，未经真实场景验证，不作为精度结论。'}
       </footer>
     </div>
   )

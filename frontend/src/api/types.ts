@@ -41,6 +41,8 @@ export interface RiskSnapshot {
   detections: Detection[]
   reason_codes: string[]
   inference_mode: InferenceMode
+  /** 素材时间轴位置（毫秒）；实时模式或尚无证据时为 null。 */
+  source_timestamp_ms: number | null
 }
 
 export interface EventOut {

@@ -59,6 +59,14 @@ class AppConfig:
     auto_create_schema: bool
     static_dir: Path
     media_dir: Path
+    inference_mode: str = "fake"
+    live_url: str = "http://127.0.0.1:8765"
+    live_token_file: str | None = None
+    frame_sequence_dir: str | None = None
+    live_view: str = "body"
+    live_image_size: str = "1280x720"
+    live_roi: str = "0.15,0.0,0.75,1.0"
+    live_step_ms: int = 40
 
     @property
     def auth_enabled(self) -> bool:
@@ -90,4 +98,12 @@ def load_config() -> AppConfig:
         auto_create_schema=_env_bool("DGB_AUTO_CREATE_SCHEMA", True),
         static_dir=static_dir,
         media_dir=media_dir,
+        inference_mode=(_env_str("DGB_INFERENCE_MODE", "fake") or "fake").lower(),
+        live_url=_env_str("DGB_LIVE_URL", "http://127.0.0.1:8765") or "http://127.0.0.1:8765",
+        live_token_file=_env_str("DGB_LIVE_TOKEN_FILE"),
+        frame_sequence_dir=_env_str("DGB_FRAME_SEQUENCE"),
+        live_view=(_env_str("DGB_LIVE_VIEW", "body") or "body").lower(),
+        live_image_size=_env_str("DGB_LIVE_IMAGE_SIZE", "1280x720") or "1280x720",
+        live_roi=_env_str("DGB_LIVE_ROI", "0.15,0.0,0.75,1.0") or "0.15,0.0,0.75,1.0",
+        live_step_ms=max(1, int(_env_float("DGB_LIVE_STEP_MS", 40.0))),
     )

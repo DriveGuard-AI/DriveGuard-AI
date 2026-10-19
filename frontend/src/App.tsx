@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
-import type { SystemStatus } from './api/types'
+import type { SessionFocus, SystemStatus } from './api/types'
 import { StatusDot } from './components/common'
 import { useMonitoringSocket } from './hooks/useMonitoringSocket'
+import { AnalysisPage } from './pages/AnalysisPage'
 import { EventsPage } from './pages/EventsPage'
 import { MonitoringPage } from './pages/MonitoringPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { StatisticsPage } from './pages/StatisticsPage'
 
-type TabKey = 'monitoring' | 'events' | 'statistics' | 'settings'
+type TabKey = 'monitoring' | 'analysis' | 'events' | 'statistics' | 'settings'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'monitoring', label: '实时监控' },
+  { key: 'analysis', label: '离线分析' },
   { key: 'events', label: '事件历史' },
   { key: 'statistics', label: '统计分析' },
   { key: 'settings', label: '系统设置' },
@@ -23,6 +25,15 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('monitoring')
   const [token, setToken] = useState<string | null>(() => window.localStorage.getItem(TOKEN_STORAGE_KEY))
   const [status, setStatus] = useState<SystemStatus | null>(null)
+  const [focus, setFocus] = useState<SessionFocus | null>(null)
+
+  const openSession = useCallback(
+    (sessionId: string, target: 'events' | 'statistics', origin: string) => {
+      setFocus({ sessionId, origin })
+      setTab(target)
+    },
+    [],
+  )
 
   const feed = useMonitoringSocket(token)
 
@@ -100,6 +111,7 @@ export default function App() {
           <span>数据库 {status.database.writable ? '可写' : '不可写'}</span>
           <span>模型 {status.model.loaded ? '已加载' : '未加载'}</span>
           <span>服务 v{status.service_version}</span>
+          {status.pipeline.playback ? <span className="warn-text">当前离线回放</span> : null}
         </div>
       ) : (
         <div className="status-bar">
@@ -108,9 +120,14 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'monitoring' ? <MonitoringPage feed={feed} /> : null}
-        {tab === 'events' ? <EventsPage token={token} /> : null}
-        {tab === 'statistics' ? <StatisticsPage token={token} /> : null}
+        {tab === 'monitoring' ? <MonitoringPage feed={feed} playback={status?.pipeline.playback ?? false} /> : null}
+        {tab === 'analysis' ? <AnalysisPage token={token} onOpenSession={openSession} /> : null}
+        {tab === 'events' ? (
+          <EventsPage token={token} focus={focus} onClearFocus={() => setFocus(null)} />
+        ) : null}
+        {tab === 'statistics' ? (
+          <StatisticsPage token={token} focus={focus} onClearFocus={() => setFocus(null)} />
+        ) : null}
         {tab === 'settings' ? <SettingsPage token={token} /> : null}
       </main>
 

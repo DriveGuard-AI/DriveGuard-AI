@@ -16,7 +16,7 @@
 | 数据层 | **已实现** | 6 张表 + CHECK 约束 + 索引，Alembic `0001_initial` / `0002_analysis_jobs`，WAL |
 | 鉴权与权限 | **已实现** | Bearer Token、`monitoring:read / settings:read / settings:write / models:read / analysis:read / analysis:write`；配置 Token 后除 `/health` 外一律要求鉴权 |
 | 可观测性（NFR-006） | **部分实现** | `/system/status` 暴露 FPS/延迟 P50/P95/丢帧率/WS 客户端数/DB 可写性；结构化日志待补 |
-| 前端 Dashboard | **已实现** | 实时监控 / 事件历史 / 统计 / 系统设置四域，React + TS + Vite + ECharts，构建产物由 FastAPI 托管 |
+| 前端 Dashboard | **已实现** | 实时监控 / 离线分析 / 事件历史 / 统计 / 系统设置五域，React + TS + Vite + ECharts，构建产物由 FastAPI 托管；事件与统计支持按会话过滤，监控页在 `pipeline.playback=true` 时提示“离线回放” |
 | 模型识别与判断（FR-002 ~ FR-004） | **未实现** | 见下节 |
 | 摄像头采集（FR-001） | **未实现** | 无 `FramePacket` 采集适配器 |
 | 训练与评估（FR-011） | **未实现** | 无 DMD 数据处理与训练代码 |

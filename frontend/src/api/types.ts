@@ -89,10 +89,41 @@ export interface TrendBucket {
 export interface StatisticsSummary {
   started_from: string
   started_to: string
+  /** 回显过滤条件；null 表示未按会话过滤。 */
+  session_id: string | null
   total_events: number
   by_type: CountByType[]
   by_risk_level: CountByRisk[]
   trend: TrendBucket[]
+}
+
+export type AnalysisJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type AnalysisSourceKind = 'frames' | 'camera' | 'push'
+
+/** 离线分析任务（API-010~014）。每个任务对应一个新会话。 */
+export interface AnalysisJob {
+  job_id: string
+  session_id: string
+  source_kind: AnalysisSourceKind
+  source_path: string
+  source_sha256: string | null
+  status: AnalysisJobStatus
+  frames_total: number
+  frames_done: number
+  timeline_ms: number
+  error: string | null
+  created_at: string
+  started_at: string | null
+  ended_at: string | null
+  updated_at: string
+}
+
+export interface AnalysisJobListResponse {
+  items: AnalysisJob[]
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
 }
 
 export interface SettingItem {
@@ -141,6 +172,8 @@ export interface SystemStatus {
     dropped_frame_rate: number
     inference_mode: InferenceMode
     degraded: boolean
+    /** true 表示当前推理源是分析任务接手的离线素材，而不是实时采集。 */
+    playback: boolean
   }
   database: { writable: boolean; driver: string }
   websocket: { clients: number; max_hz: number }
@@ -152,6 +185,12 @@ export interface ApiErrorPayload {
   message: string
   details: Array<{ field?: string; reason?: string }>
   request_id: string | null
+}
+
+/** 从分析任务跳转到事件/统计页时携带的会话范围。 */
+export interface SessionFocus {
+  sessionId: string
+  origin: string
 }
 
 /** WebSocket envelope（WS-001） */

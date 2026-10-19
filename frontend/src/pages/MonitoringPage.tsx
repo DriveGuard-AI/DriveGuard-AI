@@ -35,7 +35,13 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   )
 }
 
-export function MonitoringPage({ feed }: { feed: MonitoringFeed }) {
+export function MonitoringPage({
+  feed,
+  playback = false,
+}: {
+  feed: MonitoringFeed
+  playback?: boolean
+}) {
   const snapshot: RiskSnapshot | null = feed.snapshot
 
   return (
@@ -55,6 +61,13 @@ export function MonitoringPage({ feed }: { feed: MonitoringFeed }) {
         <Notice kind="warn" title="当前推理为脚本化占位（inference_mode = fake）">
           模型识别与判断尚未实现。以下风险等级、特征与检测结果由确定性脚本生成，仅用于前后端联调，
           <b>不构成真实行为结论</b>。接入真实模型后该字段将变为 <code>real</code>。
+        </Notice>
+      ) : null}
+
+      {playback ? (
+        <Notice kind="warn" title="当前为离线回放，不是实时采集">
+          推理源已被分析任务换成一段素材，画面与时间轴都来自该素材，<b>不能当作实时监控结论</b>。
+          取消任务会同时停掉推理循环，实时采集的自动恢复尚未实现。
         </Notice>
       ) : null}
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ApiError, api } from '../api/client'
-import type { StatisticsSummary } from '../api/types'
+import type { SessionFocus, StatisticsSummary } from '../api/types'
 import { Chart, EmptyState, MetricCard, Notice } from '../components/common'
 
 function toInputValue(date: Date): string {
@@ -11,12 +11,26 @@ function toInputValue(date: Date): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
-export function StatisticsPage({ token }: { token: string | null }) {
+export function StatisticsPage({
+  token,
+  focus,
+  onClearFocus,
+}: {
+  token: string | null
+  focus: SessionFocus | null
+  onClearFocus: () => void
+}) {
   const [startedFrom, setStartedFrom] = useState(() => toInputValue(new Date(Date.now() - 7 * 86400000)))
   const [startedTo, setStartedTo] = useState(() => toInputValue(new Date()))
+  const [sessionId, setSessionId] = useState('')
   const [summary, setSummary] = useState<StatisticsSummary | null>(null)
   const [error, setError] = useState<Error | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!focus) return
+    setSessionId(focus.sessionId)
+  }, [focus])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -25,6 +39,7 @@ export function StatisticsPage({ token }: { token: string | null }) {
         token,
         new Date(startedFrom).toISOString(),
         new Date(startedTo).toISOString(),
+        sessionId.trim() || undefined,
       )
       setSummary(result)
       setError(null)
@@ -34,7 +49,7 @@ export function StatisticsPage({ token }: { token: string | null }) {
     } finally {
       setLoading(false)
     }
-  }, [startedFrom, startedTo, token])
+  }, [sessionId, startedFrom, startedTo, token])
 
   useEffect(() => {
     void load()
@@ -131,10 +146,32 @@ export function StatisticsPage({ token }: { token: string | null }) {
             结束时间
             <input type="datetime-local" value={startedTo} onChange={(event) => setStartedTo(event.target.value)} />
           </label>
+          <label>
+            会话 ID（可选）
+            <input
+              type="text"
+              className="mono"
+              placeholder="UUID"
+              value={sessionId}
+              onChange={(event) => setSessionId(event.target.value)}
+            />
+          </label>
           <div className="filter-actions">
             <button type="button" onClick={() => void load()} disabled={loading}>
               {loading ? '加载中…' : '查询'}
             </button>
+            {sessionId ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setSessionId('')
+                  onClearFocus()
+                }}
+              >
+                显示全部会话
+              </button>
+            ) : null}
           </div>
         </div>
       </section>
@@ -166,7 +203,13 @@ export function StatisticsPage({ token }: { token: string | null }) {
       </div>
 
       {summary && summary.total_events === 0 ? (
-        <EmptyState text="所选时间范围内没有事件（空态而非异常）" />
+        <EmptyState
+          text={
+            summary.session_id
+              ? `会话 ${summary.session_id.slice(0, 8)}… 在该时间范围内没有事件`
+              : '所选时间范围内没有事件（空态而非异常）'
+          }
+        />
       ) : (
         <div className="two-column">
           <section className="card">

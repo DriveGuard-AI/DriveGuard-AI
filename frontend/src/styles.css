@@ -649,3 +649,114 @@ button.ghost:hover:not(:disabled) {
   color: var(--muted);
   font-size: 12.5px;
 }
+
+/* ------------------------------------------------------------ 离线分析 */
+
+.upload-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.upload-picker {
+  flex: 1 1 360px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed #b9cbeb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: #f8faff;
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 46px;
+}
+
+.upload-picker:hover {
+  border-color: var(--brand2);
+  color: var(--brand);
+}
+
+.upload-picker input[type='file'] {
+  max-width: 240px;
+  font-size: 12px;
+}
+
+.inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.inline-field select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 13.5px;
+}
+
+.progress {
+  margin-top: 14px;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e8eefa;
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand2), #2f8bff);
+  transition: width 0.3s ease;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.job-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.badge.job-running,
+.badge.job-queued {
+  background: #eef3fb;
+  color: var(--brand);
+  border: 1px solid #c9dbf7;
+}
+
+.badge.job-completed {
+  background: #e8f7ee;
+  color: var(--ok);
+  border: 1px solid #bfe8cf;
+}
+
+.badge.job-failed {
+  background: #fef2f2;
+  color: var(--danger);
+  border: 1px solid #f6c9c9;
+}
+
+.badge.job-cancelled {
+  background: #f4f5f7;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+

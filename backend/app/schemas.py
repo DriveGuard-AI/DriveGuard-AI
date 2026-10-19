@@ -169,6 +169,8 @@ class TrendBucket(BaseModel):
 class StatisticsSummary(BaseModel):
     started_from: UtcDateTime
     started_to: UtcDateTime
+    # 回显过滤条件：前端据此确认“空结果”确实是这个会话的，而不是请求漏带了参数。
+    session_id: str | None = None
     total_events: int
     by_type: list[CountByType] = Field(default_factory=list)
     by_risk_level: list[CountByRisk] = Field(default_factory=list)
@@ -229,6 +231,9 @@ class PipelineStatus(BaseModel):
     dropped_frame_rate: float
     inference_mode: InferenceMode
     degraded: bool
+    # 当前推理源是离线素材（由分析任务切换）而非实时采集。
+    # 页面据此提示“当前为离线回放”，不把回放当实时。
+    playback: bool = False
 
 
 class DatabaseStatus(BaseModel):

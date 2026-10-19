@@ -84,6 +84,7 @@ class SystemService:
                 dropped_frame_rate=engine_status["dropped_frame_rate"],
                 inference_mode=engine_status["inference_mode"],  # type: ignore[arg-type]
                 degraded=engine_status["degraded"],
+                playback=bool(engine_status.get("playback", False)),
             ),
             database=DatabaseStatus(
                 writable=self._db.is_writable(),

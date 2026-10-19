@@ -170,6 +170,13 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: session_id
+          in: query
+          required: false
+          description: 只看某个监测会话（离线分析每跑一次就多一个会话）。
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: 统计摘要；无数据时返回零值和空趋势
@@ -600,24 +607,41 @@ components:
         has_next: {type: boolean}
     TrendPoint:
       type: object
-      required: [bucket_start, event_count, total_duration_ms]
+      required: [bucket_start, count]
       properties:
         bucket_start: {type: string, format: date-time}
-        event_count: {type: integer, minimum: 0}
-        total_duration_ms: {type: integer, minimum: 0}
+        count: {type: integer, minimum: 0}
     StatisticsSummary:
       type: object
       additionalProperties: false
-      required: [total_events, total_duration_ms, by_type, by_risk_level, trend]
+      required: [started_from, started_to, total_events, by_type, by_risk_level, trend]
       properties:
+        started_from: {type: string, format: date-time}
+        started_to: {type: string, format: date-time}
+        session_id:
+          type: [string, "null"]
+          format: uuid
+          description: 回显过滤条件；null 表示未按会话过滤。
         total_events: {type: integer, minimum: 0}
-        total_duration_ms: {type: integer, minimum: 0}
         by_type:
-          type: object
-          additionalProperties: {type: integer, minimum: 0}
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [event_type, count, total_duration_ms]
+            properties:
+              event_type: {type: string}
+              count: {type: integer, minimum: 0}
+              total_duration_ms: {type: integer, minimum: 0}
         by_risk_level:
-          type: object
-          additionalProperties: {type: integer, minimum: 0}
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [risk_level, count]
+            properties:
+              risk_level: {type: string, enum: [SAFE, WARNING, DANGER]}
+              count: {type: integer, minimum: 0}
         trend:
           type: array
           items: {$ref: "#/components/schemas/TrendPoint"}

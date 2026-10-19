@@ -34,7 +34,7 @@ def snapshot(
 class IdlePort:
     """实时阶段的占位推理：一直在跑，不产生终态。"""
 
-    mode = "test"
+    mode = "fake"
     degraded = False
 
     def start(self) -> None:
@@ -53,7 +53,7 @@ class IdlePort:
 class ScriptedPort:
     """离线推理桩：tick 到 `frames` 次之后自报 completed。"""
 
-    mode = "test"
+    mode = "fake"
     degraded = False
 
     def __init__(self, frames: int) -> None:

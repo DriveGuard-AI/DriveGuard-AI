@@ -131,6 +131,8 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 鉴权：监控读取权限。
 - 成功：`200`，包含摄像头、推理、数据库、模型和实时性能状态。
 - 错误：`401 AUTH_REQUIRED`、`503 PIPELINE_UNAVAILABLE`（仅在无法形成有效状态响应时）。
+- `pipeline.playback=true` 表示推理源已被离线分析任务换成一段素材（不是实时采集），
+  页面必须据此提示“离线回放”，不得把回放当成实时监控。
 
 ### API-003 事件列表
 
@@ -173,11 +175,14 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 
 ### API-005 统计摘要
 
-`GET /api/v1/statistics/summary?started_from=2026-09-01T00:00:00Z&started_to=2026-09-10T23:59:59Z`
+`GET /api/v1/statistics/summary?started_from=2026-09-01T00:00:00Z&started_to=2026-09-10T23:59:59Z&session_id=<uuid>`
 
-- 成功：总事件数、各类型数量/持续时间、各风险等级数量和按时间桶趋势。
+- 查询参数：`started_from` / `started_to` 必填；`session_id` 可选，用于只看某个监测会话
+  （每跑一次离线分析都会产生新会话，不按会话限定会把不同素材混在一起）。
+- 成功：总事件数、各类型数量/持续时间、各风险等级数量和按时间桶趋势；并回显 `session_id`。
 - 无数据：返回数值 0 和空数组，状态仍为 `200`。
 - 时间跨度过大：`422 TIME_RANGE_TOO_LARGE`，MVP 默认最大 90 天，可配置。
+- 非法 `session_id`：`422 VALIDATION_ERROR`。
 
 ### API-006 读取配置
 

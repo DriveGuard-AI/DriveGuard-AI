@@ -23,18 +23,27 @@ class StatisticsService:
     def __init__(self, db: Database) -> None:
         self._db = db
 
-    def summary(self, *, started_from: datetime, started_to: datetime) -> StatisticsSummary:
+    def summary(
+        self,
+        *,
+        started_from: datetime,
+        started_to: datetime,
+        session_id: str | None = None,
+    ) -> StatisticsSummary:
         if started_to < started_from:
             raise InvalidTimeRangeError()
         if started_to - started_from > timedelta(days=MAX_RANGE_DAYS):
             raise TimeRangeTooLargeError(MAX_RANGE_DAYS)
 
         with self._db.session() as session:
-            raw = EventRepository(session).summary(started_from=started_from, started_to=started_to)
+            raw = EventRepository(session).summary(
+                started_from=started_from, started_to=started_to, session_id=session_id
+            )
 
         return StatisticsSummary(
             started_from=started_from,
             started_to=started_to,
+            session_id=session_id,
             total_events=raw["total_events"],
             by_type=[CountByType(**row) for row in raw["by_type"]],
             by_risk_level=[CountByRisk(**row) for row in raw["by_risk_level"]],

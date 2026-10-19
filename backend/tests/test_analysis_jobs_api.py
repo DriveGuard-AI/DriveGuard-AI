@@ -187,3 +187,19 @@ def test_requires_authentication(analysis_app):
     frames = _make_frames(media, 1)
     assert client.get(JOBS).status_code == 401
     assert _post(client, frames, {}).status_code == 401
+
+
+def test_system_status_marks_playback(analysis_app, auth_headers):
+    """接手素材后必须能从 /system/status 看出“这不是实时采集”。"""
+
+    client, media, script = analysis_app
+    frames = _make_frames(media, 3)
+    script["frames"] = 1000
+
+    before = client.get("/api/v1/system/status", headers=auth_headers).json()
+    assert before["pipeline"]["playback"] is False
+
+    assert _post(client, frames, auth_headers).status_code == 201
+
+    after = client.get("/api/v1/system/status", headers=auth_headers).json()
+    assert after["pipeline"]["playback"] is True

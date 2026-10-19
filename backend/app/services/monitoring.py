@@ -59,6 +59,8 @@ class InferenceEngine:
         self._latest: RiskSnapshot | None = None
         self._task: asyncio.Task | None = None
         self._state = "stopped"
+        # 是否是“离线素材回放”。由 run_analysis() 置位，start() 走实时路径时为 False。
+        self._playback = False
 
         self._latencies: deque[float] = deque(maxlen=MAX_LATENCY_SAMPLES)
         self._tick_times: deque[float] = deque(maxlen=MAX_TICK_SAMPLES)
@@ -132,6 +134,7 @@ class InferenceEngine:
             raise RuntimeError("未注入推理构建器，无法在运行期切换素材")
         await self.stop()
         self._inference = self._builder(source)
+        self._playback = True
         self._open_new_session()
         self._state = "running"
         starter = getattr(self._inference, "start", None)
@@ -250,6 +253,7 @@ class InferenceEngine:
             "dropped_frame_rate": self._dropped_frame_rate(),
             "inference_mode": self._inference.mode,
             "degraded": self._inference.degraded,
+            "playback": self._playback,
             # 最近一次主循环异常。非空表示快照可能在停滞，供运维判定。
             "last_error": self._last_error,
         }

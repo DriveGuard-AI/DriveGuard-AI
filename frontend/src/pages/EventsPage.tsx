@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError, api, type EventQuery } from '../api/client'
-import type { EventListResponse, EventOut } from '../api/types'
+import type { EventListResponse, EventOut, SessionFocus } from '../api/types'
 import { EmptyState, Notice, formatDuration, formatLocalTime } from '../components/common'
 
 const EVENT_TYPES = ['fatigue', 'phone_use', 'drinking', 'distraction', 'other']
@@ -15,13 +15,22 @@ function toIso(value: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }
 
-export function EventsPage({ token }: { token: string | null }) {
+export function EventsPage({
+  token,
+  focus,
+  onClearFocus,
+}: {
+  token: string | null
+  focus: SessionFocus | null
+  onClearFocus: () => void
+}) {
   const [filters, setFilters] = useState({
     event_type: '',
     risk_level: '',
     status: '',
     started_from: '',
     started_to: '',
+    session_id: '',
   })
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -39,9 +48,17 @@ export function EventsPage({ token }: { token: string | null }) {
       status: filters.status || undefined,
       started_from: toIso(filters.started_from),
       started_to: toIso(filters.started_to),
+      session_id: filters.session_id.trim() || undefined,
     }),
     [filters, page, pageSize],
   )
+
+  // 从「离线分析」跳过来时只看这一轮的结果；用户仍可手动改回全部会话。
+  useEffect(() => {
+    if (!focus) return
+    setFilters((previous) => ({ ...previous, session_id: focus.sessionId }))
+    setPage(1)
+  }, [focus])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -126,6 +143,16 @@ export function EventsPage({ token }: { token: string | null }) {
               onChange={(event) => updateFilter('started_to', event.target.value)}
             />
           </label>
+          <label>
+            会话 ID（可选）
+            <input
+              type="text"
+              className="mono"
+              placeholder="UUID"
+              value={filters.session_id}
+              onChange={(event) => updateFilter('session_id', event.target.value)}
+            />
+          </label>
           <div className="filter-actions">
             <button type="button" onClick={() => void load()} disabled={loading}>
               {loading ? '加载中…' : '刷新'}
@@ -134,8 +161,16 @@ export function EventsPage({ token }: { token: string | null }) {
               type="button"
               className="ghost"
               onClick={() => {
-                setFilters({ event_type: '', risk_level: '', status: '', started_from: '', started_to: '' })
+                setFilters({
+                  event_type: '',
+                  risk_level: '',
+                  status: '',
+                  started_from: '',
+                  started_to: '',
+                  session_id: '',
+                })
                 setPage(1)
+                onClearFocus()
               }}
             >
               重置
@@ -143,6 +178,18 @@ export function EventsPage({ token }: { token: string | null }) {
           </div>
         </div>
       </section>
+
+      {filters.session_id.trim() ? (
+        <Notice kind="info" title={`仅显示会话 ${filters.session_id.trim().slice(0, 8)}… 的事件`}>
+          {focus && focus.sessionId === filters.session_id.trim() ? `来源：${focus.origin}。` : ''}
+          每跑一次离线分析都会产生新会话，按会话看才能对上某一轮素材。
+          <div style={{ marginTop: 6 }}>
+            <button type="button" className="ghost" onClick={() => updateFilter('session_id', '')}>
+              显示全部会话
+            </button>
+          </div>
+        </Notice>
+      ) : null}
 
       {error instanceof ApiError ? (
         <Notice kind="error" title={`${error.code}：${error.message}`}>

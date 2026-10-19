@@ -133,13 +133,26 @@ class EventRepository:
         items = list(self._session.execute(stmt).scalars())
         return items, int(total)
 
-    def summary(self, *, started_from: datetime, started_to: datetime) -> dict[str, Any]:
-        """按时间范围聚合：总数、按类型、按风险等级、按天趋势。"""
+    def summary(
+        self,
+        *,
+        started_from: datetime,
+        started_to: datetime,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """按时间范围聚合：总数、按类型、按风险等级、按天趋势。
 
-        window = (
+        `session_id` 用于把统计限在单个分析任务/会话上：离线重跑一次素材就会
+        多出一个会话，不分开看的话趋势图会把不同素材混在一起。
+        """
+
+        conditions = [
             DrivingEvent.started_at >= to_iso_z(started_from),
             DrivingEvent.started_at <= to_iso_z(started_to),
-        )
+        ]
+        if session_id is not None:
+            conditions.append(DrivingEvent.session_id == session_id)
+        window = tuple(conditions)
 
         total = self._session.execute(
             select(func.count()).select_from(DrivingEvent).where(*window)

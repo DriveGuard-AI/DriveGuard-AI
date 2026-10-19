@@ -7,10 +7,29 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
 from ..schemas import RiskSnapshot
+
+
+@dataclass(frozen=True)
+class AnalysisSource:
+    """一次分析的素材来源描述。
+
+    引擎只认这个描述，不认具体采集方式，这样三类来源可以共存而不改动引擎：
+
+    - `frames`：预抽好的 JPEG 序列目录（离线分析，服务端拉帧）；
+    - `camera`：设备或网络摄像头（实时，服务端拉流）；
+    - `push`：浏览器推流（实时，帧由 HTTP 打进来）。
+
+    目前只实现 `frames`。新增来源时提供新的 `InferencePort` 实现即可，
+    `InferenceEngine` 的接口不变。
+    """
+
+    kind: str
+    frame_sequence: str | None = None
 
 
 class InferencePort(Protocol):

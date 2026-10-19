@@ -16,11 +16,11 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from ..config import AppConfig
 from ..database import Database
-from ..inference.port import InferencePort
+from ..inference.port import AnalysisSource, InferencePort
 from ..repositories.models_registry import ModelRegistryRepository
 from ..repositories.sessions import SessionRepository
 from ..repositories.settings import SettingsRepository
@@ -41,11 +41,15 @@ class InferenceEngine:
         config: AppConfig,
         hub,
         inference: InferencePort,
+        builder: Callable[[AnalysisSource], InferencePort] | None = None,
     ) -> None:
         self._db = db
         self._config = config
         self._hub = hub
         self._inference = inference
+        # 离线分析需要「换一个素材就换一个推理源」。构建器由外层注入，
+        # 避免服务层反向依赖具体实现（fake/live）。
+        self._builder = builder
         self._tracker = EventTracker(db)
 
         self._session_id: str | None = None
@@ -112,6 +116,52 @@ class InferenceEngine:
         if self._session_id:
             with self._db.session() as session:
                 SessionRepository(session).end(self._session_id, to_iso_z(utcnow()))
+
+    async def run_analysis(self, source: AnalysisSource) -> str:
+        """按素材来源重新开始分析，返回新会话 ID。
+
+        离线分析要能反复跑不同素材，而推理源在启动时是固定的。这里停掉旧循环、
+        关闭旧推理，用注入的构建器造一个新的，并**新开一个会话**：事件按会话隔离，
+        时间轴锚点也必须跟着重置，否则新素材的第一帧会锚到上一个素材的起点上。
+
+        入参是素材来源描述而不是路径：后续要加摄像头拉流或浏览器推流时，
+        只需新增 `kind` 与对应实现，本方法不需要改。
+        """
+
+        if self._builder is None:
+            raise RuntimeError("未注入推理构建器，无法在运行期切换素材")
+        await self.stop()
+        self._inference = self._builder(source)
+        self._open_new_session()
+        self._state = "running"
+        starter = getattr(self._inference, "start", None)
+        if callable(starter):
+            starter()
+        self._task = asyncio.create_task(self._run(), name="driveguard-inference")
+        return self._session_id or ""
+
+    def _open_new_session(self) -> None:
+        now = utcnow()
+        now_iso = to_iso_z(now)
+        with self._db.session() as session:
+            settings = SettingsRepository(session)
+            settings.ensure_defaults(now_iso=now_iso)
+            ModelRegistryRepository(session).ensure_stub_models(now_iso=now_iso)
+            created = SessionRepository(session).create(
+                session_id=str(uuid.uuid4()),
+                started_at=now_iso,
+                camera_id="cam-local",
+                device_id="edge-local",
+                model_bundle_version=str(settings.get_value("model.bundle_version") or "unknown"),
+            )
+        self._session_id = created.session_id
+        self._session_started_at = now
+        self._sequence = 0
+        self._latest = None
+        self._last_error = None
+        self._latencies.clear()
+        self._tick_times.clear()
+        self._last_heartbeat = 0.0
 
     # ------------------------------------------------------------ 主循环
 

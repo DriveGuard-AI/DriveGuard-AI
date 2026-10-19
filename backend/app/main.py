@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -49,7 +50,19 @@ def build_context(
     db = Database(config.database_url)
     hub = ConnectionManager(config)
     inference_impl = inference or build_inference(config)
-    engine = InferenceEngine(db, config, hub, inference_impl)
+    # 离线分析需要在运行期切换素材；测试注入固定推理时不给构建器。
+    # 入参是素材来源描述，新增摄像头/浏览器推流时只需在这里多一个分支，
+    # 引擎接口不变。
+    builder = None
+    if inference is None:
+        def builder(source):  # noqa: F811 - 覆盖上面的占位
+            if source.kind != "frames" or not source.frame_sequence:
+                raise ValueError(f"暂不支持的素材来源: {source.kind}")
+            return build_inference(
+                replace(config, inference_mode="live", frame_sequence_dir=source.frame_sequence)
+            )
+
+    engine = InferenceEngine(db, config, hub, inference_impl, builder)
 
     return AppContext(
         config=config,

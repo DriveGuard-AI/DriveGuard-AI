@@ -119,11 +119,15 @@ def test_previous_inference_is_closed_when_switching(engine):
 def test_switching_without_a_builder_is_rejected(database, monkeypatch):
     monkeypatch.setenv("DGB_INFERENCE_HZ", "200")
     from app.config import load_config
+    from app.errors import PipelineUnavailableError
 
     engine = InferenceEngine(database, load_config(), StubHub(), StubInference("initial"))
 
     async def scenario():
-        with pytest.raises(RuntimeError):
+        # 契约是 503 而不是 500：这是“环境没准备好”，不是服务端 bug。
+        with pytest.raises(PipelineUnavailableError) as caught:
             await engine.run_analysis(SOURCE_B)
+        assert caught.value.status_code == 503
+        assert caught.value.code == "PIPELINE_UNAVAILABLE"
 
     asyncio.run(scenario())

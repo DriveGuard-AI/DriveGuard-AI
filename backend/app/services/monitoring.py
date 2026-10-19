@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 from ..config import AppConfig
 from ..database import Database
+from ..errors import PipelineUnavailableError
 from ..inference.port import AnalysisSource, InferencePort
 from ..repositories.models_registry import ModelRegistryRepository
 from ..repositories.sessions import SessionRepository
@@ -131,9 +132,15 @@ class InferenceEngine:
         """
 
         if self._builder is None:
-            raise RuntimeError("未注入推理构建器，无法在运行期切换素材")
+            raise PipelineUnavailableError("未注入推理构建器，无法在运行期切换素材")
+        # 先构建新推理源，再停旧循环：配置不全（例如 live 模式缺 DGB_LIVE_TOKEN_FILE）
+        # 时直接报错，不要先把正在跑的实时监控停掉，也不要让调用方看到 500。
+        try:
+            prepared = self._builder(source)
+        except (ValueError, OSError, RuntimeError) as error:
+            raise PipelineUnavailableError(str(error)) from None
         await self.stop()
-        self._inference = self._builder(source)
+        self._inference = prepared
         self._playback = True
         self._open_new_session()
         self._state = "running"

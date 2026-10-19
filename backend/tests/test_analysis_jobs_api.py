@@ -203,3 +203,25 @@ def test_system_status_marks_playback(analysis_app, auth_headers):
 
     after = client.get("/api/v1/system/status", headers=auth_headers).json()
     assert after["pipeline"]["playback"] is True
+
+
+def test_source_switch_failure_is_503_and_keeps_realtime(client, auth_headers, monkeypatch):
+    """配置不全不是 500，也不能把正在跑的实时监控掐掉（实测踩过）。"""
+
+    context = client.app.state.context
+    frames = _make_frames(context.config.media_dir, 3)
+    session_before = context.engine.session_id
+
+    def broken_builder(source):
+        raise ValueError("DGB_INFERENCE_MODE=live 时必须配置 DGB_LIVE_TOKEN_FILE")
+
+    monkeypatch.setattr(context.engine, "_builder", broken_builder)
+
+    response = _post(client, frames, auth_headers)
+    assert response.status_code == 503
+    body = response.json()
+    assert body["code"] == "PIPELINE_UNAVAILABLE"
+    assert "DGB_LIVE_TOKEN_FILE" in body["message"]
+    # 失败发生在停旧循环之前：会话不变，也没有留下任务记录。
+    assert context.engine.session_id == session_before
+    assert client.get(JOBS, headers=auth_headers).json()["total"] == 0

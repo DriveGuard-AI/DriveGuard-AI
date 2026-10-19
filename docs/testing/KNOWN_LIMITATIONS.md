@@ -1,6 +1,6 @@
 # 已知限制与未解决问题
 
-最后更新：2026-10-18 · `model` 分支
+最后更新：2026-10-19 · `model` 分支
 
 本清单只收录**已经发现、尚未解决或不打算在当前阶段解决**的限制。它回答三个问题：
 这个问题是什么、会造成什么后果、证据在哪里。已修复的缺陷不在此重复，见文末的追溯表。
@@ -19,6 +19,8 @@
 | KL-05 | 语义 | `score` 是**未校准的 sigmoid**，不是事故概率；`threshold_logit` 来自验证集工作点 | 不能对外宣称"95% 概率疲劳"；跨素材阈值不可直接比较 | `inference/live/routing.py`、bundle `distraction_threshold` | 设计如此，不修 |
 | KL-06 | 部署 | 单活动会话：一个服务同时只允许一个摄像头/视频会话 | 浏览器联调页与应用层不能同时使用，冲突返回 409 | `inference/live/server.py` | 设计如此；如需并发要拆分服务实例 |
 | KL-07 | 工具链 | `bundle.json` 绑定 `code_identity`（`inference/`、`training/**` 所有 `.py` 的哈希） | 任何源码提交都会让发布包无法加载，必须重新导出或生成开发副本 | `inference/live/bundle.py` | 设计如此；NPU 侧应重新导出 |
+| KL-08 | 性能/质量 | 检测器异步化后单帧 242.7→172 ms（5.8 Hz），`phone_use`/`drinking` 有 **2.4% 窗口证据不可用** | 仍达不到 8 Hz；异步使部分证据年龄贴近 81 ms 上限，个别窗口任务降为 `available=false` | `docs/experiments/20261019-perception-pipeline-async.md` | 代价已量化；要彻底解决需换执行后端 |
+| KL-09 | 稳定性 | 检测器偶发 `[WinError 10060]` 连接超时（两次全视频运行中一次，第 979 帧） | 会话中断，需重试续跑；在异步模式下会把一次挂起放大成“证据静止” | 同上 §5.3 | 已加 30 s 死锁保护使其快速失败；根因未除 |
 
 ## 已解决（供追溯）
 
@@ -29,6 +31,8 @@
 | `core.autocrlf=true` 把发布包文本文件改成 CRLF，SHA-256 校验失败 | `.gitattributes` 固定 `models/releases/** -text` | `07b734a` |
 | 开发副本脚本硬链接了会被改写的 `runtime.json`，反向破坏发布目录 | 只硬链接只读文件，写后断言发布文件未变 | `07b734a` |
 | CPU 上卷积前向 114ms | `channels_last` 降到 92ms，输出逐位相同 | `84da128` |
+| 检测器串行阻塞每一帧 133.6 ms（占单帧 55%） | 移到后台线程，忙时不排队、首帧阻塞一次，`ages` 如实上报滞后 | 本提交 |
+| 单帧分阶段耗时记录（MediaPipe 17 ms、eye 4 ms）与端到端 250 ms 不自洽 | 用 `scripts/local/profile_perception.py` 重测，实测 57.5 / 22.6 ms，旧值为单阶段空跑值 | 本提交 |
 
 ## 如何新增条目
 

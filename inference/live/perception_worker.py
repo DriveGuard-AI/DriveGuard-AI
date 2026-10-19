@@ -1,14 +1,20 @@
 """Torch-free JSONL camera worker, launched in the existing perception environment."""
 import argparse
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack,redirect_stdout
 from copy import deepcopy
 import io
 import json
 import math
 import sys
+import time
 
 from inference.live.timeline import CausalClock
+
+# A healthy detector answers in well under a second on every validated host, so
+# anything past this is a stalled request rather than a slow one.
+DETECTOR_DEADLINE_S = 30.0
 
 
 def validate_camera(options):
@@ -60,6 +66,10 @@ class CameraPerception:
         self.gap_pending=False;self.previous_capture=None
         roi=self.camera['driver_roi'];size=self.camera['image_size']
         self.head_roi=crop_roi(roi,head_crop)
+        # Created before the failure path so close() can always drain it.
+        self.detector_pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix='dgb-detector')
+        self.detector_pending=None;self.detector_last=None
+        self.detector_submitted_at=0.0;self.detector_deadline=DETECTOR_DEADLINE_S
         try:
             if self.config['objects']['variant']!='yolo11s':raise ValueError('YOLO11 runtime required')
             self.detector=RemoteDetector(**self.config['objects']);self.resources.callback(self.detector.close)
@@ -76,13 +86,55 @@ class CameraPerception:
         except BaseException:self.close();raise
 
     def close(self):
+        # A detector request may still be in flight; drain the single worker
+        # before the transport it writes to is closed underneath it.
+        self.detector_pool.shutdown(wait=True);self.detector_pending=None
         self.resources.close()
+
+    def objects_for(self,bgr,timestamp_ms):
+        """Newest completed detection, while the next request runs in background.
+
+        The detector is the slowest collaborator, so waiting for it serially
+        cost every frame its full round trip. One request is kept in flight and
+        the previous reply is reused until the next one lands. Submitting while
+        busy is refused rather than queued: a queue deeper than one can never
+        drain when the detector is slower than the frame rate, and every extra
+        entry would only age the evidence further. The reply carries its own
+        capture timestamp, so ``ages`` in the feature row reports the real lag
+        instead of pretending the boxes belong to the current frame.
+        """
+        pending=self.detector_pending
+        if pending is not None:
+            if not pending.done():
+                # A reply that never lands would otherwise freeze the evidence
+                # indefinitely: every frame keeps reusing the last boxes and the
+                # transport timeout alone takes two minutes to surface. Fail the
+                # session instead, which the caller can retry immediately.
+                waited=time.monotonic()-self.detector_submitted_at
+                if waited>self.detector_deadline:
+                    raise RuntimeError('detector did not answer within '+f'{waited:.1f}s')
+                return self.detector_last
+            self.collect_detection(pending);self.detector_pending=None
+        self.detector_pending=self.detector_pool.submit(self.detector.predict,bgr,timestamp_ms)
+        self.detector_submitted_at=time.monotonic()
+        # The first frame has no earlier evidence to reuse, so block once. This
+        # keeps slot zero identical to the strictly serial implementation.
+        if self.detector_last is None:
+            self.collect_detection(self.detector_pending);self.detector_pending=None
+        return self.detector_last
+
+    def collect_detection(self,future):
+        result=future.result()
+        # Tracks advance once per detection, not once per frame, so a reused
+        # reply is never re-associated with a later capture time.
+        tracked=dict(result)
+        tracked['items']=self.tracker.update(result['items'],result['timestamp_ms'])
+        self.detector_last=tracked
 
     def frame(self,timestamp_ms,jpeg):
         self.clock.validate(timestamp_ms)
         bgr=decode_jpeg(jpeg,self.camera['image_size'])
-        objects=self.detector.predict(bgr,timestamp_ms)
-        objects['items']=self.tracker.update(objects['items'],timestamp_ms)
+        objects=self.objects_for(bgr,timestamp_ms)
         face,hands=self.landmarks.predict(bgr,timestamp_ms)
         eye=self.locator.step(bgr,timestamp_ms) if self.locator else None
         snapshot=dict(bgr=bgr,objects=objects,face=face,hands=hands,eye=eye)

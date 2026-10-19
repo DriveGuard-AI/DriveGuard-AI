@@ -162,3 +162,12 @@
 **证据/边界**: 真实素材 1114 帧、0 中断、1014 个结果、四任务全程 available、p50 250ms（0.14× 实时）。发现并修复：检测器单线程接收导致连接超时（改线程化接收 + 推理锁）、会话巡检抢锁导致 409、`core.autocrlf` 破坏发布包校验、开发副本硬链接反向写坏发布文件。未解决已记录：body 视角 `drinking` 在"手持手机贴耳"素材上 1014/1014 误报、`fatigue` 29 秒单点、body gaze 标记 unvalidated、CPU 无法满足 25Hz 输入（疲劳门控要求连续 32 个 head 槽全新鲜）。均为 CPU 环境结论，未验证 NPU/GPU 帧率与长时间稳定性。
 **撤销条件**: 目标加速器实测达到 25Hz 且丢帧≈0，或产品决定放弃实时摄像头只做离线分析时，对应更新本基线。
 **恢复入口**: `docs/testing/KNOWN_LIMITATIONS.md`、`docs/experiments/20261018-live-video-validation.md`、`docs/deployment/LOCAL_CPU_DEV.md`。
+
+### Decision Record: 感知管线剖析 + 检测器异步化
+
+**日期**: 2026-10-19
+**问题**: 单帧 250ms 的构成此前只有一个与端到端数字不自洽的分阶段表（MediaPipe 17ms、eye 4ms），无法判断该优化谁；同时疲劳门控要求 8Hz 头部采样。
+**选择**: (1) 先剖析再改：`scripts/local/profile_perception.py` 包裹真实 `CameraPerception` 的四个协作者，测完再决定；(2) 只把最慢的协作者（检测器，占 55%）移出关键路径，其余不动；(3) 异步策略是「忙时复用上次结果，不排队」，而非加深队列；(4) 精度影响用 `scripts/local/compare_windows.py` 按 41 个窗口逐一比对，不用行数统计。
+**证据/边界**: 实测单帧 242.7ms = 解码 13.9 + 检测器 133.6 + MediaPipe 57.5 + eye 22.6 + 特征/跟踪 0.4 + 未归因 14.6。旧记录的 17ms/4ms 是单阶段空跑值，与并发成本差 3.4×/5.7×。异步后全视频 p50 282→172ms、墙钟 366.8→237.6s（1.55×），41 个窗口中 39 个完全一致；代价是 `phone_use`/`drinking` 可用率 100%→97.6%、1 个窗口 `distraction` 翻转，已记 KL-08。仍不足 8Hz（需 125ms），瓶颈转为 MediaPipe+eye+解码，全在 CPU。偶发 `[WinError 10060]` 两次运行一次，已加 30s 死锁保护快速失败（KL-09，根因未除）。未验证真实 webcam 长稳与 `ages` 长期贴近 81ms 的影响。
+**撤销条件**: 换执行后端或融合导出后关键路径降至 125ms 以下，或异步的 2.4% 证据缺失在真机不可接受时回退为串行。
+**恢复入口**: `docs/experiments/20261019-perception-pipeline-async.md`、`docs/deployment/LOCAL_CPU_DEV.md` §6、`inference/live/perception_worker.py`。

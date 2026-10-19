@@ -31,6 +31,9 @@ def main(argv=None):
     parser.add_argument('--roi', default='0.15,0.0,0.75,1.0', help='normalized driver_roi')
     parser.add_argument('--view', choices=('body', 'face'), default='body')
     parser.add_argument('--step-ms', type=int, default=40)
+    parser.add_argument('--stride', type=int, default=1,
+                        help='feed every Nth source frame; use with --step-ms to model a '
+                             'lower capture rate without turning the clip into slow motion')
     parser.add_argument('--max-frames', type=int, default=0, help='0 means the whole video')
     parser.add_argument('--quality', type=int, default=85)
     parser.add_argument('--output', default='', help='optional JSONL file for produced results')
@@ -40,6 +43,8 @@ def main(argv=None):
 
     import cv2
 
+    if args.step_ms <= 0 or args.stride <= 0:
+        raise SystemExit('error: --step-ms and --stride must be positive')
     video = Path(args.video)
     if not video.is_file():
         raise SystemExit(f'error: video not found: {video}')
@@ -71,6 +76,7 @@ def main(argv=None):
     position = 0
     segment = 0
     failures = 0
+    fed = 0
     results = []
     latencies = []
     print(json.dumps({'event': 'source', 'fps': round(source_fps, 3), 'frames': source_frames,
@@ -86,6 +92,7 @@ def main(argv=None):
             if code not in (200, 201):
                 raise SystemExit(f'error: session open failed: {code} {opened}')
             session = opened['session_id']
+            emitted = 0
             print(json.dumps({'event': 'opened', 'segment': segment, 'session': session,
                               'start_frame': segment_start,
                               'elapsed_s': round(time.perf_counter() - started, 1)}), flush=True)
@@ -95,12 +102,19 @@ def main(argv=None):
                     if not ok:
                         limit = position
                         break
+                    position += 1
+                    if (position - 1) % args.stride:
+                        if position % 100 == 0:
+                            print(json.dumps({'event': 'progress', 'frames': position,
+                                              'elapsed_s': round(time.perf_counter() - started, 1),
+                                              'results': len(results)}), flush=True)
+                        continue
                     if (frame.shape[1], frame.shape[0]) != (width, height):
                         frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
                     ok, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), args.quality])
                     if not ok:
                         raise SystemExit('error: JPEG encode failed')
-                    payload = {'timestamp_ms': (position - segment_start) * args.step_ms,
+                    payload = {'timestamp_ms': emitted * args.step_ms,
                                'jpeg': base64.b64encode(encoded.tobytes()).decode('ascii')}
                     code, reply = request(f'{args.base_url}/api/live/sessions/{session}/frames', token,
                                           'POST', payload)
@@ -110,10 +124,11 @@ def main(argv=None):
                     if reply['result'] is not None:
                         results.append(reply['result'])
                         if stream is not None:
-                            stream.write(json.dumps({'segment': segment, 'frame': position,
+                            stream.write(json.dumps({'segment': segment, 'frame': position - 1,
                                                      'result': reply['result']},
                                                     ensure_ascii=False) + '\n')
-                    position += 1
+                    emitted += 1
+                    fed += 1
                     if position % 100 == 0:
                         print(json.dumps({'event': 'progress', 'frames': position,
                                           'elapsed_s': round(time.perf_counter() - started, 1),
@@ -134,8 +149,8 @@ def main(argv=None):
         capture.release()
 
     wall = time.perf_counter() - started
-    timeline_ms = position * args.step_ms
-    summary = {'frames': position, 'results': len(results), 'segments': segment,
+    timeline_ms = fed * args.step_ms
+    summary = {'frames': position, 'fed': fed, 'results': len(results), 'segments': segment,
                'failed_segments': failures,
                'wall_s': round(wall, 1), 'timeline_s': round(timeline_ms / 1000, 1),
                'realtime_factor': round(timeline_ms / 1000 / wall, 2) if wall else None,

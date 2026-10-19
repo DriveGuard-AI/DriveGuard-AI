@@ -1,0 +1,14 @@
+{
+  "schema_version": "driveguard-runtime-v1",
+  "recording_id": "REPLACE-recording-id",
+  "view": "body",
+  "driver_roi": [0, 0, 1280, 720],
+  "driver_region_confirmed_exclusive": false,
+  "objects": {
+    "asset": {"path": "../../models/local/yolox_nano.pth", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "source": "REPLACE-with-exact-weight-source-and-version", "license": "REPLACE-after-weight-license-review"},
+    "variant": "yolox-nano", "backend": "cpu", "device_index": 0,
+    "input_size": 416, "score_threshold": 0.25, "nms_threshold": 0.45
+  },
+  "face_asset": {"path": "../../models/local/face_landmarker.task", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "source": "REPLACE-with-exact-task-source-and-version", "license": "REPLACE-after-task-license-review"},
+  "hands_asset": {"path": "../../models/local/hand_landmarker.task", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "source": "REPLACE-with-exact-task-source-and-version", "license": "REPLACE-after-task-license-review"}
+}

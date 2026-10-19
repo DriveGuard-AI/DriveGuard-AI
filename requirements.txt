@@ -1,0 +1,13 @@
+# Shared dependencies for the TCN training pipeline.
+# Framework baseline; not a complete environment lock (NumPy is not pinned).
+numpy
+torch==2.7.1
+# Runtime import for the visual / eye / fatigue pipelines (PIL.Image).
+Pillow
+
+# Install the platform-matched PyTorch build BEFORE this file.
+# CUDA: select the wheel matching the target GPU runtime.
+# Ascend: configure CANN 9.0.0, then use requirements-npu.txt.
+# torch_npu is intentionally not a shared dependency for CPU/CUDA machines.
+# https://github.com/Ascend/pytorch/blob/master/COMPATIBILITY.md
+# Do not use --upgrade on an already configured training server.

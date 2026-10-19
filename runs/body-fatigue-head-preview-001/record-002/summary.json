@@ -1,0 +1,178 @@
+{
+  "schema_version": "driveguard-face-crop-preview-v1",
+  "status": "complete",
+  "crop_scope": {
+    "record_id": "cc3234cf4419361ccc018468",
+    "video_sha256": "a6aa47bfbfd9302b9cfb4af1590a517a4de5a0dd347ca55095b2aa20eec6d947",
+    "image_size": [
+      1280,
+      720
+    ]
+  },
+  "manifest_sha256": "4717fa64747920d3367ff3c3b89d605acf36ea674e9a0d725901ccafb3b2bd0f",
+  "slots": 4680,
+  "duration_grid_seconds": 187.2,
+  "samples": [
+    {
+      "file": "sample-001.jpg",
+      "slot_index": 0,
+      "slot_ms": 0,
+      "source_pts_ms": 0
+    },
+    {
+      "file": "sample-002.jpg",
+      "slot_index": 203,
+      "slot_ms": 8120,
+      "source_pts_ms": 8099
+    },
+    {
+      "file": "sample-003.jpg",
+      "slot_index": 407,
+      "slot_ms": 16280,
+      "source_pts_ms": 16264
+    },
+    {
+      "file": "sample-004.jpg",
+      "slot_index": 610,
+      "slot_ms": 24400,
+      "source_pts_ms": 24396
+    },
+    {
+      "file": "sample-005.jpg",
+      "slot_index": 814,
+      "slot_ms": 32560,
+      "source_pts_ms": 32527
+    },
+    {
+      "file": "sample-006.jpg",
+      "slot_index": 1017,
+      "slot_ms": 40680,
+      "source_pts_ms": 40659
+    },
+    {
+      "file": "sample-007.jpg",
+      "slot_index": 1221,
+      "slot_ms": 48840,
+      "source_pts_ms": 48824
+    },
+    {
+      "file": "sample-008.jpg",
+      "slot_index": 1424,
+      "slot_ms": 56960,
+      "source_pts_ms": 56956
+    },
+    {
+      "file": "sample-009.jpg",
+      "slot_index": 1627,
+      "slot_ms": 65080,
+      "source_pts_ms": 65054
+    },
+    {
+      "file": "sample-010.jpg",
+      "slot_index": 1831,
+      "slot_ms": 73240,
+      "source_pts_ms": 73220
+    },
+    {
+      "file": "sample-011.jpg",
+      "slot_index": 2034,
+      "slot_ms": 81360,
+      "source_pts_ms": 81351
+    },
+    {
+      "file": "sample-012.jpg",
+      "slot_index": 2238,
+      "slot_ms": 89520,
+      "source_pts_ms": 89517
+    },
+    {
+      "file": "sample-013.jpg",
+      "slot_index": 2441,
+      "slot_ms": 97640,
+      "source_pts_ms": 97615
+    },
+    {
+      "file": "sample-014.jpg",
+      "slot_index": 2645,
+      "slot_ms": 105800,
+      "source_pts_ms": 105780
+    },
+    {
+      "file": "sample-015.jpg",
+      "slot_index": 2848,
+      "slot_ms": 113920,
+      "source_pts_ms": 113912
+    },
+    {
+      "file": "sample-016.jpg",
+      "slot_index": 3052,
+      "slot_ms": 122080,
+      "source_pts_ms": 122077
+    },
+    {
+      "file": "sample-017.jpg",
+      "slot_index": 3255,
+      "slot_ms": 130200,
+      "source_pts_ms": 130175
+    },
+    {
+      "file": "sample-018.jpg",
+      "slot_index": 3458,
+      "slot_ms": 138320,
+      "source_pts_ms": 138307
+    },
+    {
+      "file": "sample-019.jpg",
+      "slot_index": 3662,
+      "slot_ms": 146480,
+      "source_pts_ms": 146472
+    },
+    {
+      "file": "sample-020.jpg",
+      "slot_index": 3865,
+      "slot_ms": 154600,
+      "source_pts_ms": 154570
+    },
+    {
+      "file": "sample-021.jpg",
+      "slot_index": 4069,
+      "slot_ms": 162760,
+      "source_pts_ms": 162736
+    },
+    {
+      "file": "sample-022.jpg",
+      "slot_index": 4272,
+      "slot_ms": 170880,
+      "source_pts_ms": 170867
+    },
+    {
+      "file": "sample-023.jpg",
+      "slot_index": 4476,
+      "slot_ms": 179040,
+      "source_pts_ms": 179033
+    },
+    {
+      "file": "sample-024.jpg",
+      "slot_index": 4679,
+      "slot_ms": 187160,
+      "source_pts_ms": 187131
+    }
+  ],
+  "clock": {
+    "first_pts": 0,
+    "first_time_base": "1/11904",
+    "origin_seconds": "0",
+    "timestamp_quantization": "ceil(relative_PTS_ms)",
+    "demuxer_policy": {
+      "format_whitelist": "mov,matroska,webm,avi",
+      "protocol_whitelist": "file",
+      "enable_drefs": "0",
+      "use_absolute_path": "0"
+    }
+  },
+  "notes": [
+    "Uniform samples do not prove all head motion is covered. Inspect full replay before using results.",
+    "No crop is guessed or approved by this tool. Select and review in index.html.",
+    "No perception model was run and no input files were changed."
+  ]
+}

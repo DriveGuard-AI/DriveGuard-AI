@@ -4,7 +4,7 @@
 
 MVP 使用 SQLite 保存监测会话、危险事件、系统配置、模型版本与必要审计信息。数据库不保存逐帧特征流，默认不保存原始视频或图像。推理热路径不应同步等待复杂统计查询。
 
-本文是设计基线；仓库当前没有迁移脚本或 ORM 模型，实现时应以版本化 migration 落地并回写实际差异。
+本文是 0.2.0 设计基线（2026-09-18）；仓库当前没有迁移脚本或 ORM 模型，实现时应以版本化 migration 落地并回写实际差异。SQLite/PostgreSQL 选型与 Repository 边界见[应用层设计](../architecture/APPLICATION_DESIGN.md)。
 
 ## 2. 设计原则
 
@@ -83,7 +83,7 @@ audit_logs          N ────── 1 administrative actions
 | `model_name` | TEXT | NOT NULL | 模型逻辑名 |
 | `model_type` | TEXT | CHECK | `detector/landmarker/temporal/fusion` |
 | `semantic_version` | TEXT | NOT NULL | 模型版本 |
-| `runtime` | TEXT | CHECK | `pytorch/onnxruntime/tensorrt` |
+| `runtime` | TEXT | CHECK | `pytorch/onnxruntime/tensorrt/mediapipe/python` |
 | `artifact_path` | TEXT | NOT NULL | 受控模型目录内相对路径 |
 | `sha256` | TEXT | NOT NULL | 工件校验值 |
 | `feature_schema_version` | TEXT | NULL | 输入特征 schema 版本 |
@@ -91,6 +91,10 @@ audit_logs          N ────── 1 administrative actions
 | `status` | TEXT | CHECK | `registered/active/retired/failed` |
 | `created_at` | TEXT | NOT NULL | 注册时间 |
 | `activated_at` | TEXT | NULL | 激活时间 |
+
+模型组合不另建第六张表：`monitoring_sessions.model_bundle_version` 对应受控目录下不可变 manifest，列出每个 detector/face/hand/temporal/fusion 的 model_version_id、工件 SHA-256、特征/profile/normalizer 与标签版本。事件的 model_version_id 指向主时序或融合工件，并通过 session 追溯完整组合。manifest 随模型工件一起备份，不能覆盖同版本内容。
+
+MediaPipe face/hand 分别注册 landmarker、runtime=mediapipe；规则融合注册 fusion、runtime=python，artifact_path 指向版本化规则配置。后续训练 MLP 则按实际 pytorch/onnxruntime/tensorrt 登记。metrics_json 未评估时为空对象，不能填造示例成绩。
 
 ### 4.5 `audit_logs`
 
@@ -129,7 +133,7 @@ CREATE TABLE model_versions (
     model_name TEXT NOT NULL,
     model_type TEXT NOT NULL CHECK (model_type IN ('detector', 'landmarker', 'temporal', 'fusion')),
     semantic_version TEXT NOT NULL,
-    runtime TEXT NOT NULL CHECK (runtime IN ('pytorch', 'onnxruntime', 'tensorrt')),
+    runtime TEXT NOT NULL CHECK (runtime IN ('pytorch', 'onnxruntime', 'tensorrt', 'mediapipe', 'python')),
     artifact_path TEXT NOT NULL,
     sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
     feature_schema_version TEXT,
@@ -206,7 +210,9 @@ CREATE INDEX idx_audit_occurred_at ON audit_logs(occurred_at DESC);
 - 风险进入活动状态：创建事件与必要审计记录在同一短事务内。
 - 活动事件更新：以 `event_id + status=active` 限定更新，避免结束后继续累加。
 - 配置更新：读取版本、校验、`version + 1` 更新和审计记录组成同一事务。
-- 模型激活：将同名旧版本置为 `retired`、新版本置为 `active`，单事务完成。
+- 模型激活：按组合 manifest 校验兼容性，在会话边界一次激活组合内版本并结束旧会话；对应同名旧版本置为 retired、新版本置为 active 的元数据在同一事务更新。模型加载是数据库外操作，应先准备成功再切换，失败保留旧组合，不把数据库提交当作加载成功。
+
+单写入调度串行处理危险事件更新；event_id 与进程内更新序号用于幂等与乱序检查，事件结束后拒绝旧 active 更新。数据库/API 故障期间只有有界内存缓冲，重启可能丢失尚未提交的变化，应记录缺口，不宣称零丢失。
 
 ## 8. 保留与隐私
 
@@ -214,6 +220,7 @@ CREATE INDEX idx_audit_occurred_at ON audit_logs(occurred_at DESC);
 - 审计日志保留周期不得短于事件元数据保留周期。
 - `clip_path` 只能是媒体根目录下的相对路径；删除数据库记录时应通过受控清理任务处理文件。
 - Secret 配置不应以明文写入本表；`is_secret=1` 只保存外部密钥引用或加密后的值。
+- `preview.enabled` 为 boolean、默认 false、requires_restart=0；开启后仅允许受鉴权的内存预览，不新增媒体文件或逐帧数据库表。预览与片段保存分别授权、分别审计。
 
 ## 9. 迁移与回滚
 
@@ -221,6 +228,7 @@ CREATE INDEX idx_audit_occurred_at ON audit_logs(occurred_at DESC);
 - SQLite 破坏性变更采用“新表 → 数据复制 → 校验 → 原子改名”，并在操作前备份数据库。
 - migration 必须提供向前验证和回滚/恢复说明；涉及数据丢失的变更必须改为可恢复迁移。
 - PostgreSQL 迁移时将 UUID、JSONB、TIMESTAMPTZ 和原生枚举/检查约束映射为等价类型，并重新评估部分索引。
+- 0.2.0 在模型 runtime CHECK 中新增 mediapipe/python，与 OpenAPI 同步。当前无运行库，因此本轮仅改 DDL 草案；后续若已有旧库，必须通过 Alembic migration 扩展约束，不直接修改线上表。
 
 ## 10. 一致性检查
 

@@ -8,7 +8,7 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 > **驾驶员过去几秒钟的行为是否正在形成驾驶风险。**
 
-> 当前状态：**Planning / Early Development**。仓库正在建立需求、架构和 MVP 基础能力，暂未提供可运行版本。
+> 当前状态：**Early Development**。TCN、感知入口及轻量关系门控训练骨架已实现，新模型完成CPU合成训练、续训与权重重载验证；真实数据效果、GPU/NPU实机、应用与部署仍待完成。服务器接入见[关系门控训练指南](docs/training/RELATION_RUNBOOK.md)，感知准备见[环境记录](docs/training/PERCEPTION_SETUP.md)。
 
 ## 核心能力
 
@@ -50,7 +50,7 @@ Camera
 
 ## 数据集与模型
 
-第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。DMD 提供 Face、Body、Hands 等车内视角及疲劳、分心、视线和驾驶动作相关标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)。
+第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。原始数据设计包含 Face、Body、Hands 等视角及疲劳、分心、视线和动作标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)；实际可用范围以[当前公开版本](https://github.com/Vicomtech/DMD-Driver-Monitoring-Dataset)和已下载分片为准。
 
 数据按照驾驶员主体划分训练集、验证集和测试集，避免同一驾驶员跨集合造成数据泄漏。
 
@@ -74,7 +74,9 @@ Camera
 
 ## 文档
 
+- [服务器初始化：文件同步、NPU 依赖与最小测试](docs/training/SERVER_SETUP.md)
 - [完整文档索引](docs/README.md)
+- [PPT 全方案对齐](docs/governance/PPT_ALIGNMENT.md)（多专家模型、前后端选型与部署）
 - [详细需求](docs/requirements/REQUIREMENTS.md)
 - [架构设计](docs/architecture/ARCHITECTURE.md)
 - [项目 Spec](docs/specs/PROJECT_SPEC.md)

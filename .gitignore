@@ -1,3 +1,23 @@
 .ai-memory/*/
 !.ai-memory/project_memory.md
 !.ai-memory/handoff.md
+
+# Test sources belong in Git; only generated caches are ignored.
+# Local Python environments (never commit installed packages).
+.venv/
+.venv-*/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Machine-local training data, configuration and temporary artifacts.
+/data/
+/datasets/
+/Dataset/
+/runs/
+/configs/training/*.local.json
+/configs/perception/*.local.json
+/models/local/
+
+# Selected release weights must remain publishable; do not ignore *.pt/*.pth.

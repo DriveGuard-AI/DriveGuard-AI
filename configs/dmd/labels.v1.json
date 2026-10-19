@@ -1,0 +1,14 @@
+{
+  "schema_version": "driveguard-dmd-label-policy-v1",
+  "closed_eye_min_ms": 1000,
+  "tasks": ["fatigue", "phone_use", "drinking", "distraction"],
+  "rules": {
+    "fatigue": "drowsiness only: explicit yawn OR causally observed sustained eyes_state/close; explicit open without yawn is a proxy negative; transitions, undefined and gaps are unknown. NOT a fatigue diagnosis.",
+    "phone_use": "distraction only: phonecall_left/right or texting_left/right positive; explicit safe_drive negative; conflicts/unclassified/unreviewed driver actions unknown.",
+    "drinking": "distraction only: explicit drinking positive; explicit safe_drive negative; conflicts/unclassified/unreviewed driver actions unknown.",
+    "distraction": "distraction only: gaze_on_road/not_looking_road positive and looking_road negative; a road-attention proxy, NOT a dangerous-distraction diagnosis. gaze_zone is not mapped."
+  },
+  "unknown_policy": "target=0, label_mask=0; never infer a negative from missing annotation",
+  "sampling": "25Hz latest-past source frame, source age <=80ms; inclusive source intervals; window endpoint supervision",
+  "alignment": "annotation_frame = decoded_frame_index + frame_shift - min(all three frame_shifts); face reference shift must be zero"
+}

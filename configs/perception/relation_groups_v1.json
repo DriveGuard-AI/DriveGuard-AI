@@ -1,0 +1,71 @@
+{
+  "schema_version": "driveguard-groups-v1",
+  "groups": [
+    {
+      "name": "F",
+      "features": [
+        "ear_left",
+        "ear_right",
+        "mar",
+        "perclos_4s",
+        "closed_duration_s",
+        "head_yaw_deg",
+        "head_pitch_deg",
+        "head_roll_deg",
+        "blink_rate_per_min"
+      ],
+      "experts": [
+        "face"
+      ]
+    },
+    {
+      "name": "O",
+      "features": [
+        "phone_conf",
+        "drink_object_conf"
+      ],
+      "experts": [
+        "objects"
+      ]
+    },
+    {
+      "name": "HO",
+      "features": [
+        "phone_hand_distance",
+        "phone_hand_iou",
+        "phone_near_duration_s",
+        "drink_hand_distance",
+        "drink_hand_iou",
+        "drink_near_duration_s"
+      ],
+      "experts": [
+        "objects",
+        "hands"
+      ]
+    },
+    {
+      "name": "FO",
+      "features": [
+        "phone_face_distance",
+        "drink_mouth_distance"
+      ],
+      "experts": [
+        "objects",
+        "face"
+      ]
+    }
+  ],
+  "age_columns": [
+    "objects",
+    "face",
+    "hands"
+  ],
+  "max_age_ms": 80,
+  "history_steps": 100,
+  "min_valid_ratio": 0.5,
+  "quality": [
+    "valid_ratio",
+    "freshness"
+  ],
+  "history_policy": "conservative-invalid-until-gap-leaves-history-v1"
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>头部裁剪范围确认</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#18232d;font:16px/1.6 system-ui,sans-serif}
+main{max-width:1200px;margin:auto;padding:24px}h1{margin:0;font-size:28px}p{margin:8px 0 16px}
+.panel{background:white;border:1px solid #d8e0e6;border-radius:10px;padding:18px;margin:18px 0}
+canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair;background:#e7ecf1}
+.controls{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}.controls label{display:flex;flex-direction:column;gap:4px}
+input[type=number]{width:118px;padding:8px;border:1px solid #96a4af;border-radius:4px;font:inherit}
+button{font:inherit;border:0;border-radius:6px;padding:10px 16px;background:#12649b;color:white;cursor:pointer}
+button:disabled{background:#cbd5dc;color:#586670;cursor:default}#reset{background:#e7edf2;color:#18232d}
+#samples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.sample{margin:0;cursor:pointer}
+.frame{position:relative}.frame img{display:block;width:100%}.crop{position:absolute;border:2px solid #f6b900;pointer-events:none;display:none}
+figcaption{padding:5px 0;font-size:14px}#status{min-height:26px;color:#7c4000}#identity{overflow-wrap:anywhere;color:#53616c}
+@media(max-width:700px){#samples{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:14px}}
+</style>
+<main><h1>头部裁剪范围确认</h1><p id="identity"></p>
+<p>在大图上拖出矩形，或输入 0～1 的归一化边界。黄色框会同步显示在所有抽样画面中。请覆盖头部活动范围并留出余量。</p>
+<div class="panel"><canvas id="canvas" width="1280" height="720" aria-label="拖动选择头部裁剪范围"></canvas><p id="active"></p>
+<div class="controls"><label>左边界<input id="x1" type="number" min="0" max="1" step="0.001"></label><label>上边界<input id="y1" type="number" min="0" max="1" step="0.001"></label><label>右边界<input id="x2" type="number" min="0" max="1" step="0.001"></label><label>下边界<input id="y2" type="number" min="0" max="1" step="0.001"></label><button id="reset">清除选择</button></div>
+<p id="status" role="status">请先选择裁剪范围。</p>
+<p><label><input type="checkbox" id="confirmed"> 我已检查所有抽样画面，确认所选范围覆盖其中的头部并保留余量。</label></p>
+<button id="download" disabled>下载此视频的对照配置</button>
+<p>下载文件只适用于本视频。抽样不能覆盖全部动作；完整对照后仍需检查。裁剪得到的头姿角度尚未经过原相机坐标标定。</p></div>
+<h2>整段视频抽样</h2><p>点击任一画面可放大。请检查起始、结束以及不同头部姿态。</p><div id="samples"></div></main>
+<script id="data" type="application/json">{"report": {"schema_version": "driveguard-face-crop-preview-v1", "status": "complete", "crop_scope": {"record_id": "4b680f020a0947c1fdebfea8", "video_sha256": "afd10c8218d4bb49e68722ec7664f7fbb044ff8097125fb3cf15d8aa5c646481", "image_size": [1280, 720]}, "manifest_sha256": "4717fa64747920d3367ff3c3b89d605acf36ea674e9a0d725901ccafb3b2bd0f", "slots": 4533, "duration_grid_seconds": 181.32, "samples": [{"file": "sample-001.jpg", "slot_index": 0, "slot_ms": 0, "source_pts_ms": 0}, {"file": "sample-002.jpg", "slot_index": 197, "slot_ms": 7880, "source_pts_ms": 7863}, {"file": "sample-003.jpg", "slot_index": 394, "slot_ms": 15760, "source_pts_ms": 15760}, {"file": "sample-004.jpg", "slot_index": 591, "slot_ms": 23640, "source_pts_ms": 23623}, {"file": "sample-005.jpg", "slot_index": 788, "slot_ms": 31520, "source_pts_ms": 31519}, {"file": "sample-006.jpg", "slot_index": 985, "slot_ms": 39400, "source_pts_ms": 39382}, {"file": "sample-007.jpg", "slot_index": 1182, "slot_ms": 47280, "source_pts_ms": 47279}, {"file": "sample-008.jpg", "slot_index": 1379, "slot_ms": 55160, "source_pts_ms": 55142}, {"file": "sample-009.jpg", "slot_index": 1576, "slot_ms": 63040, "source_pts_ms": 63038}, {"file": "sample-010.jpg", "slot_index": 1773, "slot_ms": 70920, "source_pts_ms": 70901}, {"file": "sample-011.jpg", "slot_index": 1970, "slot_ms": 78800, "source_pts_ms": 78798}, {"file": "sample-012.jpg", "slot_index": 2167, "slot_ms": 86680, "source_pts_ms": 86660}, {"file": "sample-013.jpg", "slot_index": 2365, "slot_ms": 94600, "source_pts_ms": 94591}, {"file": "sample-014.jpg", "slot_index": 2562, "slot_ms": 102480, "source_pts_ms": 102453}, {"file": "sample-015.jpg", "slot_index": 2759, "slot_ms": 110360, "source_pts_ms": 110350}, {"file": "sample-016.jpg", "slot_index": 2956, "slot_ms": 118240, "source_pts_ms": 118213}, {"file": "sample-017.jpg", "slot_index": 3153, "slot_ms": 126120, "source_pts_ms": 126109}, {"file": "sample-018.jpg", "slot_index": 3350, "slot_ms": 134000, "source_pts_ms": 133972}, {"file": "sample-019.jpg", "slot_index": 3547, "slot_ms": 141880, "source_pts_ms": 141869}, {"file": "sample-020.jpg", "slot_index": 3744, "slot_ms": 149760, "source_pts_ms": 149732}, {"file": "sample-021.jpg", "slot_index": 3941, "slot_ms": 157640, "source_pts_ms": 157628}, {"file": "sample-022.jpg", "slot_index": 4138, "slot_ms": 165520, "source_pts_ms": 165491}, {"file": "sample-023.jpg", "slot_index": 4335, "slot_ms": 173400, "source_pts_ms": 173388}, {"file": "sample-024.jpg", "slot_index": 4532, "slot_ms": 181280, "source_pts_ms": 181250}], "clock": {"first_pts": 0, "first_time_base": "1/11904", "origin_seconds": "0", "timestamp_quantization": "ceil(relative_PTS_ms)", "demuxer_policy": {"format_whitelist": "mov,matroska,webm,avi", "protocol_whitelist": "file", "enable_drefs": "0", "use_absolute_path": "0"}}, "notes": ["Uniform samples do not prove all head motion is covered. Inspect full replay before using results.", "No crop is guessed or approved by this tool. Select and review in index.html.", "No perception model was run and no input files were changed."]}, "baseline": {"name": "baseline", "mode": "VIDEO", "detection": 0.5, "presence": 0.5, "tracking": 0.5, "crop_xyxy": null}}</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('data').textContent),report=data.report;
+const ids=['x1','y1','x2','y2'],inputs=ids.map(id=>document.getElementById(id));
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d'),confirmed=document.getElementById('confirmed');
+const download=document.getElementById('download'),status=document.getElementById('status');
+let box=null,start=null,activeImage=null,loaded=0,imageError=false;
+document.getElementById('identity').textContent=`视频记录：${report.crop_scope.record_id} · 原图 ${report.crop_scope.image_size.join(' × ')} · ${report.samples.length} 张抽样`;
+const valid=()=>box && box.every(v=>Number.isFinite(v)&&v>=0&&v<=1)&&box[0]<box[2]&&box[1]<box[3]&&!(box[0]===0&&box[1]===0&&box[2]===1&&box[3]===1);
+function render(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ if(activeImage)ctx.drawImage(activeImage,0,0,canvas.width,canvas.height);
+ const good=valid();
+ if(good){ctx.strokeStyle='#f6b900';ctx.lineWidth=4;ctx.strokeRect(box[0]*canvas.width,box[1]*canvas.height,(box[2]-box[0])*canvas.width,(box[3]-box[1])*canvas.height);}
+ document.querySelectorAll('.crop').forEach(el=>{el.style.display=good?'block':'none';if(good)Object.assign(el.style,{left:box[0]*100+'%',top:box[1]*100+'%',width:(box[2]-box[0])*100+'%',height:(box[3]-box[1])*100+'%'});});
+ download.disabled=!(good&&confirmed.checked&&loaded===report.samples.length&&!imageError);
+ status.textContent=imageError?'部分图片未能打开，请将整个预览目录复制到本机后重试。':!good?'请选择有效的局部矩形，不能使用整幅图或空框。':loaded!==report.samples.length?'正在加载抽样画面…':`归一化范围：[${box.map(v=>v.toFixed(4)).join(', ')}]。检查全部画面后勾选确认。`;
+}
+function edited(){confirmed.checked=false;render();}
+inputs.forEach(input=>input.addEventListener('input',()=>{box=inputs.some(i=>i.value==='')?null:inputs.map(i=>Number(i.value));edited();}));
+confirmed.addEventListener('change',render);
+function setInputs(){inputs.forEach((input,i)=>input.value=box?box[i].toFixed(6):'');}
+function point(e){const r=canvas.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))];}
+canvas.addEventListener('pointerdown',e=>{if(e.button!==0||!activeImage)return;start=point(e);canvas.setPointerCapture(e.pointerId);box=null;setInputs();edited();});
+canvas.addEventListener('pointermove',e=>{if(!start)return;const p=point(e);box=[Math.min(start[0],p[0]),Math.min(start[1],p[1]),Math.max(start[0],p[0]),Math.max(start[1],p[1])];setInputs();edited();});
+canvas.addEventListener('pointerup',()=>{start=null;render();});
+canvas.addEventListener('pointercancel',()=>{start=null;box=null;setInputs();edited();});
+document.getElementById('reset').addEventListener('click',()=>{box=null;setInputs();edited();});
+report.samples.forEach((item,index)=>{
+ const figure=document.createElement('figure');figure.className='sample';
+ const frame=document.createElement('div');frame.className='frame';
+ const img=new Image(),overlay=document.createElement('div');overlay.className='crop';
+ function activate(){activeImage=img;canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;document.getElementById('active').textContent=`画面 ${index+1}：源视频时间 ${(item.source_pts_ms/1000).toFixed(3)} 秒`;render();}
+ img.alt=`抽样画面 ${index+1}`;img.onload=()=>{loaded++;if(index===0)activate();render();};img.onerror=()=>{imageError=true;render();};
+ figure.addEventListener('click',()=>{if(img.complete&&img.naturalWidth)activate();});
+ const caption=document.createElement('figcaption');caption.textContent=`${index+1} / ${(item.source_pts_ms/1000).toFixed(3)} 秒`;
+ frame.append(img,overlay);figure.append(frame,caption);document.getElementById('samples').append(figure);img.src=item.file;
+});
+download.addEventListener('click',()=>{
+ if(download.disabled||!valid())return;
+ const config={schema_version:'driveguard-face-experiments-v1',crop_scope:report.crop_scope,variants:[data.baseline,{...data.baseline,name:'head_crop',crop_xyxy:box.slice()}]};
+ const blob=new Blob([JSON.stringify(config,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='face_crop_experiment.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+</script></html>

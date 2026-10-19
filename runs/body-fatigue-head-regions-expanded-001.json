@@ -1,0 +1,62 @@
+{
+  "schema_version": "driveguard-face-experiments-v2",
+  "head_regions": [
+    {
+      "record_id": "4b680f020a0947c1fdebfea8",
+      "video_sha256": "afd10c8218d4bb49e68722ec7664f7fbb044ff8097125fb3cf15d8aa5c646481",
+      "image_size": [
+        1280,
+        720
+      ],
+      "head_roi_xyxy": [
+        0.2392344505467428,
+        0.03086787319639653,
+        0.5,
+        0.52
+      ]
+    },
+    {
+      "record_id": "cc3234cf4419361ccc018468",
+      "video_sha256": "a6aa47bfbfd9302b9cfb4af1590a517a4de5a0dd347ca55095b2aa20eec6d947",
+      "image_size": [
+        1280,
+        720
+      ],
+      "head_roi_xyxy": [
+        0.20275118136967699,
+        0.024488287869442783,
+        0.3827751099235053,
+        0.4
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "name": "baseline",
+      "mode": "VIDEO",
+      "detection": 0.5,
+      "presence": 0.5,
+      "tracking": 0.5,
+      "crop_xyxy": null,
+      "head_region_mode": "none"
+    },
+    {
+      "name": "head_gate",
+      "mode": "VIDEO",
+      "detection": 0.5,
+      "presence": 0.5,
+      "tracking": 0.5,
+      "crop_xyxy": null,
+      "head_region_mode": "gate"
+    },
+    {
+      "name": "head_crop",
+      "mode": "VIDEO",
+      "detection": 0.5,
+      "presence": 0.5,
+      "tracking": 0.5,
+      "crop_xyxy": null,
+      "head_region_mode": "crop"
+    }
+  ]
+}

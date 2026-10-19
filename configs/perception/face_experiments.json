@@ -1,0 +1,10 @@
+{
+  "schema_version": "driveguard-face-experiments-v1",
+  "variants": [
+    {"name": "baseline", "mode": "VIDEO", "detection": 0.5, "presence": 0.5, "tracking": 0.5, "crop_xyxy": null},
+    {"name": "image", "mode": "IMAGE", "detection": 0.5, "presence": 0.5, "tracking": 0.5, "crop_xyxy": null},
+    {"name": "detection_030", "mode": "VIDEO", "detection": 0.3, "presence": 0.5, "tracking": 0.5, "crop_xyxy": null},
+    {"name": "presence_030", "mode": "VIDEO", "detection": 0.5, "presence": 0.3, "tracking": 0.5, "crop_xyxy": null},
+    {"name": "tracking_030", "mode": "VIDEO", "detection": 0.5, "presence": 0.5, "tracking": 0.3, "crop_xyxy": null}
+  ]
+}

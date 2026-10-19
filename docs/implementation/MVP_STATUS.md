@@ -8,12 +8,13 @@
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
 | 后端 REST API（API-001 ~ API-009） | **已实现** | 路径、字段、错误码与 `docs/api/API_DESIGN.md` 一致 |
+| 离线分析任务（API-010 ~ API-013，2026-10-19） | **已实现（仅 `frames` 来源）** | 创建/列表/详情/取消四个端点；素材必须落在媒体根目录内，换素材即新开会话；`analysis_jobs` 表 + Alembic `0002_analysis_jobs`。上传 mp4 与自动抽帧未做（见 `OFFLINE_ANALYSIS_PLAN.md` M2） |
 | WebSocket（WS-001 `/ws/v1/monitoring`） | **已实现** | envelope、`sequence` 单调、心跳、10 Hz 节流、慢客户端丢旧快照、`event.changed` 优先 |
 | 事件服务（FR-006） | **已实现** | 生命周期 `candidate → active → ended / discarded`，同类同会话聚合，最短持续时间校验 |
 | 配置服务（FR-009） | **已实现** | 键注册表校验（类型/范围/跨字段）、乐观锁、审计日志（secret 去敏） |
 | 统计服务（FR-008） | **已实现** | 总量/类型/风险等级/按天趋势；空数据返回 0 与空数组 |
-| 数据层 | **已实现** | 5 张表 + CHECK 约束 + 索引，Alembic `0001_initial`，WAL |
-| 鉴权与权限 | **已实现** | Bearer Token、`monitoring:read / settings:read / settings:write / models:read`；配置 Token 后除 `/health` 外一律要求鉴权 |
+| 数据层 | **已实现** | 6 张表 + CHECK 约束 + 索引，Alembic `0001_initial` / `0002_analysis_jobs`，WAL |
+| 鉴权与权限 | **已实现** | Bearer Token、`monitoring:read / settings:read / settings:write / models:read / analysis:read / analysis:write`；配置 Token 后除 `/health` 外一律要求鉴权 |
 | 可观测性（NFR-006） | **部分实现** | `/system/status` 暴露 FPS/延迟 P50/P95/丢帧率/WS 客户端数/DB 可写性；结构化日志待补 |
 | 前端 Dashboard | **已实现** | 实时监控 / 事件历史 / 统计 / 系统设置四域，React + TS + Vite + ECharts，构建产物由 FastAPI 托管 |
 | 模型识别与判断（FR-002 ~ FR-004） | **未实现** | 见下节 |

@@ -67,6 +67,11 @@ class AppConfig:
     live_image_size: str = "1280x720"
     live_roi: str = "0.15,0.0,0.75,1.0"
     live_step_ms: int = 40
+    # 离线分析产物的约束（NFR-003：上传必须配套保留期、磁盘上限与访问控制）。
+    analysis_max_frames: int = 15000  # 约 10 分钟 @40ms，用于挡住长视频
+    analysis_max_disk_mb: int = 2048
+    analysis_retain_source: bool = False
+    analysis_retain_frames_hours: int = 24
 
     @property
     def auth_enabled(self) -> bool:
@@ -106,4 +111,8 @@ def load_config() -> AppConfig:
         live_image_size=_env_str("DGB_LIVE_IMAGE_SIZE", "1280x720") or "1280x720",
         live_roi=_env_str("DGB_LIVE_ROI", "0.15,0.0,0.75,1.0") or "0.15,0.0,0.75,1.0",
         live_step_ms=max(1, int(_env_float("DGB_LIVE_STEP_MS", 40.0))),
+        analysis_max_frames=max(1, int(_env_float("DGB_ANALYSIS_MAX_FRAMES", 15000.0))),
+        analysis_max_disk_mb=max(1, int(_env_float("DGB_ANALYSIS_MAX_DISK_MB", 2048.0))),
+        analysis_retain_source=_env_bool("DGB_ANALYSIS_RETAIN_SOURCE", False),
+        analysis_retain_frames_hours=max(1, int(_env_float("DGB_ANALYSIS_RETAIN_HOURS", 24.0))),
     )

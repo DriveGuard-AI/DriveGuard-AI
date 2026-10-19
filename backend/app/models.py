@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -16,6 +16,8 @@ MODEL_TYPES = ("detector", "landmarker", "temporal", "fusion")
 MODEL_RUNTIMES = ("pytorch", "onnxruntime", "tensorrt")
 MODEL_STATUSES = ("registered", "active", "retired", "failed")
 VALUE_TYPES = ("string", "integer", "number", "boolean", "object", "array")
+JOB_STATUSES = ("queued", "running", "completed", "failed", "cancelled")
+SOURCE_KINDS = ("frames", "camera", "push")
 
 
 def _in_list(column: str, values: tuple[str, ...]) -> str:
@@ -106,6 +108,58 @@ class DrivingEvent(Base):
             "(status = 'active' AND ended_at IS NULL) OR status <> 'active'",
             name="ck_events_active_boundary",
         ),
+    )
+
+
+class AnalysisJob(Base):
+    """一次离线分析的执行记录。
+
+    只存指针与进度，不存二进制：素材与抽帧产物落在 `media_dir/analysis/<job_id>/`。
+    `session_id` 把任务与它产生的事件绑在一起，事件按会话隔离。
+    """
+
+    __tablename__ = "analysis_jobs"
+
+    job_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("monitoring_sessions.session_id"), nullable=False
+    )
+    source_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_path: Mapped[str] = mapped_column(Text, nullable=False)
+    source_sha256: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    frames_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    frames_done: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    timeline_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    started_at: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ended_at: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(_in_list("status", JOB_STATUSES), name="ck_jobs_status"),
+        CheckConstraint(_in_list("source_kind", SOURCE_KINDS), name="ck_jobs_kind"),
+        CheckConstraint("frames_total >= 0", name="ck_jobs_total"),
+        CheckConstraint("frames_done >= 0 AND frames_done <= frames_total", name="ck_jobs_done"),
+        CheckConstraint("timeline_ms >= 0", name="ck_jobs_timeline"),
+        CheckConstraint(
+            "(status IN ('running','completed','failed') AND started_at IS NOT NULL)"
+            " OR status IN ('queued','cancelled')",
+            name="ck_jobs_started",
+        ),
+        CheckConstraint(
+            "(status IN ('completed','failed','cancelled') AND ended_at IS NOT NULL)"
+            " OR status IN ('queued','running')",
+            name="ck_jobs_ended",
+        ),
+        CheckConstraint(
+            "ended_at IS NULL OR started_at IS NULL OR ended_at >= started_at",
+            name="ck_jobs_time",
+        ),
+        Index("ix_jobs_created", "created_at"),
+        Index("ix_jobs_status", "status"),
+        Index("ix_jobs_session", "session_id"),
     )
 
 

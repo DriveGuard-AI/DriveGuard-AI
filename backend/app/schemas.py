@@ -114,6 +114,42 @@ class EventListResponse(BaseModel):
     has_next: bool
 
 
+class AnalysisJobCreate(BaseModel):
+    """创建一次离线分析。
+
+    只接受 `frames`（已抽好的 JPEG 目录，位于媒体根目录之下）。`camera`/`push`
+    为实时采集预留，当前返回 400。
+    """
+
+    source_kind: str = "frames"
+    source_path: str
+
+
+class AnalysisJobOut(BaseModel):
+    job_id: str
+    session_id: str
+    source_kind: str
+    source_path: str
+    source_sha256: str | None = None
+    status: str
+    frames_total: int
+    frames_done: int
+    timeline_ms: int
+    error: str | None = None
+    created_at: UtcDateTime
+    started_at: UtcDateTime | None = None
+    ended_at: UtcDateTime | None = None
+    updated_at: UtcDateTime
+
+
+class AnalysisJobListResponse(BaseModel):
+    items: list[AnalysisJobOut]
+    page: int
+    page_size: int
+    total: int
+    has_next: bool
+
+
 class CountByType(BaseModel):
     event_type: str
     count: int

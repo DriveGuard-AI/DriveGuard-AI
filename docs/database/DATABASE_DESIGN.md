@@ -106,6 +106,32 @@ audit_logs          N ────── 1 administrative actions
 | `request_id` | TEXT | NULL | API 请求关联 ID |
 | `details_json` | TEXT | NOT NULL | 去敏后的结构化详情 |
 
+### 4.6 `analysis_jobs`（2026-10-19 新增，迁移 `0002_analysis_jobs`）
+
+一次离线分析任务的指针与进度。素材与抽帧产物落在媒体目录，不进数据库。
+
+| 字段 | SQLite 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `job_id` | TEXT | PK | UUID |
+| `session_id` | TEXT | FK → `monitoring_sessions`，NOT NULL | 该任务对应的新会话 |
+| `source_kind` | TEXT | CHECK `frames/camera/push`，NOT NULL | 当前仅实现 `frames` |
+| `source_path` | TEXT | NOT NULL | 已解析的绝对路径，必须位于媒体根目录内 |
+| `source_sha256` | TEXT | NULL | 素材指纹，预留用于去重 |
+| `status` | TEXT | CHECK `queued/running/completed/failed/cancelled` | 终态不可取消 |
+| `frames_total` | INTEGER | `>=0`，默认 0 | 创建的目录内 JPEG 数 |
+| `frames_done` | INTEGER | `>=0 AND <= frames_total` | 单调不减 |
+| `timeline_ms` | INTEGER | `>=0` | 已处理到的素材时间轴位置 |
+| `error` | TEXT | NULL | 失败原因，截断到 400 字符 |
+| `created_at` | TEXT | NOT NULL | UTC 时间 |
+| `started_at` | TEXT | 状态相关 CHECK | `running` 及之后必须非空 |
+| `ended_at` | TEXT | 状态相关 CHECK | 终态必须非空，且不早于 `started_at` |
+| `updated_at` | TEXT | NOT NULL | UTC 时间 |
+
+索引：`ix_jobs_created (created_at)`、`ix_jobs_status (status)`、`ix_jobs_session (session_id)`。
+
+约束说明：状态相关 CHECK 让「`completed` 但 `ended_at` 为空」这类不一致在写入时就被 SQLite 拒绝，
+避免页面永远显示"进行中"。
+
 ## 5. SQLite DDL 基线
 
 ```sql

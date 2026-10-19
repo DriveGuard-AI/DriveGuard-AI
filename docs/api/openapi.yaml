@@ -253,6 +253,108 @@ paths:
                   $ref: "#/components/schemas/ModelVersion"
         "401":
           $ref: "#/components/responses/AuthRequired"
+  /analysis/jobs:
+    get:
+      tags: [analysis]
+      operationId: listAnalysisJobs
+      summary: 查询分析任务列表
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running, completed, failed, cancelled]
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: 分析任务分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJobPage"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [analysis]
+      operationId: createAnalysisJob
+      summary: 用一份 JPEG 目录重新开始分析
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisJobCreate"
+      responses:
+        "201":
+          description: 任务已创建并开始执行
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJob"
+        "400":
+          description: 素材不可用（路径越界、无 JPEG、超上限或来源类型未支持）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /analysis/jobs/{job_id}:
+    get:
+      tags: [analysis]
+      operationId: getAnalysisJob
+      summary: 查询分析任务详情与进度
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJob"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [analysis]
+      operationId: cancelAnalysisJob
+      summary: 取消分析任务并结束其会话
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: 任务已取消
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJob"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: 任务已是终态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
@@ -275,6 +377,13 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     AuthRequired:
       description: 缺少或无效凭证
@@ -549,6 +658,56 @@ components:
       properties:
         field: {type: [string, "null"]}
         reason: {type: string}
+    AnalysisJobStatus:
+      type: string
+      enum: [queued, running, completed, failed, cancelled]
+    AnalysisSourceKind:
+      type: string
+      enum: [frames, camera, push]
+      description: 当前仅支持 frames（媒体根目录下的 JPEG 序列目录）。
+    AnalysisJobCreate:
+      type: object
+      additionalProperties: false
+      required: [source_path]
+      properties:
+        source_kind:
+          $ref: "#/components/schemas/AnalysisSourceKind"
+        source_path:
+          type: string
+          description: 必须位于服务端媒体根目录之下。
+    AnalysisJob:
+      type: object
+      additionalProperties: false
+      required:
+        [job_id, session_id, source_kind, source_path, status, frames_total,
+         frames_done, timeline_ms, created_at, updated_at]
+      properties:
+        job_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        source_kind: {$ref: "#/components/schemas/AnalysisSourceKind"}
+        source_path: {type: string}
+        source_sha256: {type: [string, "null"]}
+        status: {$ref: "#/components/schemas/AnalysisJobStatus"}
+        frames_total: {type: integer, minimum: 0}
+        frames_done: {type: integer, minimum: 0}
+        timeline_ms: {type: integer, minimum: 0}
+        error: {type: [string, "null"]}
+        created_at: {type: string, format: date-time}
+        started_at: {type: [string, "null"], format: date-time}
+        ended_at: {type: [string, "null"], format: date-time}
+        updated_at: {type: string, format: date-time}
+    AnalysisJobPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, page_size, total, has_next]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/AnalysisJob"}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, minimum: 1, maximum: 100}
+        total: {type: integer, minimum: 0}
+        has_next: {type: boolean}
     ErrorResponse:
       type: object
       additionalProperties: false

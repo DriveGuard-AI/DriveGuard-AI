@@ -23,6 +23,7 @@ from .deps import AppContext
 from .errors import register_exception_handlers
 from .inference.factory import build_inference
 from .inference.port import InferencePort
+from .services.analysis import AnalysisService
 from .services.events import EventService
 from .services.monitoring import InferenceEngine
 from .services.settings import SettingsService
@@ -73,6 +74,7 @@ def build_context(
         settings=SettingsService(db),
         statistics=StatisticsService(db),
         system=SystemService(db, config, engine),
+        analysis=AnalysisService(db, config, engine),
     )
 
 
@@ -91,6 +93,9 @@ def create_app(
         try:
             yield
         finally:
+            # 先取消进度跟踪任务，再停引擎：跟踪任务会读引擎状态，
+            # 反过来顺序会留下一个读已停止引擎的野任务。
+            await context.analysis.shutdown()
             await context.engine.stop()
             context.db.dispose()
 

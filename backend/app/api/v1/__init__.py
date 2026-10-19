@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from .analysis import router as analysis_router
 from .events import router as events_router
 from .health import router as health_router
 from .models import router as models_router
@@ -18,5 +19,6 @@ api_v1_router.include_router(statistics_router)
 api_v1_router.include_router(settings_router)
 api_v1_router.include_router(models_router)
 api_v1_router.include_router(monitoring_router)
+api_v1_router.include_router(analysis_router)
 
 __all__ = ["api_v1_router"]

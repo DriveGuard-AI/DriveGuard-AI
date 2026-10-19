@@ -86,6 +86,25 @@ class PipelineUnavailableError(AppError):
         super().__init__(503, "PIPELINE_UNAVAILABLE", message)
 
 
+class AnalysisJobNotFoundError(AppError):
+    def __init__(self, job_id: str) -> None:
+        super().__init__(404, "ANALYSIS_JOB_NOT_FOUND", "Analysis job not found", [{"field": "job_id", "reason": job_id}])
+
+
+class AnalysisJobConflictError(AppError):
+    """任务状态不允许该操作，例如取消已结束的任务。"""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(409, "ANALYSIS_JOB_CONFLICT", "Analysis job state conflict", [{"field": "status", "reason": reason}])
+
+
+class InvalidAnalysisSourceError(AppError):
+    """素材来源不合法：类型不支持、路径越界、目录不存在或帧数/磁盘超限。"""
+
+    def __init__(self, reason: str, *, field: str = "source_path") -> None:
+        super().__init__(400, "INVALID_ANALYSIS_SOURCE", "Invalid analysis source", [{"field": field, "reason": reason}])
+
+
 def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 

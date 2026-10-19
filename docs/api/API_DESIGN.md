@@ -83,6 +83,33 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 }
 ```
 
+### 3.3 AnalysisJob
+
+一次离线分析任务的指针与进度。素材与抽帧产物不在数据库里，只存路径。
+
+```json
+{
+  "job_id": "8f0f6f0a-1f1b-4b8c-9a2e-8a0c1e5f0d21",
+  "session_id": "5c1b1d3a-4a41-4f1e-9d5b-0b9c0a6f2e77",
+  "source_kind": "frames",
+  "source_path": "D:/driveguard/var/media/analysis/8f0f.../frames",
+  "source_sha256": null,
+  "status": "running",
+  "frames_total": 961,
+  "frames_done": 320,
+  "timeline_ms": 12800,
+  "error": null,
+  "created_at": "2026-10-19T09:00:00Z",
+  "started_at": "2026-10-19T09:00:00Z",
+  "ended_at": null,
+  "updated_at": "2026-10-19T09:04:12Z"
+}
+```
+
+- `status`：`queued | running | completed | failed | cancelled`；`frames_done` 单调不减。
+- `timeline_ms`：已处理到的素材时间轴位置，用于判断进度是否还在推进。
+- 每个任务对应一个新的 `monitoring_sessions` 记录，事件按该会话隔离。
+
 ## 4. REST 端点
 
 ### API-001 健康检查
@@ -195,6 +222,41 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 成功：`200 RiskSnapshot`。
 - 无活动会话：`409 MONITORING_NOT_ACTIVE`。
 
+### API-010 创建分析任务
+
+`POST /api/v1/analysis/jobs`（权限 `analysis:write`）
+
+- 请求：`{"source_kind": "frames", "source_path": "<media_root>/analysis/<job_id>/frames"}`。
+- 用途：用一份已抽好的 JPEG 目录替换当前推理素材，重跑分析并新开会话。
+- 成功：`201 AnalysisJob`，`status="running"`，返回新 `session_id`、`frames_total`。
+- 错误：`400 INVALID_ANALYSIS_SOURCE`（路径不存在／不在媒体根目录内／无 JPEG／超帧数或磁盘上限／暂不支持的 `source_kind`）。
+- 副作用：停掉当前推理循环与旧会话（旧会话 `ended_at` 落库），再按新素材启动。
+
+### API-011 分析任务列表
+
+`GET /api/v1/analysis/jobs`（权限 `analysis:read`）
+
+- 查询参数：可选 `status`（`queued|running|completed|failed|cancelled`），`page`、`page_size`。
+- 成功：`200`，`items` 按 `created_at` 倒序，`has_next` 表示是否还有下一页。
+- 非法 `status`：`422 VALIDATION_ERROR`。
+
+### API-012 分析任务详情
+
+`GET /api/v1/analysis/jobs/{job_id}`（权限 `analysis:read`）
+
+- 成功：`200 AnalysisJob`，含 `frames_total`／`frames_done`／`timeline_ms`／终态时间。
+- 不存在：`404 ANALYSIS_JOB_NOT_FOUND`。
+- 进度由服务端后台跟踪写入，不依赖客户端轮询，故列表页看到的状态同样准确。
+
+### API-013 取消分析任务
+
+`DELETE /api/v1/analysis/jobs/{job_id}`（权限 `analysis:write`）
+
+- 用途：停止正在跑的分析并结束其会话。
+- 成功：`200 AnalysisJob`，`status="cancelled"`、`ended_at` 非空，已完成的 `frames_done` 保留。
+- 任务已结束：`409 ANALYSIS_JOB_CONFLICT`。
+- 不存在：`404 ANALYSIS_JOB_NOT_FOUND`。
+
 ## 5. WebSocket
 
 ### WS-001 实时监控
@@ -239,6 +301,8 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 | `settings:read` | 配置读取 |
 | `settings:write` | 配置更新 |
 | `models:read` | 模型元数据读取 |
+| `analysis:read` | 分析任务列表与详情读取 |
+| `analysis:write` | 创建与取消分析任务 |
 
 MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限声明；生产部署不得只依赖前端隐藏按钮。
 
@@ -247,11 +311,14 @@ MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限�
 | HTTP | Code | 场景 |
 | --- | --- | --- |
 | 400 | `INVALID_TIME_RANGE` | 时间范围不合法 |
+| 400 | `INVALID_ANALYSIS_SOURCE` | 分析素材路径不存在、越出媒体根目录或不合规 |
 | 401 | `AUTH_REQUIRED` | 缺少或无效凭证 |
 | 403 | `FORBIDDEN` | 权限不足 |
 | 404 | `EVENT_NOT_FOUND` | 事件不存在 |
+| 404 | `ANALYSIS_JOB_NOT_FOUND` | 分析任务不存在 |
 | 409 | `CONFIG_VERSION_CONFLICT` | 配置乐观锁冲突 |
 | 409 | `MONITORING_NOT_ACTIVE` | 当前无监测会话 |
+| 409 | `ANALYSIS_JOB_CONFLICT` | 分析任务已是终态，无法取消 |
 | 422 | `VALIDATION_ERROR` | 字段类型或范围错误 |
 | 422 | `TIME_RANGE_TOO_LARGE` | 统计时间跨度超限 |
 | 429 | `RATE_LIMITED` | 超过限流策略 |

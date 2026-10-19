@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from .config import AppConfig
 from .database import Database
 from .security import Principal, ensure_permission, principal_from_request
+from .services.analysis import AnalysisService
 from .services.events import EventService
 from .services.monitoring import InferenceEngine
 from .services.settings import SettingsService
@@ -29,6 +30,7 @@ class AppContext:
     settings: SettingsService
     statistics: StatisticsService
     system: SystemService
+    analysis: AnalysisService
 
 
 def get_context(request: Request) -> AppContext:

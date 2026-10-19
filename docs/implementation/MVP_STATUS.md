@@ -8,7 +8,7 @@
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
 | 后端 REST API（API-001 ~ API-009） | **已实现** | 路径、字段、错误码与 `docs/api/API_DESIGN.md` 一致 |
-| 离线分析任务（API-010 ~ API-013，2026-10-19） | **已实现（仅 `frames` 来源）** | 创建/列表/详情/取消四个端点；素材必须落在媒体根目录内，换素材即新开会话；`analysis_jobs` 表 + Alembic `0002_analysis_jobs`。上传 mp4 与自动抽帧未做（见 `OFFLINE_ANALYSIS_PLAN.md` M2） |
+| 离线分析任务（API-010 ~ API-014，2026-10-19） | **已实现** | 创建/列表/详情/取消四个端点 + 上传视频自动抽帧；素材必须落在媒体根目录内，换素材即新开会话；`analysis_jobs` 表 + Alembic `0002_analysis_jobs`；上传配套保留期清理与磁盘上限（NFR-003）。前端分析页（M3）与模式互斥（M4）待做 |
 | WebSocket（WS-001 `/ws/v1/monitoring`） | **已实现** | envelope、`sequence` 单调、心跳、10 Hz 节流、慢客户端丢旧快照、`event.changed` 优先 |
 | 事件服务（FR-006） | **已实现** | 生命周期 `candidate → active → ended / discarded`，同类同会话聚合，最短持续时间校验 |
 | 配置服务（FR-009） | **已实现** | 键注册表校验（类型/范围/跨字段）、乐观锁、审计日志（secret 去敏） |

@@ -70,6 +70,7 @@ class AppConfig:
     # 离线分析产物的约束（NFR-003：上传必须配套保留期、磁盘上限与访问控制）。
     analysis_max_frames: int = 15000  # 约 10 分钟 @40ms，用于挡住长视频
     analysis_max_disk_mb: int = 2048
+    analysis_max_upload_mb: int = 512
     analysis_retain_source: bool = False
     analysis_retain_frames_hours: int = 24
 
@@ -113,6 +114,7 @@ def load_config() -> AppConfig:
         live_step_ms=max(1, int(_env_float("DGB_LIVE_STEP_MS", 40.0))),
         analysis_max_frames=max(1, int(_env_float("DGB_ANALYSIS_MAX_FRAMES", 15000.0))),
         analysis_max_disk_mb=max(1, int(_env_float("DGB_ANALYSIS_MAX_DISK_MB", 2048.0))),
+        analysis_max_upload_mb=max(1, int(_env_float("DGB_ANALYSIS_MAX_UPLOAD_MB", 512.0))),
         analysis_retain_source=_env_bool("DGB_ANALYSIS_RETAIN_SOURCE", False),
         analysis_retain_frames_hours=max(1, int(_env_float("DGB_ANALYSIS_RETAIN_HOURS", 24.0))),
     )

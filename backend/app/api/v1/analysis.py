@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from ...deps import AppContext, get_context, require_permission
 from ...errors import ValidationError
@@ -28,6 +28,33 @@ async def create_job(
     context: AppContext = Depends(get_context),
 ) -> AnalysisJobOut:
     return await context.analysis.create(request)
+
+
+@router.post(
+    "/analysis/jobs/upload",
+    response_model=AnalysisJobOut,
+    status_code=201,
+    dependencies=[Depends(require_permission(PERMISSION_ANALYSIS_WRITE))],
+)
+async def upload_job(
+    file: UploadFile = File(...),
+    step_ms: int = Form(40),
+    size: str = Form("1280x720"),
+    quality: int = Form(85),
+    context: AppContext = Depends(get_context),
+) -> AnalysisJobOut:
+    """上传视频 → 抽帧 → 立即开始分析。"""
+
+    try:
+        return await context.analysis.create_from_upload(
+            file.file,
+            filename=file.filename,
+            step_ms=step_ms,
+            size=size,
+            quality=quality,
+        )
+    finally:
+        await file.close()
 
 
 @router.get(

@@ -5,3 +5,7 @@ uvicorn[standard]>=0.30
 sqlalchemy>=2.0.30
 alembic>=1.13
 pydantic>=2.7
+# 上传视频后在服务端抽帧（步骤 3）。headless 版不带 GUI 依赖，适合服务端。
+opencv-python-headless>=4.10,<5.0
+# multipart/form-data 解析（FastAPI 的 UploadFile 必需）。
+python-multipart>=0.0.9

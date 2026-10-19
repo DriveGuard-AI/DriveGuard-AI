@@ -304,6 +304,40 @@ paths:
           $ref: "#/components/responses/AuthRequired"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /analysis/jobs/upload:
+    post:
+      tags: [analysis]
+      operationId: uploadAnalysisJob
+      summary: 上传视频，服务端抽帧后立即开始分析
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AnalysisUploadRequest"
+      responses:
+        "201":
+          description: 任务已创建并开始执行
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisJob"
+        "400":
+          description: 素材不可用（非视频、超大小/磁盘上限、参数不在栅格上、解码失败）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: 服务端缺少视频解码依赖
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /analysis/jobs/{job_id}:
     get:
       tags: [analysis]
@@ -675,6 +709,29 @@ components:
         source_path:
           type: string
           description: 必须位于服务端媒体根目录之下。
+    AnalysisUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: 视频文件，后缀限 mp4/mov/avi/mkv/webm/m4v。
+        step_ms:
+          type: integer
+          enum: [40, 80, 120, 160, 200]
+          default: 40
+          description: 抽帧步长，必须是 25 Hz 栅格（40 ms）的整数倍。
+        size:
+          type: string
+          default: 1280x720
+          description: 输出尺寸 WxH，宽高必须为偶数。
+        quality:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 85
     AnalysisJob:
       type: object
       additionalProperties: false

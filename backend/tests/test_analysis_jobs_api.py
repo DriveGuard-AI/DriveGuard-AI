@@ -7,83 +7,20 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.models import MonitoringSession
-from app.schemas import RiskSnapshot
 
-ADMIN_TOKEN = "test-admin-token"
-JPEG = b"\xff\xd8\xff\xd9"
-JOBS = "/api/v1/analysis/jobs"
-
-
-def _snapshot(session_id: str, sequence: int, now: datetime, position: int | None) -> RiskSnapshot:
-    return RiskSnapshot(
-        session_id=session_id,
-        sequence=sequence,
-        captured_at=now,
-        risk_level="SAFE",
-        confidence=0.9,
-        quality="good",
-        source_timestamp_ms=position,
-        inference_mode="fake",
-    )
-
-
-class _IdlePort:
-    """实时阶段的占位推理：一直在跑，不产生终态。"""
-
-    mode = "test"
-    degraded = False
-
-    def start(self) -> None:
-        return None
-
-    def close(self) -> None:
-        return None
-
-    def status(self) -> dict:
-        return {"state": "running", "frames_sent": 0}
-
-    def next_snapshot(self, *, session_id: str, sequence: int, now: datetime) -> RiskSnapshot:
-        return _snapshot(session_id, sequence, now, None)
-
-
-class _ScriptedPort:
-    """离线推理桩：tick 到 `frames` 次之后自报 completed。"""
-
-    mode = "test"
-    degraded = False
-
-    def __init__(self, frames: int) -> None:
-        self.frames = frames
-        self.sent = 0
-
-    def start(self) -> None:
-        return None
-
-    def close(self) -> None:
-        return None
-
-    def status(self) -> dict:
-        state = "completed" if self.sent >= self.frames else "running"
-        return {"state": state, "frames_sent": self.sent}
-
-    def next_snapshot(self, *, session_id: str, sequence: int, now: datetime) -> RiskSnapshot:
-        self.sent += 1
-        return _snapshot(session_id, sequence, now, sequence * 40)
-
-
-def _make_frames(media: Path, count: int) -> Path:
-    directory = media / "analysis" / "job-under-test" / "frames"
-    directory.mkdir(parents=True, exist_ok=True)
-    for index in range(count):
-        (directory / f"{index:06d}.jpg").write_bytes(JPEG)
-    return directory
+from tests.analysis_support import (
+    ADMIN_TOKEN,
+    JPEG,
+    JOBS,
+    configure_env,
+    install_ports,
+    make_frames as _make_frames,
+)
 
 
 @pytest.fixture()
@@ -92,23 +29,11 @@ def analysis_app(tmp_path, monkeypatch):
     media.mkdir()
     # 帧数由用例在 POST 之前决定，构建器在请求线程里读取。
     script: dict[str, int] = {"frames": 3}
-
-    monkeypatch.setenv("DGB_DATABASE_URL", f"sqlite:///{(tmp_path / 'analysis.db').as_posix()}")
-    monkeypatch.setenv("DGB_ADMIN_TOKEN", ADMIN_TOKEN)
-    monkeypatch.setenv("DGB_INFERENCE_HZ", "50")
-    monkeypatch.setenv("DGB_HEARTBEAT_SECONDS", "30")
-    monkeypatch.setenv("DGB_INFERENCE_SCENARIO", "default")
-    monkeypatch.setenv("DGB_STATIC_DIR", str(tmp_path / "dist"))
-    monkeypatch.setenv("DGB_MEDIA_DIR", str(media))
+    configure_env(monkeypatch, tmp_path, media)
+    install_ports(monkeypatch, script)
 
     import app.main as main_module
 
-    def factory(config):
-        if config.inference_mode == "live":
-            return _ScriptedPort(script["frames"])
-        return _IdlePort()
-
-    monkeypatch.setattr(main_module, "build_inference", factory)
     application = main_module.create_app()
     with TestClient(application) as client:
         yield client, media, script

@@ -1,6 +1,6 @@
 # DriveGuard AI backend runtime lock.
 # Generated from the environment that passes the backend test suite
-# (Python 3.11.9, Windows x64, 2026-10-18).
+# (Python 3.11.9, Windows x64, 2026-10-19).
 # requirements.txt keeps the readable direct dependencies; run.ps1 installs this file.
 alembic==1.20.0
 annotated-doc==0.0.5
@@ -14,9 +14,12 @@ httptools==0.8.0
 idna==3.20
 Mako==1.4.1
 MarkupSafe==3.0.3
+numpy==2.4.6
+opencv-python-headless==4.11.0.86
 pydantic==2.13.5
 pydantic_core==2.46.5
 python-dotenv==1.2.3
+python-multipart==0.0.32
 PyYAML==6.0.3
 SQLAlchemy==2.0.54
 starlette==1.6.0

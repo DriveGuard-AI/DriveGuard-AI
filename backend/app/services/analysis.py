@@ -9,7 +9,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
+import shutil
+import time
 import uuid
 from pathlib import Path
 
@@ -19,12 +23,22 @@ from ..errors import (
     AnalysisJobConflictError,
     AnalysisJobNotFoundError,
     InvalidAnalysisSourceError,
+    PipelineUnavailableError,
 )
 from ..inference.port import AnalysisSource
 from ..repositories.analysis_jobs import AnalysisJobRepository
+from ..repositories.audit import AuditRepository
 from ..repositories.sessions import SessionRepository
 from ..schemas import AnalysisJobCreate, AnalysisJobOut
 from ..timeutil import to_iso_z, utcnow
+from .frame_extraction import (
+    STEP_MS_CHOICES,
+    VIDEO_SUFFIXES,
+    DecoderUnavailableError,
+    ExtractionError,
+    extract_frames,
+    validate_options,
+)
 from .monitoring import InferenceEngine
 
 logger = logging.getLogger(__name__)
@@ -33,6 +47,8 @@ SUPPORTED_SOURCE_KINDS = ("frames",)
 JPEG_SUFFIXES = frozenset({".jpg", ".jpeg"})
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 PROGRESS_INTERVAL_SECONDS = 1.0
+PURGE_INTERVAL_SECONDS = 3600.0
+UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
 def job_to_schema(job) -> AnalysisJobOut:
@@ -61,6 +77,7 @@ class AnalysisService:
         self._engine = engine
         self._watcher: asyncio.Task | None = None
         self._watching_job: str | None = None
+        self._purge_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------ 素材校验
 
@@ -88,13 +105,16 @@ class AnalysisService:
             raise InvalidAnalysisSourceError(
                 f"帧数 {len(frames)} 超过上限 {self._config.analysis_max_frames}"
             )
+        self._check_disk_budget(media_root, field="source_path")
+        return request.source_kind, resolved, len(frames)
+
+    def _check_disk_budget(self, media_root: Path, *, field: str) -> None:
         used_mb = self._media_usage_mb(media_root)
         if used_mb > self._config.analysis_max_disk_mb:
             raise InvalidAnalysisSourceError(
                 f"媒体目录已占用 {used_mb:.0f} MB，超过上限 {self._config.analysis_max_disk_mb} MB",
-                field="source_path",
+                field=field,
             )
-        return request.source_kind, resolved, len(frames)
 
     def _media_usage_mb(self, media_root: Path) -> float:
         total = 0
@@ -110,17 +130,146 @@ class AnalysisService:
 
     async def create(self, request: AnalysisJobCreate) -> AnalysisJobOut:
         kind, resolved, frames_total = self._resolve_source(request)
+        return await self._launch(
+            source_kind=kind,
+            source_path=str(resolved),
+            frames_total=frames_total,
+        )
+
+    async def create_from_upload(
+        self,
+        stream,
+        *,
+        filename: str | None,
+        step_ms: int,
+        size: str,
+        quality: int,
+    ) -> AnalysisJobOut:
+        """上传一段视频，抽帧后立即开跑。
+
+        抽帧在请求内完成（放线程里），因此申请不到的解码依赖、坏文件、超限视频
+        都会在**建任务之前**报错，不会留下一个永远 queued 的空任务。
+        """
+
+        suffix = Path(filename or "").suffix.lower()
+        if suffix not in VIDEO_SUFFIXES:
+            raise InvalidAnalysisSourceError(
+                f"只接受视频文件 {sorted(VIDEO_SUFFIXES)}，收到 {filename!r}", field="file"
+            )
+        try:
+            validate_options(step_ms=step_ms, size=size, quality=quality)
+        except ExtractionError as error:
+            raise InvalidAnalysisSourceError(str(error)) from None
+
+        media_root = self._config.media_dir.resolve()
+        media_root.mkdir(parents=True, exist_ok=True)
+        self._check_disk_budget(media_root, field="file")
+
+        job_id = str(uuid.uuid4())
+        job_dir = media_root / "analysis" / job_id
+        source = job_dir / f"source{suffix}"
+        frames_dir = job_dir / "frames"
+        try:
+            job_dir.mkdir(parents=True, exist_ok=False)
+            digest, size_bytes = await asyncio.to_thread(self._spool, stream, source)
+            frames_total = await asyncio.to_thread(
+                extract_frames,
+                source,
+                frames_dir,
+                step_ms=step_ms,
+                size=size,
+                quality=quality,
+                max_frames=self._config.analysis_max_frames,
+            )
+            self._write_manifest(
+                job_dir,
+                {
+                    "job_id": job_id,
+                    "source_filename": filename,
+                    "source_bytes": size_bytes,
+                    "source_sha256": digest,
+                    "step_ms": step_ms,
+                    "size": size,
+                    "quality": quality,
+                    "frames_total": frames_total,
+                    "created_at": to_iso_z(utcnow()),
+                },
+            )
+            # NFR-003：默认不留原始视频；抽帧成功后立即删除。
+            if not self._config.analysis_retain_source:
+                source.unlink(missing_ok=True)
+            return await self._launch(
+                job_id=job_id,
+                source_kind="frames",
+                source_path=str(frames_dir),
+                frames_total=frames_total,
+                source_sha256=digest,
+            )
+        except DecoderUnavailableError as error:
+            shutil.rmtree(job_dir, ignore_errors=True)
+            raise PipelineUnavailableError(str(error)) from None
+        except ExtractionError as error:
+            shutil.rmtree(job_dir, ignore_errors=True)
+            raise InvalidAnalysisSourceError(str(error)) from None
+        except Exception:
+            # 校验失败、抽帧半途失败、落库失败都不该留下半个任务目录。
+            shutil.rmtree(job_dir, ignore_errors=True)
+            raise
+
+    def _spool(self, stream, target: Path) -> tuple[str, int]:
+        """把上传流写成文件并计算摘要，同时执行大小上限。"""
+
+        limit = self._config.analysis_max_upload_mb * 1024 * 1024
+        digest = hashlib.sha256()
+        written = 0
+        with target.open("wb") as sink:
+            while True:
+                chunk = stream.read(UPLOAD_CHUNK_BYTES)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > limit:
+                    raise InvalidAnalysisSourceError(
+                        f"文件超过 {self._config.analysis_max_upload_mb} MB 上限", field="file"
+                    )
+                digest.update(chunk)
+                sink.write(chunk)
+        if written == 0:
+            raise InvalidAnalysisSourceError("上传文件为空", field="file")
+        return digest.hexdigest(), written
+
+    def _write_manifest(self, job_dir: Path, payload: dict) -> None:
+        (job_dir / "job.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    async def _launch(
+        self,
+        *,
+        source_kind: str,
+        source_path: str,
+        frames_total: int,
+        source_sha256: str | None = None,
+        job_id: str | None = None,
+    ) -> AnalysisJobOut:
+        """切换推理源并登记任务记录（目录来源与上传来源共用）。
+
+        上传来源已经在磁盘上建好了 `analysis/<job_id>/`，此时任务号必须由调用方传入，
+        否则目录名与 `job_id` 对不上，按任务号找不到产物。
+        """
+
         session_id = await self._engine.run_analysis(
-            AnalysisSource(kind=kind, frame_sequence=str(resolved))
+            AnalysisSource(kind=source_kind, frame_sequence=source_path)
         )
         try:
             with self._db.session() as session:
                 job = AnalysisJobRepository(session).create(
-                    job_id=str(uuid.uuid4()),
+                    job_id=job_id or str(uuid.uuid4()),
                     session_id=session_id,
-                    source_kind=kind,
-                    source_path=str(resolved),
+                    source_kind=source_kind,
+                    source_path=source_path,
                     frames_total=frames_total,
+                    source_sha256=source_sha256,
                     now=utcnow(),
                 )
                 schema = job_to_schema(job)
@@ -278,11 +427,79 @@ class AnalysisService:
         except Exception:  # noqa: BLE001 - 停不下来也不能让任务卡在 running
             logger.warning("分析任务结束后停止引擎失败: %s", session_id, exc_info=True)
 
-    async def shutdown(self) -> None:
-        if self._watcher is not None and not self._watcher.done():
-            self._watcher.cancel()
+    # ------------------------------------------------------------ 产物保留期
+
+    def start(self) -> None:
+        """启动保留期清理循环（幂等）。"""
+
+        if self._purge_task is None or self._purge_task.done():
+            self._purge_task = asyncio.create_task(
+                self._purge_loop(), name="driveguard-analysis-purge"
+            )
+
+    async def _purge_loop(self) -> None:
+        while True:
             try:
-                await self._watcher
+                removed = await asyncio.to_thread(self._purge_once)
+                if removed:
+                    logger.info("已清理 %d 个过期分析目录", removed)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - 清理失败不得拖垮服务
+                logger.warning("分析产物清理失败", exc_info=True)
+            await asyncio.sleep(PURGE_INTERVAL_SECONDS)
+
+    def _purge_once(self) -> int:
+        """按保留期删除过期任务目录。
+
+        以目录 mtime 为准：抽帧产物、`job.json` 都在任务开头一次写完，
+        mtime 就是"这份产物最后一次被使用"的近似值。
+        """
+
+        root = self._config.media_dir.resolve() / "analysis"
+        if not root.is_dir():
+            return 0
+        cutoff = time.time() - self._config.analysis_retain_frames_hours * 3600
+        removed = 0
+        for path in sorted(root.iterdir()):
+            if not path.is_dir():
+                continue
+            try:
+                if path.stat().st_mtime > cutoff:
+                    continue
+                shutil.rmtree(path)
+            except OSError:
+                logger.warning("删除过期分析目录失败: %s", path, exc_info=True)
+                continue
+            removed += 1
+            self._audit_purge(path.name)
+        return removed
+
+    def _audit_purge(self, job_id: str) -> None:
+        try:
+            with self._db.session() as session:
+                AuditRepository(session).add(
+                    action="analysis.purge",
+                    resource_type="analysis_job",
+                    resource_id=job_id,
+                    result="success",
+                    occurred_at=to_iso_z(utcnow()),
+                    details={
+                        "reason": "retention",
+                        "retain_hours": self._config.analysis_retain_frames_hours,
+                    },
+                )
+        except Exception:  # noqa: BLE001 - 审计失败不影响清理
+            logger.warning("清理审计写入失败: %s", job_id)
+
+    async def shutdown(self) -> None:
+        for task in (self._watcher, self._purge_task):
+            if task is None or task.done():
+                continue
+            task.cancel()
+            try:
+                await task
             except asyncio.CancelledError:
                 pass
         self._watcher = None
+        self._purge_task = None

@@ -90,6 +90,8 @@ def create_app(
         if resolved_config.auto_create_schema:
             context.db.create_all()
         await context.engine.start()
+        # 保留期清理：NFR-003 要求启用帧持久化时必须配套保留期。
+        context.analysis.start()
         try:
             yield
         finally:

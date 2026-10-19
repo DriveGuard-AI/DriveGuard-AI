@@ -257,6 +257,24 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 任务已结束：`409 ANALYSIS_JOB_CONFLICT`。
 - 不存在：`404 ANALYSIS_JOB_NOT_FOUND`。
 
+### API-014 上传视频并开始分析
+
+`POST /api/v1/analysis/jobs/upload`（`multipart/form-data`，权限 `analysis:write`）
+
+| 字段 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `file` | file | — | 视频文件，后缀限 `mp4/mov/avi/mkv/webm/m4v` |
+| `step_ms` | integer | `40` | 抽帧步长，必须是 `40/80/120/160/200` 之一（25 Hz 栅格） |
+| `size` | string | `1280x720` | 输出尺寸，宽高必须为偶数 |
+| `quality` | integer | `85` | JPEG 质量 1..100 |
+
+- 处理：存盘（同时算 sha256 并卡大小上限）→ 抽帧到 `<media_root>/analysis/<job_id>/frames/`
+  → 写 `job.json` → 删除原视频（`retain_source=false` 时）→ 开新会话并启动推理。
+- 成功：`201 AnalysisJob`（`source_kind="frames"`、`source_sha256` 非空、`frames_total` 为实际写入帧数）。
+- 错误：`400 INVALID_ANALYSIS_SOURCE`（非视频后缀／文件为空或超 `analysis.max_upload_mb`／磁盘超 `max_disk_mb`／
+  参数不在栅格上／解码失败／帧数超上限）、`503 PIPELINE_UNAVAILABLE`（缺少解码依赖）。
+- 抽帧在请求内完成，失败时整目录回滚，**不会留下空任务**，因此不会出现 "queued 但永远不跑" 的记录。
+
 ## 5. WebSocket
 
 ### WS-001 实时监控

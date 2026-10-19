@@ -92,6 +92,15 @@ alembic upgrade head       # 版本化迁移（也可用 DGB_AUTO_CREATE_SCHEMA=
 | `DGB_AUTO_CREATE_SCHEMA` | `true` | 启动时自动建表（生产建议关闭并用 Alembic） |
 | `DGB_STATIC_DIR` | `frontend/dist` | 前端构建产物目录 |
 | `DGB_MEDIA_DIR` | `backend/var/media` | 允许保存事件片段的位置（默认不使用） |
+| `DGB_INFERENCE_MODE` | `fake` | `fake`（脚本回放）/ `live`（对接模型侧 live 服务） |
+| `DGB_LIVE_URL` | `http://127.0.0.1:8765` | 模型侧 live 服务地址 |
+| `DGB_FRAME_SEQUENCE` | 空 | `live` 模式下读取的 JPEG 序列目录 |
+| `DGB_LIVE_TOKEN_FILE` | 空 | live 服务 Token 文件 |
+| `DGB_ANALYSIS_MAX_FRAMES` | `15000` | 单任务帧数上限（约 10 分钟 @40ms） |
+| `DGB_ANALYSIS_MAX_DISK_MB` | `2048` | 媒体目录占用上限，超限拒绝新任务 |
+| `DGB_ANALYSIS_MAX_UPLOAD_MB` | `512` | 单个上传视频大小上限 |
+| `DGB_ANALYSIS_RETAIN_SOURCE` | `false` | 是否保留原始视频（NFR-003 默认不保留） |
+| `DGB_ANALYSIS_RETAIN_HOURS` | `24` | 抽帧产物保留期，到期由后台清理 |
 
 ## 6. 常见问题
 

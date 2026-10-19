@@ -32,7 +32,7 @@
 
 ## 3. 关键决策
 
-**决策 D1：采用服务端解码（方案 A），不采用浏览器解码。**
+**决策 D1：采用服务端解码（方案 A），不采用浏览器解码。**（✅ 2026-10-19 已实现）
 
 | 依据 | 说明 |
 | --- | --- |
@@ -41,9 +41,10 @@
 | 可批量、可重跑 | 素材留在服务端，失败重跑零成本 |
 | 成本 | 比前端方案多约 1–2 人天 |
 
-**决策 D2：解码依赖选 `opencv-python-headless`。**
+**决策 D2：解码依赖选 `opencv-python-headless`。**（✅ 已落地：`app/services/frame_extraction.py`）
 
 与模型仓库 `scripts/local/extract_frames.py` 使用同一套 API，抽帧逻辑已验证；轮子约 40 MB。
+同一段 3 秒 30 fps 合成视频，两套实现均输出 75 帧且逐帧像素差为 0。
 
 **决策 D3：采集方式用 `AnalysisSource` 隔离。**
 
@@ -66,7 +67,7 @@ backend/var/                          # BACKEND_DIR/var，默认数据库与媒�
 └── media/                            # DGB_MEDIA_DIR（事件片段也用此处）
     └── analysis/
         └── <job_id>/                 # 每个任务一个目录
-            ├── source.mp4            # 原始上传；retain_source=true 才保留
+            ├── source.<ext>           # 原始上传（mp4/mov/...）；retain_source=true 才保留
             ├── frames/               # 抽帧产物，补零命名 → 字典序即播放序
             │   └── 000000.jpg ...
             └── job.json              # step_ms/size/quality/帧数/素材 sha256（复跑凭证）
@@ -199,7 +200,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 | 里程碑 | 交付 | 可演示的能力 |
 | --- | --- | --- |
 | M1（步骤 2）✅ 2026-10-19 | 任务表 + 接口（提交 `4c3270e`） | 用 curl 提交一个已有目录并观察进度 |
-| M2（步骤 3） | 上传 + 抽帧 | 拖一个 mp4 跑完，`curl` 查到事件 |
+| M2（步骤 3）✅ 2026-10-19 | 上传 + 抽帧（API-014） | 拖一个 mp4 跑完，`curl` 查到事件 |
 | M3（步骤 4） | 前端页面 | 页面上完成全流程 |
 | M4（步骤 5） | 互斥 + 回归 | 与实时能力共存 |
 
@@ -211,6 +212,26 @@ M1 验收对照（`backend/tests/test_analysis_jobs_api.py`，11 个用例）：
 | 新 `session_id` 且旧会话 `ended_at` 落库 | `test_job_opens_new_session_and_closes_previous` |
 | DELETE → `cancelled` 且引擎停止 | `test_cancel_running_job_stops_engine` |
 | `source_path` 缺失/越界 → 400 | `test_missing_source_is_rejected`、`test_path_outside_media_root_is_rejected` |
+
+M2 验收对照（`backend/tests/test_analysis_upload_api.py`，9 个用例）：
+
+| 验收项 | 结果 |
+| --- | --- |
+| 上传视频 → 抽帧 → 任务跑完 | ✅ `test_upload_extracts_frames_and_runs`（合成 10 帧 mp4，断言 JPEG 数 = `frames_total`、任务 `completed`） |
+| `retain_source=false` 时原视频消失 | ✅ `test_upload_extracts_frames_and_runs`；保留路径见 `test_retain_source_keeps_video` |
+| 超 `max_disk_mb` 拒绝新任务 | ✅ `test_disk_budget_blocks_new_upload`、`test_upload_size_limit` |
+| 抽帧失败可读 | ⚠️ **改为请求期 400**，不是 `failed` 任务（见下） |
+| 抽帧规则与模型仓库一致 | ✅ 同一 3 秒 30 fps 合成视频：两套实现均为 75 帧、逐帧像素差 0 |
+
+**与步骤 3 原文的偏差（抽帧失败的落点）**：原文写的是"抽帧失败时任务为 `failed`"。
+实际实现把抽帧放在**建任务之前**同步完成（放线程里跑），因此坏文件、超限视频都在
+建立 `analysis_jobs` 记录之前就返回 `400 INVALID_ANALYSIS_SOURCE`，并把半个目录删掉。
+理由：`session_id` 是任务表的必填外键，若先建 `queued` 记录再抽帧，就要为"还没开始
+推理的任务"引入一个空会话或可空外键，得不偿失。代价是长视频的上传响应要等抽帧结束
+（10 分钟素材约数十秒），进度条只能给"正在准备"，这也是 M3 之前可接受的状态。
+
+**尚未验证**：10 秒视频跑完后"事件总时长落在 10 秒内"。这条依赖真实模型输出，
+而合成素材不会产生任何行为事件；等 M3 结束后用一段真实驾驶视频补测。
 
 ## 8. 与既有文档的关系
 

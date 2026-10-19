@@ -55,7 +55,30 @@
 | `camera` | 服务端拉 | RTSP / USB 视频流 | 预留 |
 | `push` | 浏览器推 | 帧经 HTTP 打入 | 预留 |
 
-## 4. 分步实施
+## 4. 产物存放
+
+所有运行期产物都在 `backend/var/` 下，该目录已在 `.gitignore` 中（注释：运行期数据：
+SQLite 与媒体目录默认不入库（隐私 NFR-003））。
+
+```
+backend/var/                          # BACKEND_DIR/var，默认数据库与媒体根
+├── driveguard.db                     # 关系数据；analysis_jobs 只存指针，不存二进制
+└── media/                            # DGB_MEDIA_DIR（事件片段也用此处）
+    └── analysis/
+        └── <job_id>/                 # 每个任务一个目录
+            ├── source.mp4            # 原始上传；retain_source=true 才保留
+            ├── frames/               # 抽帧产物，补零命名 → 字典序即播放序
+            │   └── 000000.jpg ...
+            └── job.json              # step_ms/size/quality/帧数/素材 sha256（复跑凭证）
+```
+
+按任务分目录的理由：保留期到期清理是一次 `rmtree`；配额统计是一个目录的 `du`；
+同名素材不互相覆盖；失败任务可整目录删除。
+
+**路径包含性校验（必需）**：`source_path` 解析后必须位于 `media_root` 之下，否则返回
+400。否则该接口等于允许读取服务器任意目录。模型仓库的 `verified_path()` 是同一模式。
+
+## 5. 分步实施
 
 每一步都可独立验收，不必等全部完成才可用。
 
@@ -90,7 +113,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 
 ```jsonc
 // POST 请求（步骤 2 仅支持已有目录；步骤 3 增加上传）
-{ "source_kind": "frames", "source_path": "runs/frames/electr1" }
+{ "source_kind": "frames", "source_path": "<media_root>/analysis/<job_id>/frames" }
 
 // 响应
 {
@@ -107,7 +130,8 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 1. 创建任务后 `GET /jobs/{id}` 的 `frames_done` 单调递增；
 2. 任务对应的 `session_id` 与上一个任务不同，且旧会话 `ended_at` 已填充；
 3. `DELETE` 后任务为 `cancelled`，引擎停止推进；
-4. 已有任务的 `source_path` 不存在时返回 400，不静默失败。
+4. 已有任务的 `source_path` 不存在时返回 400，不静默失败；
+5. `source_path` 越出 `media_root`（如 `../../`）时返回 400，不读取外部目录。
 
 ### 步骤 3：上传与抽帧（预估 1–1.5 人天）
 
@@ -132,7 +156,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 | `analysis.retain_source` | `false` | 抽帧完成后立即删除原始 mp4 |
 | `analysis.retain_frames_hours` | `24` | JPEG 序列保留期 |
 | `analysis.max_disk_mb` | `2048` | 占用上限，超限拒绝新任务 |
-| `analysis.media_root` | `var/media` | 素材根目录（与 `DGB_MEDIA_DIR` 对齐） |
+| `analysis.media_root` | `var/media` | 素材根目录（与 `DGB_MEDIA_DIR` 对齐）；所有任务产物在其下 |
 
 清理任务：按保留期删除过期任务目录，并写一条 `audit_logs`。
 
@@ -158,7 +182,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 - `push`/`camera` 运行中时，创建离线任务返回 409，除非显式 `force=true`；
 - 回归：`tests/test_analysis_switch.py` 扩充到覆盖互斥分支。
 
-## 5. 风险与未决问题
+## 6. 风险与未决问题
 
 | 项 | 风险 | 处置 |
 | --- | --- | --- |
@@ -170,7 +194,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 
 **待确认**：单任务最长时长上限、`retain_frames_hours` 的实际取值、是否需要保留抽帧产物供复跑（影响磁盘估算）。
 
-## 6. 里程碑
+## 7. 里程碑
 
 | 里程碑 | 交付 | 可演示的能力 |
 | --- | --- | --- |
@@ -179,7 +203,7 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 | M3（步骤 4） | 前端页面 | 页面上完成全流程 |
 | M4（步骤 5） | 互斥 + 回归 | 与实时能力共存 |
 
-## 7. 与既有文档的关系
+## 8. 与既有文档的关系
 
 - 本计划的接口约定落地后需回写 `docs/api/API_DESIGN.md`；
 - NFR-003 的配套配置需回写 `docs/requirements/REQUIREMENTS.md` 与设置项注册表；

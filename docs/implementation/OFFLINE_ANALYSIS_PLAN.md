@@ -198,10 +198,19 @@ DELETE /api/v1/analysis/jobs/{id}     取消（仅 queued/running）
 
 | 里程碑 | 交付 | 可演示的能力 |
 | --- | --- | --- |
-| M1（步骤 2） | 任务表 + 接口 | 用 curl 提交一个已有目录并观察进度 |
+| M1（步骤 2）✅ 2026-10-19 | 任务表 + 接口（提交 `4c3270e`） | 用 curl 提交一个已有目录并观察进度 |
 | M2（步骤 3） | 上传 + 抽帧 | 拖一个 mp4 跑完，`curl` 查到事件 |
 | M3（步骤 4） | 前端页面 | 页面上完成全流程 |
 | M4（步骤 5） | 互斥 + 回归 | 与实时能力共存 |
+
+M1 验收对照（`backend/tests/test_analysis_jobs_api.py`，11 个用例）：
+
+| 验收项 | 用例 |
+| --- | --- |
+| `frames_done` 单调不减 | `test_create_job_runs_to_completion` |
+| 新 `session_id` 且旧会话 `ended_at` 落库 | `test_job_opens_new_session_and_closes_previous` |
+| DELETE → `cancelled` 且引擎停止 | `test_cancel_running_job_stops_engine` |
+| `source_path` 缺失/越界 → 400 | `test_missing_source_is_rejected`、`test_path_outside_media_root_is_rejected` |
 
 ## 8. 与既有文档的关系
 

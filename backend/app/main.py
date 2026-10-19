@@ -26,6 +26,7 @@ from .inference.port import InferencePort
 from .services.analysis import AnalysisService
 from .services.events import EventService
 from .services.monitoring import InferenceEngine
+from .services.preview import PreviewService
 from .services.settings import SettingsService
 from .services.statistics import StatisticsService
 from .services.system import SystemService
@@ -59,11 +60,18 @@ def build_context(
         def builder(source):  # noqa: F811 - 覆盖上面的占位
             if source.kind != "frames" or not source.frame_sequence:
                 raise ValueError(f"暂不支持的素材来源: {source.kind}")
+            # 离线回放永远走 JPEG 序列，不能因为 DGB_LIVE_SOURCE=camera 又把摄像头接回来。
             return build_inference(
-                replace(config, inference_mode="live", frame_sequence_dir=source.frame_sequence)
+                replace(
+                    config,
+                    inference_mode="live",
+                    live_source="frames",
+                    frame_sequence_dir=source.frame_sequence,
+                )
             )
 
     engine = InferenceEngine(db, config, hub, inference_impl, builder)
+    settings = SettingsService(db)
 
     return AppContext(
         config=config,
@@ -71,10 +79,11 @@ def build_context(
         hub=hub,
         engine=engine,
         events=EventService(db),
-        settings=SettingsService(db),
+        settings=settings,
         statistics=StatisticsService(db),
         system=SystemService(db, config, engine),
         analysis=AnalysisService(db, config, engine),
+        preview=PreviewService(config, settings, engine),
     )
 
 

@@ -41,6 +41,22 @@ class ForbiddenError(AppError):
         super().__init__(403, "FORBIDDEN", message)
 
 
+class PreviewDisabledError(AppError):
+    """实时预览开关处于关闭状态。
+
+    与权限不足共用 403，但 `details` 明确区分原因（API-010：details 区分原因），
+    避免前端把"管理员没开"误显示成"你没权限"。
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            403,
+            "FORBIDDEN",
+            "Preview is disabled",
+            [{"field": "preview.enabled", "reason": "preview.disabled"}],
+        )
+
+
 class EventNotFoundError(AppError):
     def __init__(self, event_id: str) -> None:
         super().__init__(404, "EVENT_NOT_FOUND", "Event not found", [{"field": "event_id", "reason": event_id}])
@@ -196,6 +212,7 @@ __all__ = [
     "InvalidTimeRangeError",
     "MonitoringNotActiveError",
     "PipelineUnavailableError",
+    "PreviewDisabledError",
     "TimeRangeTooLargeError",
     "ValidationError",
     "register_exception_handlers",

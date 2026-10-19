@@ -245,9 +245,31 @@ runtime 枚举为 `pytorch/onnxruntime/tensorrt/mediapipe/python`；mediapipe �
 - 鉴权：monitoring:read；使用 Authorization Header，浏览器以 fetch 流读取，不把 Token 放 URL。
 - 开关：管理员通过 API-007 设置 `preview.enabled`（boolean，默认 false）；这是运行时开关，不需要重启。关闭时终止已有预览连接，不影响推理。
 - 成功：200，`Content-Type: multipart/x-mixed-replace; boundary=frame`、`Cache-Control: no-store`。每个 part 是 JPEG，流持续到取消/断开；最大输出帧率、分辨率和客户端数由部署配置限制，不承诺等于推理 FPS。
-- 错误：401 AUTH_REQUIRED；403 FORBIDDEN（权限不足或预览关闭，details 区分原因）；409 MONITORING_NOT_ACTIVE；503 PIPELINE_UNAVAILABLE（摄像头/编码不可用）。校验顺序为鉴权→开关/权限→会话→设备。
+- 错误：401 AUTH_REQUIRED；403 FORBIDDEN（权限不足或预览关闭，details 区分原因）；409 MONITORING_NOT_ACTIVE；503 PIPELINE_UNAVAILABLE（摄像头/编码不可用、画面尚未就绪、离线回放、连接数已满）。校验顺序为鉴权→开关/权限→会话→设备。
 - 返回 200 后的故障关闭流，通过 system.status 说明原因，不能再把 JSON 错误混进 JPEG 流；客户端取消时释放连接资源，不关闭共享摄像头。
 - 只在内存读取最新帧，不落盘，不默认对云端开放；启用预览不自动启用事件录像。预览与 WS 状态通道分离。
+
+**part 头（用于验证"看到的就是模型输入"）**：每个分片在 JPEG 之前带
+
+```
+Content-Type: image/jpeg
+Content-Length: <字节数>
+X-Seq: <送进推理的帧序号，从 0 起>
+X-Timestamp-Ms: <该帧在推理时间轴上的毫秒位置>
+X-Sha256: <jpeg 字节的 sha256，小写十六进制>
+```
+
+`X-Seq` 与 `X-Timestamp-Ms` 描述的是**该帧在推理输入里的位置**，不是预览自己的计数；因此预览显示的第 N 帧就是推理消费的第 N 帧。客户端不得对 JPEG 重新编码后比对摘要。
+
+**帧来源**：`DGB_LIVE_SOURCE=camera` 时为设备摄像头（`DGB_CAMERA_DEVICE_INDEX`、`DGB_CAMERA_WIDTH/HEIGHT`、`DGB_CAMERA_BACKEND`），`=frames` 时为预抽好的 JPEG 序列（联调/无摄像头环境）。两种来源都经过同一层 `PreviewTap`，字节不做二次编码；离线回放（分析任务接手）期间不提供预览。
+
+`GET /api/v1/monitoring/preview/state`（API-010a）
+
+- 鉴权：monitoring:read。
+- 用途：页面在开流前判断是否可预览，并展示对齐信息。
+- 成功：`200 PreviewState`：`enabled`、`available`、`clients`、`max_clients`、`max_fps`、`pipeline`（`realtime|playback|stopped`）、`source`（`camera|frames`）、`device_index`、`sequence`、`source_timestamp_ms`、`sha256`、`bytes`、`age_ms`、`frames_out`、`last_error`。
+- `sequence`/`sha256` 为最近一帧**已送进推理**的画面；尚未收到帧时为 null，不得用 0 或空摘要代替。
+- 错误：401 AUTH_REQUIRED；403 FORBIDDEN。
 
 ### API-010 创建分析任务
 

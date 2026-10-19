@@ -110,6 +110,9 @@ paths:
         需要 monitoring:read；preview.enabled 默认 false。使用 Authorization 鉴权，
         不在 URL 放 Token。仅内存实时编码，不落盘。慢客户端丢旧保新；
         已开始响应后的设备故障终止流，由客户端查询 system/status。
+        每个 part 在 JPEG 前带 Content-Length、X-Seq、X-Timestamp-Ms、X-Sha256，
+        描述该帧在推理输入中的位置与字节摘要；客户端不得重新编码后比对摘要。
+        帧来源由 DGB_LIVE_SOURCE 决定（camera|frames）。
       responses:
         "200":
           description: multipart/x-mixed-replace; boundary=frame；每个 part 为 image/jpeg
@@ -139,6 +142,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /monitoring/preview/state:
+    get:
+      tags: [monitoring]
+      operationId: getMonitoringPreviewState
+      summary: 获取预览开关、连接数与最近一帧的序号/摘要
+      description: >-
+        需要 monitoring:read。sequence/source_timestamp_ms/sha256 描述最近一帧
+        已送进推理的画面；尚未收到帧时为 null，不得用 0 或空摘要代替。
+      responses:
+        "200":
+          description: 预览状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewState"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /events:
     get:
       tags: [events]
@@ -634,6 +656,64 @@ components:
         latency_ms:
           type: [number, "null"]
           minimum: 0
+    PreviewState:
+      type: object
+      additionalProperties: false
+      required:
+        - enabled
+        - available
+        - clients
+        - max_clients
+        - max_fps
+        - pipeline
+        - source
+        - frames_out
+      properties:
+        enabled:
+          type: boolean
+        available:
+          type: boolean
+          description: 当前是否可建立预览（开关、实时模式、已有帧、未达连接上限）
+        clients:
+          type: integer
+          minimum: 0
+        max_clients:
+          type: integer
+          minimum: 1
+        max_fps:
+          type: number
+          minimum: 0.5
+          maximum: 30
+        pipeline:
+          type: string
+          enum: [realtime, playback, stopped]
+        source:
+          type: string
+          enum: [camera, frames]
+        device_index:
+          type: [integer, "null"]
+          minimum: 0
+        sequence:
+          type: [integer, "null"]
+          minimum: 0
+          description: 最近一帧送进推理的画面序号；未收到帧时为 null
+        source_timestamp_ms:
+          type: [integer, "null"]
+          minimum: 0
+        sha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+        bytes:
+          type: [integer, "null"]
+          minimum: 1
+        age_ms:
+          type: [number, "null"]
+          minimum: 0
+        frames_out:
+          type: integer
+          minimum: 0
+        last_error:
+          type: [string, "null"]
     SystemStatus:
       type: object
       additionalProperties: false

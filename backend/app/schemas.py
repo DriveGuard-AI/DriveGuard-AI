@@ -273,6 +273,30 @@ class CameraStatus(BaseModel):
     source: str
 
 
+class PreviewState(BaseModel):
+    """实时预览状态（API-010）。
+
+    `sequence`/`sha256` 指向"最近一帧送进推理的画面"，前端据此确认预览
+    与模型输入逐帧对齐；`sha256` 也是排查"看到的和跑的不是同一帧"的证据。
+    """
+
+    enabled: bool
+    available: bool
+    clients: int
+    max_clients: int
+    max_fps: float
+    pipeline: Literal["realtime", "playback", "stopped"]
+    source: Literal["camera", "frames"]
+    device_index: int | None = None
+    sequence: int | None = None
+    source_timestamp_ms: int | None = None
+    sha256: str | None = None
+    bytes: int | None = None
+    age_ms: float | None = None
+    frames_out: int = 0
+    last_error: str | None = None
+
+
 class PipelineStatus(BaseModel):
     state: str
     processed_fps: float
@@ -333,6 +357,8 @@ __all__ = [
     "HealthResponse",
     "InferenceMode",
     "ModelInfo",
+    "PipelineStatus",
+    "PreviewState",
     "Quality",
     "RiskLevel",
     "RiskSnapshot",

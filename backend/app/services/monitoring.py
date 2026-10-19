@@ -67,6 +67,8 @@ class InferenceEngine:
         self._playback = False
         # 每个 tick 的快照回调（回放时间轴用）。同步调用，不能阻塞。
         self._snapshot_sink: Callable[[RiskSnapshot], None] | None = None
+        # 测试/外部帧源注入的预览装饰器（生产由 build_inference 挂在推理实现上）。
+        self._preview_override = None
 
         self._latencies: deque[float] = deque(maxlen=MAX_LATENCY_SAMPLES)
         self._tick_times: deque[float] = deque(maxlen=MAX_TICK_SAMPLES)
@@ -83,6 +85,10 @@ class InferenceEngine:
             self._inference = self._realtime_inference
             self._sequence = 0
             self._latest = None
+            # 清掉回放期间的旧画面，预览不能停在上一段素材上。
+            tap = self._preview_tap()
+            if tap is not None:
+                tap.reset()
         self._playback = False
         now = utcnow()
         now_iso = to_iso_z(now)
@@ -264,6 +270,35 @@ class InferenceEngine:
         """当前是否在跑实时采集（而不是被离线任务接手的回放）。"""
 
         return self._task is not None and not self._playback
+
+    # ------------------------------------------------------------ 实时预览
+
+    def _preview_tap(self):
+        """取当前推理实现的预览装饰器；fake 模式与回放源都没有。"""
+
+        if self._preview_override is not None:
+            return self._preview_override
+        return getattr(self._inference, "preview_tap", None)
+
+    def set_preview_tap(self, tap) -> None:
+        """注入/清除预览帧源。
+
+        生产路径由 `build_inference` 直接挂在推理实现上；这里留给测试，
+        以及后续"帧源不属于推理对象"的来源（例如浏览器推流）。
+        """
+
+        self._preview_override = tap
+
+    def preview_tap(self):
+        """对外暴露的预览源：只在实时模式下有效。
+
+        离线回放时返回 None——预览通道的语义是"摄像头实际收到的画面"，
+        回放素材应该走分析回放页，而不是伪装成实时监控。
+        """
+
+        if self._playback:
+            return None
+        return self._preview_tap()
 
     def set_snapshot_sink(self, sink: Callable[[RiskSnapshot], None] | None) -> None:
         """注册/清除每 tick 快照回调。离线分析用它写回放时间轴。"""

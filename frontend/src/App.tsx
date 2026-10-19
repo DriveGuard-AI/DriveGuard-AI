@@ -134,6 +134,7 @@ export default function App() {
       <main className="app-main">
         {tab === 'monitoring' ? (
           <MonitoringPage
+            token={token}
             feed={feed}
             playback={status?.pipeline.playback ?? false}
             pipelineState={status?.pipeline.state ?? ''}

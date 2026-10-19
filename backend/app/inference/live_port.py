@@ -23,7 +23,7 @@ import time
 from typing import Any
 
 from ..schemas import FeatureSet, RiskSnapshot
-from .frame_source import FrameSource
+from .frame_source import FrameSource, FrameSourceError
 from .live_client import LiveCamera, LiveClient, LiveError
 from .port import InferencePort
 
@@ -95,6 +95,7 @@ class LiveInference(InferencePort):
         camera: LiveCamera,
         source: FrameSource,
         *,
+        preview_tap=None,
         stale_seconds: float = STALE_SECONDS,
         retry_seconds: float = 2.0,
         max_failures: int = 5,
@@ -103,6 +104,9 @@ class LiveInference(InferencePort):
         self._client = client
         self._camera = camera
         self._source = source
+        # 帧源装饰器（预览用）；与 `_source` 是同一对象或包着同一底层源。
+        # 必须是可选的：注入的测试源没有预览概念。
+        self.preview_tap = preview_tap
         self._stale_seconds = float(stale_seconds)
         self._retry_seconds = float(retry_seconds)
         self._max_failures = int(max_failures)
@@ -183,6 +187,13 @@ class LiveInference(InferencePort):
             }
             for name in TASK_NAMES
         }
+        # 帧源状态（摄像头/序列）与预览对齐信息；查询失败不影响主状态。
+        reporter = getattr(self.preview_tap, "status", None)
+        if callable(reporter):
+            try:
+                payload["source"] = reporter()
+            except Exception:  # noqa: BLE001
+                payload["source"] = None
         return payload
 
     def next_snapshot(self, *, session_id: str, sequence: int, now: datetime) -> RiskSnapshot:
@@ -334,7 +345,10 @@ class LiveInference(InferencePort):
                         self._last_error = None
                         failures = 0
                     self._store(reply)
-            except LiveError as error:
+            except (LiveError, FrameSourceError) as error:
+                # live 服务报错与帧源故障都要重试。帧源故障尤其不能当成
+                # "素材读完"（next_frame 返回 None 才是），否则摄像头发抖
+                # 会被当成正常收尾，页面直接停在最后一帧。
                 failures += 1
                 self._record_error(error)
             finally:

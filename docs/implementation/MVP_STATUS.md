@@ -9,6 +9,7 @@
 | --- | --- | --- |
 | 后端 REST API（API-001 ~ API-009） | **已实现** | 路径、字段、错误码与 `docs/api/API_DESIGN.md` 一致 |
 | 离线分析任务（API-010 ~ API-018，2026-10-19） | **已实现** | 创建/列表/详情/取消 + 上传自动抽帧 + 回放证据 + 与实时互斥（409 + `force`，`/monitoring/resume` 切回实时）；`analysis_jobs` 表（迁移 `0002`/`0003`）；上传配套保留期清理与磁盘上限（NFR-003） |
+| 实时预览（API-010 / API-010a，2026-10-19） | **已实现** | `CameraSource`（25 Hz 网格、丢时间片不追帧、断线重连）+ `PreviewTap`（预览与推理共用同一份 JPEG 字节）+ MJPEG 端点；分片带 `X-Seq`/`X-Timestamp-Ms`/`X-Sha256` 供逐帧对齐；开关 `preview.enabled` 默认关闭，运行时生效；离线回放期间不提供预览 |
 | WebSocket（WS-001 `/ws/v1/monitoring`） | **已实现** | envelope、`sequence` 单调、心跳、10 Hz 节流、慢客户端丢旧快照、`event.changed` 优先 |
 | 事件服务（FR-006） | **已实现** | 生命周期 `candidate → active → ended / discarded`，同类同会话聚合，最短持续时间校验 |
 | 配置服务（FR-009） | **已实现** | 键注册表校验（类型/范围/跨字段）、乐观锁、审计日志（secret 去敏） |
@@ -18,7 +19,7 @@
 | 可观测性（NFR-006） | **部分实现** | `/system/status` 暴露 FPS/延迟 P50/P95/丢帧率/WS 客户端数/DB 可写性；结构化日志待补 |
 | 前端 Dashboard | **已实现** | 实时监控 / 离线分析 / 事件历史 / 统计 / 系统设置五域，React + TS + Vite + ECharts，构建产物由 FastAPI 托管；事件与统计支持按会话过滤，监控页在 `pipeline.playback=true` 时提示“离线回放” |
 | 模型识别与判断（FR-002 ~ FR-004） | **未实现** | 见下节 |
-| 摄像头采集（FR-001） | **未实现** | 无 `FramePacket` 采集适配器 |
+| 摄像头采集（FR-001） | **部分实现** | `DGB_LIVE_SOURCE=camera` 时由 `CameraSource` 按 25 Hz 网格取帧并编码 JPEG；分辨率/后端/质量可配；拔线按可重试故障处理（不伪装成“素材读完”）。真实设备验收尚未做 |
 | 训练与评估（FR-011） | **未实现** | 无 DMD 数据处理与训练代码 |
 
 ## 2. 模型未实现期间的替代方案（重要）

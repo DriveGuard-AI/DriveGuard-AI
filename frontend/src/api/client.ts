@@ -16,6 +16,7 @@ import type {
   EventListResponse,
   ModelInfo,
   PipelineControlResponse,
+  PreviewState,
   RiskSnapshot,
   SettingsResponse,
   SettingsUpdateResponse,
@@ -143,6 +144,18 @@ export const api = {
   resumeMonitoring: (token: string | null) =>
     request<PipelineControlResponse>('/monitoring/resume', token, { method: 'POST' }),
 
+  /** 预览开关、连接数与最近一帧的序号/摘要。 */
+  previewState: (token: string | null) => request<PreviewState>('/monitoring/preview/state', token),
+
+  /** 打开实时预览开关（管理权限）。返回新版本号与生效项。 */
+  enablePreview: async (token: string | null) => {
+    const current = await request<SettingsResponse>('/settings', token)
+    return request<SettingsUpdateResponse>('/settings', token, {
+      method: 'PUT',
+      body: JSON.stringify({ version: current.version, changes: { 'preview.enabled': true } }),
+    })
+  },
+
   analysisEvidence: (token: string | null, jobId: string) =>
     request<AnalysisEvidence>(`/analysis/jobs/${jobId}/evidence`, token),
 
@@ -248,3 +261,118 @@ export function analysisSourceUrl(token: string | null, jobId: string): string {
 export function analysisFrameUrl(token: string | null, jobId: string, index: number): string {
   return `${API_BASE}/analysis/jobs/${jobId}/frames/${index}${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
 }
+
+/** 预览分片：字节与推理输入完全一致，`sha256` 可用于核对。 */
+export interface PreviewFrameMessage {
+  seq: number
+  timestampMs: number
+  sha256: string
+  jpeg: Blob
+}
+
+const CRLFCRLF = new Uint8Array([13, 10, 13, 10])
+const textDecoder = new TextDecoder('ascii')
+
+function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
+  const merged = new Uint8Array(left.length + right.length)
+  merged.set(left, 0)
+  merged.set(right, left.length)
+  return merged
+}
+
+function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, from: number): number {
+  outer: for (let i = from; i <= haystack.length - needle.length; i += 1) {
+    for (let j = 0; j < needle.length; j += 1) {
+      if (haystack[i + j] !== needle[j]) continue outer
+    }
+    return i
+  }
+  return -1
+}
+
+/** 从缓冲里尽量多地解析出完整分片，返回剩余未消费字节。 */
+function drainPreviewParts(
+  buffer: Uint8Array,
+  onFrame: (frame: PreviewFrameMessage) => void,
+): Uint8Array {
+  let offset = 0
+  while (true) {
+    const headerEnd = indexOfBytes(buffer, CRLFCRLF, offset)
+    if (headerEnd < 0) break
+    const headers = textDecoder.decode(buffer.subarray(offset, headerEnd))
+    const lengthMatch = /content-length:\s*(\d+)/i.exec(headers)
+    if (!lengthMatch) {
+      // 结束标记 `--frame--` 等无长度分片，直接跳过
+      offset = headerEnd + CRLFCRLF.length
+      continue
+    }
+    const length = Number(lengthMatch[1])
+    const bodyStart = headerEnd + CRLFCRLF.length
+    // 分片尾部还有一个 CRLF
+    if (buffer.length < bodyStart + length + 2) break
+    const jpeg = buffer.slice(bodyStart, bodyStart + length)
+    onFrame({
+      seq: Number(/x-seq:\s*(\d+)/i.exec(headers)?.[1] ?? -1),
+      timestampMs: Number(/x-timestamp-ms:\s*(\d+)/i.exec(headers)?.[1] ?? -1),
+      sha256: /x-sha256:\s*([0-9a-f]+)/i.exec(headers)?.[1] ?? '',
+      jpeg: new Blob([jpeg], { type: 'image/jpeg' }),
+    })
+    offset = bodyStart + length + 2
+  }
+  return offset > 0 ? buffer.slice(offset) : buffer
+}
+
+/**
+ * 读取 MJPEG 预览流（API-010）。
+ *
+ * 文档要求预览用 Authorization Header、不把 Token 放进 URL，因此浏览器不能
+ * 直接用 `<img src>`，必须 fetch + 手动解析 multipart。收到一帧就回调一帧，
+ * 上层只保留最新画面（旧帧直接丢弃，慢渲染不会反压服务端）。
+ */
+export async function readPreviewStream(
+  token: string | null,
+  signal: AbortSignal,
+  onFrame: (frame: PreviewFrameMessage) => void,
+): Promise<void> {
+  const headers = new Headers({ Accept: 'multipart/x-mixed-replace' })
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const response = await fetch(`${API_BASE}/monitoring/preview`, { headers, signal })
+  if (!response.ok) {
+    let payload: ApiErrorPayload = {
+      code: 'HTTP_ERROR',
+      message: `预览请求失败（${response.status}）`,
+      details: [],
+      request_id: response.headers.get('X-Request-ID'),
+    }
+    try {
+      const parsed = (await response.json()) as Partial<ApiErrorPayload>
+      payload = {
+        code: parsed.code ?? payload.code,
+        message: parsed.message ?? payload.message,
+        details: parsed.details ?? [],
+        request_id: parsed.request_id ?? payload.request_id,
+      }
+    } catch {
+      // 保留默认错误体
+    }
+    throw new ApiError(response.status, payload)
+  }
+
+  const body = response.body
+  if (!body) throw new Error('当前浏览器不支持流式响应')
+  const reader = body.getReader()
+  let buffer: Uint8Array = new Uint8Array(0)
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        buffer = drainPreviewParts(concatBytes(buffer, value), onFrame)
+      }
+    }
+  } finally {
+    void reader.cancel().catch(() => undefined)
+  }
+}
+

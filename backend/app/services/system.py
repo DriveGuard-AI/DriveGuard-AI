@@ -61,6 +61,13 @@ class SystemService:
         engine_status = self._engine.status()
         detail = self._engine.inference_status()
         live = (self._config.inference_mode or "fake").lower() == "live"
+        playback = bool(engine_status.get("playback", False))
+        source_kind = (self._config.live_source or "frames").lower()
+        using_camera = bool(live and source_kind == "camera" and not playback)
+        # 帧源与预览的统计挂在 inference.status().source 上；fake 模式没有这一项。
+        source_detail = detail.get("source") if isinstance(detail.get("source"), dict) else {}
+        preview_detail = source_detail.get("preview") if isinstance(source_detail.get("preview"), dict) else {}
+        frames_out = int(preview_detail.get("frames_out") or 0)
 
         with self._db.session() as session:
             SettingsRepository(session).ensure_defaults(now_iso=to_iso_z(utcnow()))
@@ -71,10 +78,14 @@ class SystemService:
         return SystemStatus(
             service_version=self._config.service_version,
             camera=CameraStatus(
-                # live 模式下输入是 JPEG 序列（由外部工具抽帧），不是摄像头
-                available=bool(live and detail.get("state") == "streaming"),
-                device_id="frame-sequence" if live else f"cam-{self._config.inference_scenario}",
-                source="jpeg-sequence" if live else "scripted-stub",
+                # 真实输入：live 模式且已经有帧送进推理；摄像头模式下还要确认确实读到了帧
+                available=bool(live and frames_out > 0),
+                device_id=(
+                    f"cam-{self._config.camera_device_index}"
+                    if using_camera
+                    else ("frame-sequence" if live else f"cam-{self._config.inference_scenario}")
+                ),
+                source="camera" if using_camera else ("jpeg-sequence" if live else "scripted-stub"),
             ),
             pipeline=PipelineStatus(
                 state=engine_status["state"],
@@ -84,7 +95,7 @@ class SystemService:
                 dropped_frame_rate=engine_status["dropped_frame_rate"],
                 inference_mode=engine_status["inference_mode"],  # type: ignore[arg-type]
                 degraded=engine_status["degraded"],
-                playback=bool(engine_status.get("playback", False)),
+                playback=playback,
             ),
             database=DatabaseStatus(
                 writable=self._db.is_writable(),

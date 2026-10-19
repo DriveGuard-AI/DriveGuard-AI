@@ -94,8 +94,15 @@ alembic upgrade head       # 版本化迁移（也可用 DGB_AUTO_CREATE_SCHEMA=
 | `DGB_MEDIA_DIR` | `backend/var/media` | 允许保存事件片段的位置（默认不使用） |
 | `DGB_INFERENCE_MODE` | `fake` | `fake`（脚本回放）/ `live`（对接模型侧 live 服务） |
 | `DGB_LIVE_URL` | `http://127.0.0.1:8765` | 模型侧 live 服务地址 |
-| `DGB_FRAME_SEQUENCE` | 空 | `live` 模式下读取的 JPEG 序列目录 |
+| `DGB_FRAME_SEQUENCE` | 空 | `DGB_LIVE_SOURCE=frames` 时读取的 JPEG 序列目录 |
 | `DGB_LIVE_TOKEN_FILE` | 空 | live 服务 Token 文件 |
+| `DGB_LIVE_SOURCE` | `frames` | 实时帧来源：`frames`（JPEG 序列）/ `camera`（本地摄像头） |
+| `DGB_CAMERA_DEVICE_INDEX` | `0` | 摄像头序号（`DGB_LIVE_SOURCE=camera` 时生效） |
+| `DGB_CAMERA_WIDTH` / `DGB_CAMERA_HEIGHT` | `1280` / `720` | 摄像头请求分辨率 |
+| `DGB_CAMERA_JPEG_QUALITY` | `85` | 摄像头帧的 JPEG 编码质量 |
+| `DGB_CAMERA_BACKEND` | 空 | opencv 后端：`dshow`/`msmf`/`v4l2`/`gstreamer`，空=按平台默认 |
+| `DGB_PREVIEW_MAX_FPS` | `10` | 实时预览输出上限（设置项 `preview.max_fps` 可覆盖） |
+| `DGB_PREVIEW_MAX_CLIENTS` | `2` | 同时允许的预览连接数（设置项 `preview.max_clients` 可覆盖） |
 | `DGB_ANALYSIS_MAX_FRAMES` | `15000` | 单任务帧数上限（约 10 分钟 @40ms） |
 | `DGB_ANALYSIS_MAX_DISK_MB` | `2048` | 媒体目录占用上限，超限拒绝新任务 |
 | `DGB_ANALYSIS_MAX_UPLOAD_MB` | `512` | 单个上传视频大小上限 |

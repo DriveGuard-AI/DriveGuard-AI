@@ -67,6 +67,16 @@ class AppConfig:
     live_image_size: str = "1280x720"
     live_roi: str = "0.15,0.0,0.75,1.0"
     live_step_ms: int = 40
+    # 实时帧来源：frames=预抽好的 JPEG 序列（离线素材/联调），camera=本地摄像头。
+    live_source: str = "frames"
+    camera_device_index: int = 0
+    camera_width: int = 1280
+    camera_height: int = 720
+    camera_jpeg_quality: int = 85
+    camera_backend: str = ""  # 空 = 按平台默认（Windows 用 dshow）
+    # 实时预览（API-010）的部署上限：不承诺等于推理 FPS，也不允许无限客户端。
+    preview_max_fps: float = 10.0
+    preview_max_clients: int = 2
     # 离线分析产物的约束（NFR-003：上传必须配套保留期、磁盘上限与访问控制）。
     analysis_max_frames: int = 15000  # 约 10 分钟 @40ms，用于挡住长视频
     analysis_max_disk_mb: int = 2048
@@ -112,6 +122,14 @@ def load_config() -> AppConfig:
         live_image_size=_env_str("DGB_LIVE_IMAGE_SIZE", "1280x720") or "1280x720",
         live_roi=_env_str("DGB_LIVE_ROI", "0.15,0.0,0.75,1.0") or "0.15,0.0,0.75,1.0",
         live_step_ms=max(1, int(_env_float("DGB_LIVE_STEP_MS", 40.0))),
+        live_source=(_env_str("DGB_LIVE_SOURCE", "frames") or "frames").lower(),
+        camera_device_index=max(0, int(_env_float("DGB_CAMERA_DEVICE_INDEX", 0.0))),
+        camera_width=max(16, int(_env_float("DGB_CAMERA_WIDTH", 1280.0))),
+        camera_height=max(16, int(_env_float("DGB_CAMERA_HEIGHT", 720.0))),
+        camera_jpeg_quality=min(100, max(1, int(_env_float("DGB_CAMERA_JPEG_QUALITY", 85.0)))),
+        camera_backend=(_env_str("DGB_CAMERA_BACKEND", "") or "").lower(),
+        preview_max_fps=min(30.0, max(0.5, _env_float("DGB_PREVIEW_MAX_FPS", 10.0))),
+        preview_max_clients=max(1, int(_env_float("DGB_PREVIEW_MAX_CLIENTS", 2.0))),
         analysis_max_frames=max(1, int(_env_float("DGB_ANALYSIS_MAX_FRAMES", 15000.0))),
         analysis_max_disk_mb=max(1, int(_env_float("DGB_ANALYSIS_MAX_DISK_MB", 2048.0))),
         analysis_max_upload_mb=max(1, int(_env_float("DGB_ANALYSIS_MAX_UPLOAD_MB", 512.0))),

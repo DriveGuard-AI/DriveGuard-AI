@@ -12,6 +12,7 @@ from .security import Principal, ensure_permission, principal_from_request
 from .services.analysis import AnalysisService
 from .services.events import EventService
 from .services.monitoring import InferenceEngine
+from .services.preview import PreviewService
 from .services.settings import SettingsService
 from .services.statistics import StatisticsService
 from .services.system import SystemService
@@ -31,6 +32,7 @@ class AppContext:
     statistics: StatisticsService
     system: SystemService
     analysis: AnalysisService
+    preview: PreviewService
 
 
 def get_context(request: Request) -> AppContext:

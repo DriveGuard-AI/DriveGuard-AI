@@ -856,3 +856,46 @@ button.ghost:hover:not(:disabled) {
 }
 
 
+
+/* ------------------------------------------------------------ 实时预览（API-010） */
+
+.live-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preview-head h3 {
+  margin: 0;
+}
+
+.preview-image {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  background: #0b1524;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.preview-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}

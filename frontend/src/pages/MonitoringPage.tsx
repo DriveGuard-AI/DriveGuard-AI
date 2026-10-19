@@ -10,6 +10,7 @@ import {
   formatLocalTime,
   formatNumber,
 } from '../components/common'
+import { LivePreview } from '../components/LivePreview'
 import type { MonitoringFeed } from '../hooks/useMonitoringSocket'
 import type { RiskSnapshot } from '../api/types'
 
@@ -36,12 +37,14 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 }
 
 export function MonitoringPage({
+  token,
   feed,
   playback = false,
   pipelineState = '',
   resumeError = null,
   onResume,
 }: {
+  token: string | null
   feed: MonitoringFeed
   playback?: boolean
   pipelineState?: string
@@ -102,6 +105,8 @@ export function MonitoringPage({
           已通过 REST 重新拉取完整快照（不要求服务端回放每一帧消息）。
         </Notice>
       ) : null}
+
+      <LivePreview token={token} playback={playback} pipelineState={pipelineState} />
 
       {!snapshot ? (
         <EmptyState text="等待风险快照…（若无活动会话将返回 409 MONITORING_NOT_ACTIVE）" />

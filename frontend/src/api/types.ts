@@ -170,6 +170,30 @@ export interface PipelineControlResponse {
   session_id: string | null
 }
 
+/**
+ * GET /monitoring/preview/state（API-010）。
+ *
+ * `sequence`/`sha256` 指向"最近一帧送进推理的画面"：页面显示的帧号与摘要
+ * 必须与之一致，才能说"看到的就是模型看到的"。
+ */
+export interface PreviewState {
+  enabled: boolean
+  available: boolean
+  clients: number
+  max_clients: number
+  max_fps: number
+  pipeline: 'realtime' | 'playback' | 'stopped'
+  source: 'camera' | 'frames'
+  device_index: number | null
+  sequence: number | null
+  source_timestamp_ms: number | null
+  sha256: string | null
+  bytes: number | null
+  age_ms: number | null
+  frames_out: number
+  last_error: string | null
+}
+
 export interface SettingItem {
   key: string
   value_type: string

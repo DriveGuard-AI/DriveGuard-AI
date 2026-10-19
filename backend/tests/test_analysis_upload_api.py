@@ -30,7 +30,8 @@ UPLOAD = f"{JOBS}/upload"
 
 
 def _upload(client: TestClient, headers, path: Path, **form):
-    data = {"step_ms": "40", "size": "160x120", "quality": "85"}
+    # 默认带 force：这些用例验证上传与抽帧，互斥另有专门用例。
+    data = {"step_ms": "40", "size": "160x120", "quality": "85", "force": "true"}
     data.update({key: str(value) for key, value in form.items()})
     with path.open("rb") as handle:
         return client.post(
@@ -115,6 +116,7 @@ def test_non_video_file_is_rejected(upload_client, auth_headers):
         response = client.post(
             UPLOAD,
             files={"file": ("notes.txt", text.read_bytes(), "text/plain")},
+            data={"force": "true"},
             headers=auth_headers,
         )
         assert response.status_code == 400

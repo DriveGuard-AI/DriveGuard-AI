@@ -48,6 +48,9 @@ class InferenceEngine:
         self._config = config
         self._hub = hub
         self._inference = inference
+        # 构造时注入的“实时”实现。run_analysis() 会把 _inference 换成素材源，
+        # 切回实时时必须能换回来，否则会继续放刚才那段视频。
+        self._realtime_inference = inference
         # 离线分析需要「换一个素材就换一个推理源」。构建器由外层注入，
         # 避免服务层反向依赖具体实现（fake/live）。
         self._builder = builder
@@ -75,6 +78,12 @@ class InferenceEngine:
         if self._task is not None:
             return
 
+        if self._playback:
+            # 从离线回放切回实时：恢复构造时注入的实现，并丢掉素材时间轴状态。
+            self._inference = self._realtime_inference
+            self._sequence = 0
+            self._latest = None
+        self._playback = False
         now = utcnow()
         now_iso = to_iso_z(now)
         with self._db.session() as session:
@@ -249,6 +258,12 @@ class InferenceEngine:
     @property
     def session_id(self) -> str | None:
         return self._session_id
+
+    @property
+    def in_realtime_mode(self) -> bool:
+        """当前是否在跑实时采集（而不是被离线任务接手的回放）。"""
+
+        return self._task is not None and not self._playback
 
     def set_snapshot_sink(self, sink: Callable[[RiskSnapshot], None] | None) -> None:
         """注册/清除每 tick 快照回调。离线分析用它写回放时间轴。"""

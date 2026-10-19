@@ -59,6 +59,18 @@ export default function App() {
     return () => window.clearInterval(timer)
   }, [refreshStatus])
 
+  // 从离线回放切回实时；失败时把原因留在页面上（别静默吞掉）。
+  const [resumeError, setResumeError] = useState<string | null>(null)
+  const resumeRealtime = useCallback(async () => {
+    try {
+      await api.resumeMonitoring(token)
+      setResumeError(null)
+    } catch (caught) {
+      setResumeError(caught instanceof Error ? caught.message : '恢复实时失败')
+    }
+    await refreshStatus()
+  }, [token, refreshStatus])
+
   return (
     <div className="app">
       <header className="app-header">
@@ -120,7 +132,15 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'monitoring' ? <MonitoringPage feed={feed} playback={status?.pipeline.playback ?? false} /> : null}
+        {tab === 'monitoring' ? (
+          <MonitoringPage
+            feed={feed}
+            playback={status?.pipeline.playback ?? false}
+            pipelineState={status?.pipeline.state ?? ''}
+            resumeError={resumeError}
+            onResume={() => void resumeRealtime()}
+          />
+        ) : null}
         {tab === 'analysis' ? <AnalysisPage token={token} onOpenSession={openSession} /> : null}
         {tab === 'events' ? (
           <EventsPage token={token} focus={focus} onClearFocus={() => setFocus(null)} />

@@ -24,6 +24,7 @@ from ..errors import (
     AnalysisJobNotFoundError,
     AnalysisSourceMissingError,
     InvalidAnalysisSourceError,
+    MonitoringActiveError,
     PipelineUnavailableError,
 )
 from ..inference.port import AnalysisSource
@@ -36,6 +37,7 @@ from ..schemas import (
     AnalysisJobCreate,
     AnalysisJobOut,
     EvidenceEvent,
+    PipelineControlResponse,
     RiskPoint,
 )
 from ..timeutil import parse_iso, to_iso_z, utcnow
@@ -198,12 +200,26 @@ class AnalysisService:
     # ------------------------------------------------------------ 任务生命周期
 
     async def create(self, request: AnalysisJobCreate) -> AnalysisJobOut:
+        self._guard_realtime(force=request.force)
         kind, resolved, frames_total = self._resolve_source(request)
         return await self._launch(
             source_kind=kind,
             source_path=str(resolved),
             frames_total=frames_total,
             step_ms=self._config.live_step_ms,
+        )
+
+    def _guard_realtime(self, *, force: bool) -> None:
+        """实时在跑时不许静默换素材。
+
+        `run_analysis()` 会结束当前会话，所以必须由调用方显式 force。
+        已经处于回放（另一个分析任务）时不再拦截：那本身就是要换素材。
+        """
+
+        if force or not self._engine.in_realtime_mode:
+            return
+        raise MonitoringActiveError(
+            "实时监控正在运行；切换素材会停止当前实时采集。确认后请带 force=true 重试。"
         )
 
     async def create_from_upload(
@@ -215,12 +231,16 @@ class AnalysisService:
         size: str,
         quality: int,
         retain_source: bool | None = None,
+        force: bool = False,
     ) -> AnalysisJobOut:
         """上传一段视频，抽帧后立即开跑。
 
         抽帧在请求内完成（放线程里），因此申请不到的解码依赖、坏文件、超限视频
         都会在**建任务之前**报错，不会留下一个永远 queued 的空任务。
         """
+
+        # 先过互斥闸门再做抽帧：被拒绝的请求不该白跑一遍解码。
+        self._guard_realtime(force=force)
 
         suffix = Path(filename or "").suffix.lower()
         if suffix not in VIDEO_SUFFIXES:
@@ -373,6 +393,38 @@ class AnalysisService:
                 status=status, page=page, page_size=page_size
             )
             return [job_to_schema(job, source_available=self._source_file(job) is not None) for job in jobs], total
+
+    # ------------------------------------------------------------ 模式切换
+
+    async def resume_realtime(self) -> PipelineControlResponse:
+        """从离线回放切回实时采集（幂等）。
+
+        离线任务结束后引擎是停着的。没有这个入口，用户只能重启服务才能回到实时，
+        “与实时共存”就是句空话。
+        """
+
+        if self._engine.in_realtime_mode:
+            return self._pipeline_state()
+
+        with self._db.session() as session:
+            running = AnalysisJobRepository(session).list(
+                status="running", page=1, page_size=1
+            )[1]
+        if running:
+            raise AnalysisJobConflictError("分析任务正在运行，请先取消或等待其结束")
+
+        self._flush_timeline()
+        await self._engine.stop()
+        await self._engine.start()
+        return self._pipeline_state()
+
+    def _pipeline_state(self) -> PipelineControlResponse:
+        status = self._engine.status()
+        return PipelineControlResponse(
+            state=str(status["state"]),
+            playback=bool(status.get("playback", False)),
+            session_id=self._engine.session_id,
+        )
 
     # ------------------------------------------------------------ 回放与证据
 

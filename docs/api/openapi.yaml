@@ -73,6 +73,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /monitoring/resume:
+    post:
+      tags: [monitoring]
+      operationId: resumeMonitoring
+      summary: 从离线回放切回实时采集（幂等）
+      responses:
+        "200":
+          description: 管线状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineControlResponse"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: 分析任务仍在运行
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /events:
     get:
       tags: [events]
@@ -812,6 +834,10 @@ components:
         source_path:
           type: string
           description: 必须位于服务端媒体根目录之下。
+        force:
+          type: boolean
+          default: false
+          description: 实时监控在跑时必须为 true，否则返回 409 MONITORING_ACTIVE。
     AnalysisUploadRequest:
       type: object
       additionalProperties: false
@@ -839,6 +865,10 @@ components:
           type: boolean
           default: false
           description: 是否保留原始视频（NFR-003 默认不保留）；保留时可用 <video> 回放。
+        force:
+          type: boolean
+          default: false
+          description: 实时监控在跑时必须为 true，否则返回 409 MONITORING_ACTIVE（不会开始抽帧）。
     AnalysisJob:
       type: object
       additionalProperties: false
@@ -903,6 +933,16 @@ components:
         events:
           type: array
           items: {$ref: "#/components/schemas/EvidenceEvent"}
+    PipelineControlResponse:
+      type: object
+      additionalProperties: false
+      required: [state, playback]
+      properties:
+        state: {type: string}
+        playback:
+          type: boolean
+          description: false 表示当前跑的是实时实现（不是离线素材回放）。
+        session_id: {type: [string, "null"], format: uuid}
     AnalysisJobPage:
       type: object
       additionalProperties: false

@@ -39,10 +39,11 @@ def analysis_app(tmp_path, monkeypatch):
         yield client, media, script
 
 
-def _post(client: TestClient, path, headers, kind: str = "frames"):
+def _post(client: TestClient, path, headers, kind: str = "frames", *, force: bool = True):
+    # 这些用例验证的是任务本身，不是互斥；互斥有专门的用例覆盖。
     return client.post(
         JOBS,
-        json={"source_kind": kind, "source_path": str(path)},
+        json={"source_kind": kind, "source_path": str(path), "force": force},
         headers=headers,
     )
 

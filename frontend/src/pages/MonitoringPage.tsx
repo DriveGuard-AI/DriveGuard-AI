@@ -38,9 +38,15 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 export function MonitoringPage({
   feed,
   playback = false,
+  pipelineState = '',
+  resumeError = null,
+  onResume,
 }: {
   feed: MonitoringFeed
   playback?: boolean
+  pipelineState?: string
+  resumeError?: string | null
+  onResume?: () => void
 }) {
   const snapshot: RiskSnapshot | null = feed.snapshot
 
@@ -64,10 +70,22 @@ export function MonitoringPage({
         </Notice>
       ) : null}
 
-      {playback ? (
-        <Notice kind="warn" title="当前为离线回放，不是实时采集">
-          推理源已被分析任务换成一段素材，画面与时间轴都来自该素材，<b>不能当作实时监控结论</b>。
-          取消任务会同时停掉推理循环，实时采集的自动恢复尚未实现。
+      {playback || pipelineState === 'stopped' ? (
+        <Notice
+          kind="warn"
+          title={playback ? '当前为离线回放，不是实时采集' : '推理管线已停止'}
+        >
+          {playback
+            ? '推理源已被分析任务换成一段素材，画面与时间轴都来自该素材，不能当作实时监控结论。'
+            : '离线任务结束后管线处于停止状态，快照不会再更新。'}
+          {onResume ? (
+            <div style={{ marginTop: 8 }}>
+              <button type="button" onClick={onResume}>
+                恢复实时监控
+              </button>
+            </div>
+          ) : null}
+          {resumeError ? <div className="warn-text small">{resumeError}</div> : null}
         </Notice>
       ) : null}
 

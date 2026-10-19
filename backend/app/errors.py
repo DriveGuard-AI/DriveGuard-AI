@@ -61,6 +61,22 @@ class MonitoringNotActiveError(AppError):
         super().__init__(409, "MONITORING_NOT_ACTIVE", "No active monitoring session")
 
 
+class MonitoringActiveError(AppError):
+    """实时采集正在跑，离线任务要接手必须显式确认。
+
+    不加这道闸门的话，上传一个视频就会静默停掉实时监控——用户不会知道
+    自己刚刚把台上正在演示的东西换掉了。
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            409,
+            "MONITORING_ACTIVE",
+            message,
+            [{"field": "force", "reason": "set force=true to stop realtime monitoring"}],
+        )
+
+
 class InvalidTimeRangeError(AppError):
     def __init__(self, reason: str = "started_to must not be earlier than started_from") -> None:
         super().__init__(400, "INVALID_TIME_RANGE", "Invalid time range", [{"field": "started_to", "reason": reason}])

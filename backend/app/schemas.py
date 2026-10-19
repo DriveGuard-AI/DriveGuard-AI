@@ -119,10 +119,14 @@ class AnalysisJobCreate(BaseModel):
 
     只接受 `frames`（已抽好的 JPEG 目录，位于媒体根目录之下）。`camera`/`push`
     为实时采集预留，当前返回 400。
+
+    `force=False` 时，若实时监控正在跑则返回 409：换素材会结束当前会话，
+    必须由调用方明确确认，不能静默把实时停掉。
     """
 
     source_kind: str = "frames"
     source_path: str
+    force: bool = False
 
 
 class AnalysisJobOut(BaseModel):
@@ -186,6 +190,14 @@ class AnalysisEvidence(BaseModel):
     source_kind: str
     timeline: list[RiskPoint] = Field(default_factory=list)
     events: list[EvidenceEvent] = Field(default_factory=list)
+
+
+class PipelineControlResponse(BaseModel):
+    """启停推理管线的结果（从离线回放切回实时时用）。"""
+
+    state: str
+    playback: bool
+    session_id: str | None = None
 
 
 class CountByType(BaseModel):

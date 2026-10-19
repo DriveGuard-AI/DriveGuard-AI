@@ -163,6 +163,13 @@ export interface AnalysisJobListResponse {
   has_next: boolean
 }
 
+/** POST /monitoring/resume 的返回：从离线回放切回实时后的管线状态。 */
+export interface PipelineControlResponse {
+  state: string
+  playback: boolean
+  session_id: string | null
+}
+
 export interface SettingItem {
   key: string
   value_type: string

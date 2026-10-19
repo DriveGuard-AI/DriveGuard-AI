@@ -15,6 +15,7 @@ import type {
   ApiErrorPayload,
   EventListResponse,
   ModelInfo,
+  PipelineControlResponse,
   RiskSnapshot,
   SettingsResponse,
   SettingsUpdateResponse,
@@ -132,11 +133,15 @@ export const api = {
   cancelAnalysisJob: (token: string | null, jobId: string) =>
     request<AnalysisJob>(`/analysis/jobs/${jobId}`, token, { method: 'DELETE' }),
 
-  createAnalysisJob: (token: string | null, sourcePath: string) =>
+  createAnalysisJob: (token: string | null, sourcePath: string, force = false) =>
     request<AnalysisJob>('/analysis/jobs', token, {
       method: 'POST',
-      body: JSON.stringify({ source_kind: 'frames', source_path: sourcePath }),
+      body: JSON.stringify({ source_kind: 'frames', source_path: sourcePath, force }),
     }),
+
+  /** 从离线回放切回实时采集；有分析任务在跑时后端返回 409。 */
+  resumeMonitoring: (token: string | null) =>
+    request<PipelineControlResponse>('/monitoring/resume', token, { method: 'POST' }),
 
   analysisEvidence: (token: string | null, jobId: string) =>
     request<AnalysisEvidence>(`/analysis/jobs/${jobId}/evidence`, token),
@@ -167,7 +172,13 @@ export function websocketUrl(token: string | null): string {
 export function uploadAnalysisVideo(
   token: string | null,
   file: File,
-  options: { step_ms?: number; size?: string; quality?: number; retain_source?: boolean } = {},
+  options: {
+    step_ms?: number
+    size?: string
+    quality?: number
+    retain_source?: boolean
+    force?: boolean
+  } = {},
   onProgress?: (percent: number) => void,
 ): Promise<AnalysisJob> {
   const form = new FormData()
@@ -176,6 +187,7 @@ export function uploadAnalysisVideo(
   if (options.size) form.append('size', options.size)
   if (options.quality != null) form.append('quality', String(options.quality))
   if (options.retain_source != null) form.append('retain_source', String(options.retain_source))
+  if (options.force != null) form.append('force', String(options.force))
 
   return new Promise<AnalysisJob>((resolve, reject) => {
     const xhr = new XMLHttpRequest()

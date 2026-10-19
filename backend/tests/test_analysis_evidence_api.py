@@ -41,7 +41,7 @@ def evidence_client(tmp_path, monkeypatch):
 
 
 def _upload(client, headers, video: Path, **form):
-    data = {"step_ms": "40", "size": "160x120", "quality": "85"}
+    data = {"step_ms": "40", "size": "160x120", "quality": "85", "force": "true"}
     data.update({key: str(value).lower() if isinstance(value, bool) else str(value) for key, value in form.items()})
     with video.open("rb") as handle:
         return client.post(

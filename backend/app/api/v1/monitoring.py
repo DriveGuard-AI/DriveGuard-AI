@@ -6,10 +6,21 @@ from fastapi import APIRouter, Depends
 
 from ...deps import AppContext, get_context, require_permission
 from ...errors import MonitoringNotActiveError
-from ...schemas import RiskSnapshot
-from ...security import PERMISSION_MONITORING_READ
+from ...schemas import PipelineControlResponse, RiskSnapshot
+from ...security import PERMISSION_MONITORING_READ, PERMISSION_MONITORING_WRITE
 
 router = APIRouter(tags=["monitoring"])
+
+
+@router.post(
+    "/monitoring/resume",
+    response_model=PipelineControlResponse,
+    dependencies=[Depends(require_permission(PERMISSION_MONITORING_WRITE))],
+)
+async def resume_monitoring(context: AppContext = Depends(get_context)) -> PipelineControlResponse:
+    """从离线回放切回实时采集。幂等；有分析任务在跑时返回 409。"""
+
+    return await context.analysis.resume_realtime()
 
 
 @router.get(

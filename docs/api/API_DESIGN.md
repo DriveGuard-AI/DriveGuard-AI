@@ -235,9 +235,11 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 
 `POST /api/v1/analysis/jobs`（权限 `analysis:write`）
 
-- 请求：`{"source_kind": "frames", "source_path": "<media_root>/analysis/<job_id>/frames"}`。
+- 请求：`{"source_kind": "frames", "source_path": "<media_root>/analysis/<job_id>/frames", "force": false}`。
 - 用途：用一份已抽好的 JPEG 目录替换当前推理素材，重跑分析并新开会话。
 - 成功：`201 AnalysisJob`，`status="running"`，返回新 `session_id`、`frames_total`。
+- **互斥**：实时监控正在跑且 `force=false` 时返回 `409 MONITORING_ACTIVE`，不产生任何副作用。
+  确认切换请带 `force=true`。
 - 错误：`400 INVALID_ANALYSIS_SOURCE`（路径不存在／不在媒体根目录内／无 JPEG／超帧数或磁盘上限／暂不支持的 `source_kind`）。
 - 副作用：停掉当前推理循环与旧会话（旧会话 `ended_at` 落库），再按新素材启动。
 
@@ -277,6 +279,7 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 | `size` | string | `1280x720` | 输出尺寸，宽高必须为偶数 |
 | `quality` | integer | `85` | JPEG 质量 1..100 |
 | `retain_source` | boolean | 由配置决定（默认 `false`） | 是否保留原始视频；保留时可用 `<video>` 回放 |
+| `force` | boolean | `false` | 实时监控在跑时必须显式确认；否则返回 `409 MONITORING_ACTIVE`，且不会开始抽帧 |
 
 - 处理：存盘（同时算 sha256 并卡大小上限）→ 抽帧到 `<media_root>/analysis/<job_id>/frames/`
   → 写 `job.json` → 删除原视频（`retain_source=false` 时）→ 开新会话并启动推理。
@@ -317,6 +320,16 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 成功：`200 image/jpeg`。
 - 帧号越界或抽帧产物已过期：`404 ANALYSIS_SOURCE_MISSING`。
 - 鉴权同 API-016。
+
+### API-018 恢复实时监控
+
+`POST /api/v1/monitoring/resume`（权限 `monitoring:write`）
+
+- 用途：离线回放结束后管线处于停止状态，用它切回实时采集（会新开一个会话）。
+- 成功：`200 {state, playback, session_id}`；`playback=false` 表示确实是实时实现。
+- 幂等：已在实时模式时直接返回当前状态，不会重复开会话。
+- 有分析任务仍在运行：`409 ANALYSIS_JOB_CONFLICT`（先取消或等它结束）。
+- 未认证：`401 AUTH_REQUIRED`（匿名只读不允许启停管线）。
 
 ## 5. WebSocket
 
@@ -359,6 +372,7 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 | 权限 | 能力 |
 | --- | --- |
 | `monitoring:read` | 状态、实时快照、事件和统计读取 |
+| `monitoring:write` | 启停推理管线（从离线回放切回实时） |
 | `settings:read` | 配置读取 |
 | `settings:write` | 配置更新 |
 | `models:read` | 模型元数据读取 |
@@ -380,6 +394,7 @@ MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限�
 | 404 | `ANALYSIS_SOURCE_MISSING` | 回放素材不在（原视频未保留、抽帧过期、帧号越界） |
 | 409 | `CONFIG_VERSION_CONFLICT` | 配置乐观锁冲突 |
 | 409 | `MONITORING_NOT_ACTIVE` | 当前无监测会话 |
+| 409 | `MONITORING_ACTIVE` | 实时监控正在跑，离线任务需要 `force=true` |
 | 409 | `ANALYSIS_JOB_CONFLICT` | 分析任务已是终态，无法取消 |
 | 422 | `VALIDATION_ERROR` | 字段类型或范围错误 |
 | 422 | `TIME_RANGE_TOO_LARGE` | 统计时间跨度超限 |

@@ -80,6 +80,7 @@ async def upload_job(
     size: str = Form("1280x720"),
     quality: int = Form(85),
     retain_source: bool | None = Form(None),
+    force: bool = Form(False),
     context: AppContext = Depends(get_context),
 ) -> AnalysisJobOut:
     """上传视频 → 抽帧 → 立即开始分析。"""
@@ -92,6 +93,7 @@ async def upload_job(
             size=size,
             quality=quality,
             retain_source=retain_source,
+            force=force,
         )
     finally:
         await file.close()

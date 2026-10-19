@@ -60,6 +60,7 @@ export function AnalysisPage({
   const [job, setJob] = useState<AnalysisJob | null>(null)
   const [jobs, setJobs] = useState<AnalysisJob[]>([])
   const [error, setError] = useState<Error | null>(null)
+  const [conflict, setConflict] = useState(false)
   const [listing, setListing] = useState(false)
 
   const loadJobs = useCallback(async () => {
@@ -125,23 +126,29 @@ export function AnalysisPage({
     }
   }, [active, activeJobId, token, loadJobs])
 
-  const submit = async () => {
+  const submit = async (force = false) => {
     if (!file) return
     setUploading(true)
     setUploadPercent(0)
     setError(null)
+    setConflict(false)
     try {
       const created = await uploadAnalysisVideo(
         token,
         file,
-        { step_ms: stepMs, retain_source: retainSource },
+        { step_ms: stepMs, retain_source: retainSource, force },
         setUploadPercent,
       )
       setUploadPercent(100)
       setJob(created)
       await loadJobs()
     } catch (caught) {
-      setError(caught as Error)
+      // 实时在跑：不静默顶掉，先问一句再带 force 重试。
+      if (caught instanceof ApiError && caught.code === 'MONITORING_ACTIVE') {
+        setConflict(true)
+      } else {
+        setError(caught as Error)
+      }
     } finally {
       setUploading(false)
     }
@@ -217,6 +224,18 @@ export function AnalysisPage({
           原始视频默认在抽帧后删除。
         </div>
       </section>
+
+      {conflict ? (
+        <Notice kind="warn" title="实时监控正在运行">
+          切换素材会停止当前实时采集并结束该会话（事件按会话隔离，旧数据不会丢）。
+          确认要切换到离线分析吗？
+          <div style={{ marginTop: 8 }}>
+            <button type="button" onClick={() => void submit(true)} disabled={uploading}>
+              {uploading ? '切换中…' : '停止实时并开始分析'}
+            </button>
+          </div>
+        </Notice>
+      ) : null}
 
       {error instanceof ApiError ? (
         <Notice kind="error" title={`${error.code}：${error.message}`}>

@@ -8,9 +8,18 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 > **驾驶员过去几秒钟的行为是否正在形成驾驶风险。**
 
-> 当前状态：**MVP 前后端骨架已可运行**；**模型识别与判断尚未实现**，推理由脚本化回放提供（`inference_mode = fake`），详见[实现状态](docs/implementation/MVP_STATUS.md)。
+> 当前状态：
+> - **应用侧**：MVP 前后端骨架可运行；离线分析（上传/抽帧/回放/与实时互斥）已实现，模型识别与判断仍由脚本化回放提供（`inference_mode = fake`），详见[实现状态](docs/implementation/MVP_STATUS.md)。
+> - **模型侧**：Early Development。TCN、感知入口及轻量关系门控训练骨架已实现，完成 CPU 合成训练、续训与权重重载验证；真实数据效果、GPU/NPU 实机、应用与部署仍待完成。
 
-## 快速开始
+## 仓库结构
+
+| 目录 | 内容 |
+| --- | --- |
+| `backend/`、`frontend/` | 应用侧：FastAPI 服务与 Dashboard |
+| `inference/`、`training/`、`configs/`、`models/`、`scripts/`、`tests/` | 模型侧：感知/时序推理、训练入口、配置与权重 |
+
+## 快速开始（应用侧）
 
 > **解释器锁定 Python 3.11**：版本写在 `backend/.python-version`，`run.ps1` 会读取它并校验实际解释器。
 > **依赖锁定 `backend/requirements-dev.lock.txt`**（运行时用 `requirements.lock.txt`）：锁文件记录的是后端测试通过时的精确版本；`requirements.txt` 只保留可读的直接依赖范围。
@@ -63,13 +72,20 @@ npm run build    # 构建产物 frontend/dist，由 FastAPI 托管
 
 ```bash
 cd backend
-python -m pytest -q          # 40 项测试
-alembic upgrade head         # 版本化迁移
+python -m pytest            # 当前 97 项测试
+alembic upgrade head        # 版本化迁移
 ```
 
 关键环境变量：`DGB_DATABASE_URL`、`DGB_ADMIN_TOKEN`、`DGB_INFERENCE_HZ`、`DGB_INFERENCE_SCENARIO`（`default` / `safe` / `fatigue` / `degraded`）。
 
 更多排障说明见 [backend/README.md](backend/README.md)。
+## 快速开始（模型侧）
+
+模型侧使用独立虚拟环境（`.venv-perception` / `.venv-training`），不与应用侧共用：
+
+- 感知运行时与依赖准备：[PERCEPTION_SETUP.md](docs/training/PERCEPTION_SETUP.md)
+- 关系门控训练与续训：[RELATION_RUNBOOK.md](docs/training/RELATION_RUNBOOK.md)
+- 本机 CPU 联调与启动顺序：[LOCAL_CPU_DEV.md](docs/deployment/LOCAL_CPU_DEV.md)
 
 ## 核心能力
 
@@ -111,7 +127,7 @@ Camera
 
 ## 数据集与模型
 
-第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。DMD 提供 Face、Body、Hands 等车内视角及疲劳、分心、视线和驾驶动作相关标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)。
+第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。原始数据设计包含 Face、Body、Hands 等视角及疲劳、分心、视线和动作标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)；实际可用范围以[当前公开版本](https://github.com/Vicomtech/DMD-Driver-Monitoring-Dataset)和已下载分片为准。
 
 数据按照驾驶员主体划分训练集、验证集和测试集，避免同一驾驶员跨集合造成数据泄漏。
 
@@ -135,7 +151,9 @@ Camera
 
 ## 文档
 
+- [服务器初始化：文件同步、NPU 依赖与最小测试](docs/training/SERVER_SETUP.md)
 - [完整文档索引](docs/README.md)
+- [PPT 全方案对齐](docs/governance/PPT_ALIGNMENT.md)（多专家模型、前后端选型与部署）
 - [详细需求](docs/requirements/REQUIREMENTS.md)
 - [架构设计](docs/architecture/ARCHITECTURE.md)
 - [项目 Spec](docs/specs/PROJECT_SPEC.md)

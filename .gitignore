@@ -6,7 +6,9 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-*/
 venv/
+env/
 
 # 本地环境变量文件（可能含 Token，禁止入库）
 .env
@@ -20,3 +22,14 @@ frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
 frontend/.vite/
+
+# Machine-local training data, configuration and temporary artifacts.
+/data/
+/datasets/
+/Dataset/
+/runs/
+/configs/training/*.local.json
+/configs/perception/*.local.json
+/models/local/
+
+# Selected release weights must remain publishable; do not ignore *.pt/*.pth.

@@ -2,6 +2,8 @@
 
 ## 1. Proposal
 
+状态：0.3.0 设计基线，2026-09-21增量；关系门控及gaze联合训练工程已实现，真实全量精度和产品层仍待验证；来源与取舍见[PPT 全方案对齐](../governance/PPT_ALIGNMENT.md)和[关系门控设计](../architecture/RELATION_GATED_FUSION.md)。公共API契约版本不随本文同步升级。
+
 **Intent**：以可测试的行为契约定义 DriveGuard AI MVP，避免感知模型、时序模型、后端、前端和数据层在独立迭代时产生语义漂移。
 
 **Scope**：覆盖单车单摄像头的实时检测、时序判断、风险融合、本地告警、事件记录、REST/WebSocket、系统配置、模型信息、训练评估和文档同步；不覆盖车辆控制、多租户云平台和法规认证。
@@ -39,7 +41,7 @@
 
 ### REQ-002：帧级感知质量
 
-系统 SHALL 输出物体、人脸特征和头部姿态观测，并 MUST 为每类观测附带置信度、质量状态与模型版本。
+系统 SHALL 输出物体、人脸特征和头部姿态观测，并 MUST 为每类观测附带质量状态与模型版本；上游实际提供置信度时保留其定义，不提供时 MUST NOT 虚构置信度。未实现或不可解的姿态/观测标记不可用。
 
 #### Scenario：有效人脸观测
 
@@ -133,8 +135,8 @@
 
 - GIVEN 客户端曾连接并记录最后序列号
 - WHEN 连接中断后重新建立
-- THEN 服务端发送最新完整快照
-- AND 后续消息序列号保持单调递增
+- THEN 有有效结论时服务端发送最新完整快照，否则发送不可用系统状态
+- AND 后续消息序列号在同一 session 内保持单调递增，新会话允许重置
 
 ### REQ-008：配置安全更新
 
@@ -169,7 +171,9 @@
 - GIVEN 候选模型完成训练和导出
 - WHEN 模型进入部署评审
 - THEN 提供 Precision、Recall、F1、False Alarm/Hour、Detection Delay 和 FPS
-- AND 记录 ONNX/TensorRT 工件版本与校验值
+- AND 记录实际交付运行时工件的格式、版本与校验值；仅在启用对应部署后端时要求ONNX/TensorRT工件
+
+上述为完整部署候选的评估范围；单独 YOLO/TCN 开发增量按对应层报告，不具备完整视频/融合链路的事件与系统指标写“未测”，不可填造数据。MediaPipe 记录自身运行时工件，不强制套用 ONNX/TensorRT 格式。
 
 ### REQ-010：代码与文档同步
 
@@ -196,9 +200,168 @@
 - THEN 在当前变更或明确关联的后续任务中修正实现或文档
 - AND 在修正前不得把存在偏差的条目标记为“已对齐”
 
+### REQ-011：shadow 训练工程与双平台交付
+
+shadow SHALL 维护公共 JSON 超参数、模型结构、GPU 和华为昇腾 NPU 独立训练入口及共享训练逻辑。数据根目录 SHALL 可外置，原始数据与派生特征 MUST 从 Git 排除；正式 checkpoint 权重 SHALL 公开交付并附配置、结构、数据切分摘要、模型卡、来源许可与校验和。
+
+#### Scenario：本地与服务器路径不同
+
+- GIVEN 相同相对路径清单和不同机器数据根目录
+- WHEN 通过命令行或环境变量选择根目录
+- THEN 得到相同数据协议与清单校验结果
+- AND 不要求下载完整数据到本地工作区
+
+#### Scenario：请求的加速器不可用
+
+- GIVEN 用户选择 GPU 或 NPU 入口但对应设备/依赖不可用
+- WHEN 初始化训练设备
+- THEN 明确报告缺失平台依赖，不静默切换 CPU
+- AND 无需导入 NPU 插件即可执行 GPU 入口的无依赖配置预检
+
+#### Scenario：checkpoint 跨平台交接
+
+- GIVEN 合法训练已产生 checkpoint
+- WHEN shadow 交付该模型版本
+- THEN 权重保存为 CPU state_dict 并附可重建模型配置、训练状态与 SHA-256
+- AND 分别记录 GPU/NPU 的实际验证状态，未运行的平台不能标记通过
+
+#### Scenario：权重公开许可尚未确认
+
+- GIVEN 正式权重有第三方数据或预训练权重来源
+- WHEN 来源许可尚不能确认满足公开交付要求
+- THEN 在模型卡记录 pending_permission 和待核实来源
+- AND 不把仅存在本地的 checkpoint 标记为已开源，继续完成可独立开展的训练工程工作
+
+#### Scenario：训练平台与感知运行平台分离
+
+- GIVEN 昇腾服务器使用预先提取、校验过的录制级特征训练融合网络
+- WHEN 初始化公共模型与NPU训练入口
+- THEN 训练 SHALL 不依赖导入MediaPipe或YOLOX运行时
+- AND GPU/NPU共享结构、损失与数据语义；分别记录实机证据，不声称MediaPipe已迁移NPU
+
+#### Scenario：显式混合后端与导出选择
+
+- GIVEN 部署配置明确指定MediaPipe CPU及其他模块的实际backend
+- WHEN 使用该已验证组合运行
+- THEN 混合后端 SHALL 被记录，不将其视作静默回退或承诺全链路加速
+- AND PyTorch参考运行不强制先生成TensorRT；选用的导出格式须另有数值与业务验证
+
+### REQ-012：四任务与部分监督（新增设计细化）
+
+TCN SHALL 保留疲劳、手机使用、饮水和视觉分心四个可同时成立的输出。训练 SHALL 区分输入有效性与标签已知性；未标注类别 MUST NOT 自动成为负样本。具体候选见 [TCN 模型设计](../training/MODEL_DESIGN.md)。
+
+#### Scenario：子集缺少行为标注
+
+- GIVEN 一个 gaze 窗口没有疲劳、手机或饮水标注
+- WHEN 构建监督信号与计算损失、指标
+- THEN 未知类别的 label_mask 为 0，不贡献对应分类损失或指标
+- AND 不将子集来源名作为模型输入或行为标签
+
+#### Scenario：没有有效监督
+
+- GIVEN 一个 batch 的启用任务全部没有已知标签
+- WHEN 执行训练循环
+- THEN 跳过该 batch 的参数更新并计数
+- AND 整个 epoch 无有效更新时报告失败，不以零损失标记训练成功
+
+#### Scenario：跨子集主体泄漏
+
+- GIVEN 同一驾驶员出现在多个子集、分片或视角
+- WHEN 生成训练、验证与测试划分
+- THEN 该驾驶员全部录制及派生窗口归入同一集合
+
+#### Scenario：未训练任务与正式交付
+
+- GIVEN 部分任务实验只训练了四类中的一部分
+- WHEN 评估或交付模型
+- THEN 明确记录 active_tasks，其余任务不可作为有效预测使用
+- AND 不将部分任务成绩称为完整四任务模型成绩
+
+### REQ-013：完整多专家与质量契约
+
+完整系统 SHALL 包含 YOLO 物体感知、MediaPipe 面部感知、驾驶员手物交互证据、TCN 与风险融合；MUST NOT 以 TCN 单模型或旧 24 通道基线代替完整方案验收。头部姿态 MUST NOT 冒充已经验证的 gaze 预测能力。
+
+#### Scenario：背景物体与交互区分
+
+- GIVEN 手机出现在背景或副驾驶区域，缺乏驾驶员手物交互证据
+- WHEN 感知与时序模块形成观测
+- THEN 手机存在不能直接构成 phone_use 结论
+- AND 手部不可见时标记交互特征缺失，不以确定负例代替
+
+#### Scenario：特征扩展与组合版本
+
+- GIVEN 完整 profile 新增手物交互或眨眼通道
+- WHEN 加载模型组合
+- THEN 提取器、normalizer、输入维数与 checkpoint schema SHALL 一致
+- AND 旧 24 通道权重不能静默加载到新输入；组合 manifest 追溯所有专家
+
+#### Scenario：没有足够证据
+
+- GIVEN 窗口未满、全部输入过期或剩余任务不足以判断当前风险
+- WHEN 客户端获取状态
+- THEN API-009 返回 503 PIPELINE_UNAVAILABLE，WS 发布 system.status 而非伪造 SAFE 快照
+- AND 已有快照标记过期；部分任务缺失但有充分危险证据时只允许 degraded 的 WARNING/DANGER
+
+#### Scenario：关系证据依赖失效
+
+- GIVEN 手部观测缺失、过期或驾驶员归属未确认
+- WHEN 计算手物关系、时序统计或执行专家缺失训练增强
+- THEN 所有依赖该观测的字段 SHALL 同步失效，受影响历史统计重算或保守屏蔽
+- AND 独立有效的面部/物体证据可保留，不残留来自完整观测的交互时长
+
+#### Scenario：任务门控与全部证据缺失
+
+- GIVEN 采用关系门控模型，batch中包含部分样本全部证据流无效
+- WHEN 计算各任务门控权重与输出
+- THEN 无效流权重为0，全部无效样本不产生NaN/Infinity且标记不可用
+- AND 不将分类头bias或门控权重作为有效行为结论、校准置信度或SAFE证据
+
+#### Scenario：新旧融合组合切换
+
+- GIVEN 保留拼接TCN基线与关系门控候选的独立版本组合
+- WHEN 显式切换或回退模型
+- THEN 模型类型、质量profile、normalizer、工件和实际backend SHALL 一致，缺少年龄元数据的旧缓存不能冒充新schema
+- AND 清空窗口与计时状态重新预热，不因设计升级修改现有公共风险枚举
+
+### REQ-014：应用层隔离与受控实时预览
+
+系统 SHALL 使用 FastAPI REST/WS、React/TypeScript/Vite/ECharts 和 SQLite MVP 持久化；inference 与 API SHALL 分进程运行，推理热路径 MUST NOT 等待 HTTP、数据库统计或视频预览消费。视频预览默认关闭且鉴权，与片段保存分别授权。
+
+#### Scenario：后端故障与慢客户端
+
+- GIVEN inference 正在完成本地告警闭环
+- WHEN API 停止或 WS/视频客户端消费过慢
+- THEN 本地推理和告警 SHALL 继续，快照/预览使用有界缓冲丢旧保新
+- AND 事件缓冲溢出或持久化失败须报告缺口，不宣称零丢失
+
+#### Scenario：预览启用与隐私
+
+- GIVEN preview.enabled=false 或请求者未通过鉴权
+- WHEN 请求 API-010
+- THEN 返回 403 或 401，不发送视频帧
+- AND 管理员开启后，仅授权用户可收取内存 MJPEG，默认不生成录像文件
+
+#### Scenario：预览中途失败
+
+- GIVEN 已建立预览连接
+- WHEN 管理员关闭预览或摄像头不可用
+- THEN 关闭预览流并通过系统状态解释原因，不向 JPEG 流写入 JSON 错误
+- AND 不把预览关闭等同于停止监测
+
 ## 4. MODIFIED Requirements
 
-当前尚无历史 Spec，本节无修改项。后续变更必须保留旧行为摘要，并说明兼容策略。
+2026-09-21，REQ-012/013联合训练细化（实现见[新版指南](../training/GAZE_FULL_RUNBOOK.md)）：
+
+- GIVEN 使用新版23维特征与九类gaze标签，WHEN 进行联合训练，THEN 四个行为目标保持独立二分类，gaze作为共享F时序编码的辅助九分类；标签、主体ID和绝对视频时间MUST NOT进入模型输入。
+- GIVEN gaze为not_valid、未知、冲突或标签间隙，WHEN 转换监督，THEN mask=0而不是第十类或安全负例；仅gaze子集face视角生成区域监督，不自动给四行为补标签。
+- GIVEN 头姿/虹膜证据不满足质量规则，WHEN 训练或预测gaze，THEN 屏蔽其损失或返回不可用，不输出默认argmax伪装有效预测；四行为依各自证据处理。
+- GIVEN 旧19维缓存或四任务checkpoint，WHEN 选择新版训练入口，THEN 拒绝版本混用，不补零升级；使用独立新版缓存，并保留旧入口。
+
+本次同步特征、标签、训练、预测和运行文档；未新增REST/WS字段、数据库表或风险等级。后续修改类别、特征、阈值或损失时继续执行REQ-010文档同步，不另设审批门禁。
+
+REQ-012 为监督契约，REQ-013/014 将 PPT 完整多专家和应用层方案落入可测试行为；原有四任务目标不变。原来笼统的“重连总是有快照”细化为有效快照或不可用状态，避免未知时伪造安全。API 草案 0.2.0 增加预览、快照 503 和运行时枚举；无已发布客户端，后续实现保持 schema 同步，不另加审批门禁。
+
+2026-09-19：REQ-011/013补充轻量关系门控、多平台边界和组合回退；REQ-009仅要求实际启用的导出格式，REQ-002禁止伪造上游未提供的置信度。新增场景为预期行为，不代表现有代码已实现。无新REST/WS字段、数据库表或风险等级，API与DDL本轮无需修改。
 
 ## 5. REMOVED Requirements
 
@@ -227,8 +390,25 @@
 | REQ-008 | FR-009、NFR-004 | Settings Service | system_settings、PUT settings | 权限、冲突、校验 |
 | REQ-009 | FR-011 | Training/Model Registry | model_versions | 数据审计、基准报告 |
 | REQ-010 | AC-008、NFR-005 | 全模块 | 文档与契约文件 | 评审检查 |
+| REQ-011 | FR-011、shadow 任务分配 | training、configs、models | 训练协议与 checkpoint | 路径/切分测试、设备错误、合成训练/续训、真实双平台验证 |
+| REQ-012 | FR-004/011 | TCN、标签适配、评估 | feature/label schema | 未知标签、任务可用性、跨子集切分 |
+| REQ-013 | FR-002/003/004/010、PPT 6/7/11 | YOLO、MediaPipe、Interaction、Fusion | model bundle、API-002/008/009 | 交互反例、schema 不匹配、不可用快照 |
+| REQ-014 | FR-006/007、NFR-002/003、PPT 9/10/12 | inference、FastAPI、React、Repository | API-010、WS、settings | 预览鉴权/关闭、API 故障、背压/事件缺口 |
 
 ## 8. Spec 验证
+
+### 服务器感知提取实现补充（2026-09-21）
+
+REQ-011/013新增实现约束：YOLO11s候选以单例NPU服务提供检测，MediaPipe继续CPU；模型/依赖身份必须进入缓存溯源，更换感知模型不能伪装成旧缓存续提。并发按子集有界，每个视频独立有状态感知实例，保持标签、25Hz时间轴和被试划分不变。真实NPU前向失败必须明确停止，不得隐式CPU回退。
+
+- Given 同一输出正在提取，When 再次启动，Then 在重复加载模型前拒绝同输出启动；端口也在模型构造前独占。
+- Given 操作者请求停止，When 仍有视频或发布校验运行，Then 停止派发新视频并等待在途工作释放锁，不删除缓存；下一次只复用完整且来源一致的记录。
+- Given 检测服务中途退出，When 监督进程检查，Then 状态为失败而非用户停止或成功，保留日志。
+- Given ROI已确认的全量配置，When 服务器迁移至YOLO11配置，Then 原始配置不变、逐任务ROI及preparation hash完整保留；未确认项不得自动变true。
+
+命令、环境隔离和许可边界见[服务器提取指南](../training/SERVER_EXTRACTION.md)。这不是新增逐步审批门禁；代码迭代时同步文档，真实数据质量条件保留。
+
+REQ-012 追溯 FR-004/011，涉及 TCN、标签适配和评估；验证包括未知标签梯度、全未知 batch、跨子集主体泄漏和任务可用性，均为后续实现测试。
 
 - [x] 每个新增 Requirement 至少包含一个 Given/When/Then Scenario。
 - [x] 主路径、失败或降级路径均有覆盖。

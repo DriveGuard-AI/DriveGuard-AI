@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实时风险快照。基础路径为 `/api/v1`，WebSocket 路径为 `/ws/v1`。本文为设计契约，机器可读草案见 `openapi.yaml`。
+MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实时风险快照；可选实时视频使用独立 MJPEG HTTP 流。基础路径为 `/api/v1`，WebSocket 路径为 `/ws/v1`。本文为 0.2.0 设计契约，机器可读草案见 `openapi.yaml`，尚未实现。后端与前端选型见[应用层设计](../architecture/APPLICATION_DESIGN.md)。
 
 ## 2. 通用规范
 
@@ -55,6 +55,10 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 ```
 
 ### 3.2 RiskSnapshot
+
+只有证据足以形成风险判断时才生成本对象。窗口预热、全部关键观测无效或状态过期时不发送伪造 SAFE；REST 返回 503，WS 发送 system.status。不可用任务从 risk_scores 省略，不填 0；部分任务缺失只在剩余证据足以支持 WARNING/DANGER 时发布 degraded 快照。SAFE 需要完整已验证任务与覆盖条件满足。客户端通过 system.status 和 captured_at 使旧快照失效，旧风险不是当前状态。
+
+features 的缺失项用 null 或省略；confidence 是融合配置定义的决策支持分数，未做校准前不得解释为事故概率。detections 的 bbox 约定为原始未镜像图像的归一化 `[x_min,y_min,x_max,y_max]`，各值 0–1 且 x_min<x_max、y_min<y_max；跨预览缩放时由前端映射。
 
 ```json
 {
@@ -223,6 +227,8 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 成功：返回模型名称、语义版本、运行时、特征 schema、指标摘要和激活状态。
 - 不返回宿主机绝对路径；仅返回工件逻辑标识。
 
+runtime 枚举为 `pytorch/onnxruntime/tensorrt/mediapipe/python`；mediapipe 用于复用关键点任务，python 用于规则融合工件，不代表两者均为 PyTorch 网络。组合版本通过 API-002 的 model_bundle_version 对应受控 manifest，事件绑定的会话可追溯全部专家，见[数据库设计 §4.4](../database/DATABASE_DESIGN.md#44-model_versions)。
+
 ### API-009 当前风险快照
 
 `GET /api/v1/monitoring/snapshot`
@@ -230,6 +236,18 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 用途：页面首次加载或 WebSocket 重连后获取完整最新状态。
 - 成功：`200 RiskSnapshot`。
 - 无活动会话：`409 MONITORING_NOT_ACTIVE`。
+- 活动会话存在但尚无有效/新鲜结论：`503 PIPELINE_UNAVAILABLE`；前端展示预热、不可用或降级提示，不以零分代替。
+
+### API-010 实时视频预览（默认关闭）
+
+`GET /api/v1/monitoring/preview`
+
+- 鉴权：monitoring:read；使用 Authorization Header，浏览器以 fetch 流读取，不把 Token 放 URL。
+- 开关：管理员通过 API-007 设置 `preview.enabled`（boolean，默认 false）；这是运行时开关，不需要重启。关闭时终止已有预览连接，不影响推理。
+- 成功：200，`Content-Type: multipart/x-mixed-replace; boundary=frame`、`Cache-Control: no-store`。每个 part 是 JPEG，流持续到取消/断开；最大输出帧率、分辨率和客户端数由部署配置限制，不承诺等于推理 FPS。
+- 错误：401 AUTH_REQUIRED；403 FORBIDDEN（权限不足或预览关闭，details 区分原因）；409 MONITORING_NOT_ACTIVE；503 PIPELINE_UNAVAILABLE（摄像头/编码不可用）。校验顺序为鉴权→开关/权限→会话→设备。
+- 返回 200 后的故障关闭流，通过 system.status 说明原因，不能再把 JSON 错误混进 JPEG 流；客户端取消时释放连接资源，不关闭共享摄像头。
+- 只在内存读取最新帧，不落盘，不默认对云端开放；启用预览不自动启用事件录像。预览与 WS 状态通道分离。
 
 ### API-010 创建分析任务
 
@@ -366,12 +384,15 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 客户端过慢时丢弃旧 `risk.snapshot`，保留最新状态；事件变化消息不得静默丢弃。
 - 客户端发现序列跳跃时通过 REST 获取最新完整快照，不要求服务端回放每个帧级消息。
 - 客户端使用带抖动的指数退避重连，最大间隔 30 秒。
+- 序列号在同一 session 内单调递增；新会话可以重置，客户端清理旧曲线。无有效快照时发送 system.status，不强行发送 risk.snapshot。
+- `system.status` 的 data 使用 OpenAPI 的 SystemStatus；warming_up 等细节放入 inference.message，status 使用现有 ok/degraded/unavailable 枚举。断开或超出配置的新鲜度阈值后 UI 标记旧快照过期。
+- `event.changed` 为查询提示，需包含 event_id、session_id 和变更状态；事件通知无法入队时显式关闭连接并提示重查，恢复后由 API-003/004 补查，不承诺无界缓存或逐帧回放。
 
 ## 6. 认证与授权
 
 | 权限 | 能力 |
 | --- | --- |
-| `monitoring:read` | 状态、实时快照、事件和统计读取 |
+| `monitoring:read` | 状态、实时快照、事件、统计读取及显式启用的预览 |
 | `monitoring:write` | 启停推理管线（从离线回放切回实时） |
 | `settings:read` | 配置读取 |
 | `settings:write` | 配置更新 |
@@ -421,6 +442,8 @@ MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限�
 | REQ-008 | API-006/007 |
 | REQ-009 | API-008 |
 | REQ-010 | 本文档与 `openapi.yaml` |
+| REQ-013 | API-002/008/009、无效快照与专家运行时语义 |
+| REQ-014 | API-010、WS-001、预览鉴权和进程解耦 |
 
 ## 10. 契约验证清单
 
@@ -431,6 +454,8 @@ MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限�
 - [x] WebSocket 定义版本、序列、背压、重连和错误消息。
 - [x] 当前无长任务；未来长任务的 Init-Step-Poll 约束已声明。
 - [ ] OpenAPI 草案需在后端实现后通过框架生成结果进行 diff 验证。
+
+0.2.0 草案变更：增加预览端点、快照 503 和 runtime 枚举；同步 OpenAPI 与数据库约束。尚无已发布客户端；实现时 TypeScript/Pydantic 的穷举分支应同步枚举。公共 URL 主版本仍为 v1，RiskSnapshot 消息 schema 仍为 1.0。
 
 ## 资料来源
 

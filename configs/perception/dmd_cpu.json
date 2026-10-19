@@ -1,0 +1,29 @@
+{
+  "schema_version": "driveguard-runtime-v1",
+  "recording_id": "assigned-by-dmd-batch",
+  "view": "body",
+  "driver_roi": [0, 0, 1280, 720],
+  "driver_region_confirmed_exclusive": false,
+  "objects": {
+    "asset": {
+      "path": "../../models/local/yolox_nano.pth",
+      "sha256": "cd28f55fbbc1829f99d9ac9b38a16d259a22889739c8728ea877610201feff7b",
+      "source": "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.pth",
+      "license": "pending_permission"
+    },
+    "variant": "yolox-nano", "backend": "cpu", "device_index": 0,
+    "input_size": 416, "score_threshold": 0.25, "nms_threshold": 0.45
+  },
+  "face_asset": {
+    "path": "../../models/local/face_landmarker.task",
+    "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+    "source": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+    "license": "Apache-2.0"
+  },
+  "hands_asset": {
+    "path": "../../models/local/hand_landmarker.task",
+    "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+    "source": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+    "license": "Apache-2.0"
+  }
+}

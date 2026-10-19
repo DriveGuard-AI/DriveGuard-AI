@@ -1,0 +1,81 @@
+{
+  "schema_version": "driveguard-extractor-profile-v1",
+  "name": "interaction-candidate-v1",
+  "feature_schema_version": "driveguard-interaction-v1",
+  "feature_names": [
+    "ear_left",
+    "ear_right",
+    "mar",
+    "perclos_4s",
+    "closed_duration_s",
+    "head_yaw_deg",
+    "head_pitch_deg",
+    "head_roll_deg",
+    "phone_conf",
+    "drink_object_conf",
+    "phone_face_distance",
+    "drink_mouth_distance",
+    "blink_rate_per_min",
+    "phone_hand_distance",
+    "phone_hand_iou",
+    "phone_near_duration_s",
+    "drink_hand_distance",
+    "drink_hand_iou",
+    "drink_near_duration_s"
+  ],
+  "sample_rate_hz": 25,
+  "max_age_ms": 80,
+  "min_object_score": 0.25,
+  "ear_closed_threshold": 0.2,
+  "perclos_window_steps": 100,
+  "perclos_min_valid_ratio": 0.8,
+  "blink_min_ms": 80,
+  "blink_max_ms": 500,
+  "hand_near_threshold": 0.03,
+  "eye_indices": {
+    "left": [
+      362,
+      385,
+      387,
+      263,
+      373,
+      380
+    ],
+    "right": [
+      33,
+      160,
+      158,
+      133,
+      153,
+      144
+    ]
+  },
+  "mouth_indices": [
+    13,
+    14,
+    78,
+    308
+  ],
+  "coordinate_system": "original_unmirrored_pixel_xy; x_right_y_down; head_pose_camera_z_forward_RzRyRx_degrees",
+  "feature_definitions": {
+    "ear_left": "Anatomical left eye EAR: (d(p1,p5)+d(p2,p4))/(2*d(p0,p3)); pixel xy; eye_indices.left.",
+    "ear_right": "Anatomical right eye EAR: same formula; pixel xy; eye_indices.right.",
+    "mar": "d(13,14)/d(78,308) in original pixels; dimensionless.",
+    "perclos_4s": "Closed valid slots / valid slots over last 100 slots; full window and >=80% valid required.",
+    "closed_duration_s": "Seconds since observed open-to-closed onset; unknown start or missing eye evidence => invalid.",
+    "head_yaw_deg": "Upstream yaw degrees only; camera x right, y down, z forward; R=Rz(roll)Ry(yaw)Rx(pitch). Not gaze.",
+    "head_pitch_deg": "Upstream pitch degrees in same rotation convention; no pose estimator in this bridge.",
+    "head_roll_deg": "Upstream roll degrees in same rotation convention.",
+    "phone_conf": "Maximum qualifying phone score with box center in fixed driver ROI; fresh successful empty detection => valid zero.",
+    "drink_object_conf": "Maximum qualifying bottle/cup score in ROI; ties resolved deterministically; not drinking probability.",
+    "phone_face_distance": "Selected phone box center to face bbox center / face bbox diagonal; same selected candidate as confidence.",
+    "drink_mouth_distance": "Selected drink box center to midpoint of landmarks13/14 / face bbox diagonal.",
+    "blink_rate_per_min": "Completed open-closed-open events lasting80..500ms entirely within100-slot window; all eye slots valid; count*15.",
+    "phone_hand_distance": "Minimum rectangle gap from selected phone to confirmed driver hand bbox / driver ROI diagonal; not physical contact.",
+    "phone_hand_iou": "Intersection over union of the same phone-hand pair selected by minimum gap.",
+    "phone_near_duration_s": "Seconds of observed near run with stable object track; target switch restarts; missing/unknown onset => invalid.",
+    "drink_hand_distance": "Minimum rectangle gap from selected bottle/cup to confirmed driver hand bbox / driver ROI diagonal.",
+    "drink_hand_iou": "Intersection over union of the same drink-hand pair selected by minimum gap.",
+    "drink_near_duration_s": "Seconds of observed drink-hand near run with stable object track; same reset policy as phone."
+  }
+}

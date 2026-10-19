@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DriveGuard AI REST API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     DriveGuard AI MVP 的 REST 契约草案。当前仓库尚无后端实现；实现完成后应将
     FastAPI 生成的 OpenAPI 与本文件进行差异检查，并以评审确认的契约为准同步修订。
@@ -73,6 +73,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: PIPELINE_UNAVAILABLE，窗口预热、过期或证据不足，不能生成有效风险快照
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /monitoring/resume:
     post:
       tags: [monitoring]
@@ -91,6 +97,44 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           description: 分析任务仍在运行
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /monitoring/preview:
+    get:
+      tags: [monitoring]
+      operationId: getMonitoringPreview
+      summary: 获取显式启用的实时 MJPEG 预览
+      description: >-
+        需要 monitoring:read；preview.enabled 默认 false。使用 Authorization 鉴权，
+        不在 URL 放 Token。仅内存实时编码，不落盘。慢客户端丢旧保新；
+        已开始响应后的设备故障终止流，由客户端查询 system/status。
+      responses:
+        "200":
+          description: multipart/x-mixed-replace; boundary=frame；每个 part 为 image/jpeg
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            multipart/x-mixed-replace:
+              schema: {type: string, format: binary}
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "403":
+          description: FORBIDDEN，权限不足或管理员未启用预览
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: MONITORING_NOT_ACTIVE，没有活动会话
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: PIPELINE_UNAVAILABLE，启动预览时摄像头或预览编码不可用
           content:
             application/json:
               schema:
@@ -642,7 +686,7 @@ components:
           type: array
           minItems: 4
           maxItems: 4
-          items: {type: number}
+          items: {type: number, minimum: 0, maximum: 1}
     RiskScores:
       type: object
       additionalProperties:
@@ -803,7 +847,7 @@ components:
         semantic_version: {type: string}
         runtime:
           type: string
-          enum: [pytorch, onnxruntime, tensorrt]
+          enum: [pytorch, onnxruntime, tensorrt, mediapipe, python]
         feature_schema_version: {type: [string, "null"]}
         status:
           type: string

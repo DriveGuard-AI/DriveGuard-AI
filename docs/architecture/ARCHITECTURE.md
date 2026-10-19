@@ -2,9 +2,13 @@
 
 ## 1. 架构目标
 
+状态：0.2.0 设计基线，2026-09-18 按参考 PPT 全方案对齐。TCN、特征桥接及[本地专家运行时](../training/EXPERT_RUNTIME.md)已实现并做 CPU 合成边界验证；2026-09-19 已通过真实工件CPU加载与空白帧前向，真实视频和完整系统集成仍未验证。详细分工见[完整多专家模型](MULTI_EXPERT_DESIGN.md)、[应用技术选型](APPLICATION_DESIGN.md)、[部署方案](../deployment/DEPLOYMENT_DESIGN.md)和[PPT 对照记录](../governance/PPT_ALIGNMENT.md)。
+
 DriveGuard AI 采用边缘优先、模块化、契约驱动的架构。核心风险判断在车端完成，后台与 Web 界面负责管理、展示和历史分析。设计优先保证低延迟、断网可用、隐私保护、模型可替换和问题可诊断。
 
-架构图源文件：[DriveGuard AI 系统架构图](driveguard-system-architecture.drawio)。当前环境未检测到 draw.io CLI，因此暂未生成 PNG；源文件可由 draw.io Desktop 或 diagrams.net 打开并导出。
+2026-09-19补充：便于部署与多平台兼容优先，不以论文创新为目标。[轻量关系门控](RELATION_GATED_FUSION.md)作为现有TCN的可选升级设计，复用预训练专家与公共训练逻辑；模型源码/数据语义统一，训练和推理平台依赖分别适配。默认不引入大Transformer、端到端联合训练或自定义设备算子；新网络及训练骨架已实现并完成CPU合成验证，见[训练接入指南](../training/RELATION_RUNBOOK.md)；业务告警和硬件验证仍待完成。
+
+原始分层架构图源文件：[DriveGuard AI 系统架构图](driveguard-system-architecture.drawio)。它是 v0.1 概览，未细化本次新增的手物交互与视频通道；完整边界以本文及多专家设计的 Mermaid 图为准。当前环境未检测到 draw.io CLI，源图尚无 PNG 视觉验收。
 
 ## 2. 总体分层
 
@@ -17,7 +21,7 @@ Camera → Capture → Perception Experts → Feature Contract
 | 层 | 组件 | 核心职责 | 不负责 |
 | --- | --- | --- | --- |
 | 输入层 | Video Capture | 摄像头连接、帧读取、时间戳、画面质量 | 行为判断 |
-| 感知层 | Object Detector、Face Landmarker、Head Pose | 输出帧级观测及质量信息 | 直接判定手机使用或疲劳 |
+| 感知层 | YOLO、MediaPipe Face/Hand、Head Pose、Interaction | 输出帧级物体/面部/手物观测及质量信息 | 直接判定手机使用或疲劳 |
 | 时序层 | Feature Builder、Window Buffer、TCN | 将连续观测转换为行为概率 | 告警策略与持久化 |
 | 决策层 | Risk Fusion、Alarm Controller | 风险分级、可靠性降级、告警状态机 | UI 展示 |
 | 应用层 | FastAPI、WebSocket、Services | 查询、配置、统计、实时消息和事件编排 | 运行模型内部实现 |
@@ -38,6 +42,7 @@ Camera → Capture → Perception Experts → Feature Contract
 - `Face Landmarker`：输出关键点、检测置信度和面部可见性。
 - `Feature Extractor`：计算 EAR、MAR、PERCLOS、眨眼和闭眼时长。
 - `Head Pose`：输出 Yaw、Pitch、Roll 及估计可靠性。
+- `Hand/Interaction`：手部适配器与驾驶员归属、手物距离/重叠/持续交互特征；不以物体靠近人脸代替手部证据。MediaPipe Face 不自动包含手部或 gaze 行为识别。
 - 所有专家输出统一包含 `model_version`、`latency_ms`、`quality` 和 `errors`。
 
 专家之间不直接互相调用，由管线编排器收集结果，避免模型耦合。
@@ -45,6 +50,8 @@ Camera → Capture → Perception Experts → Feature Contract
 ### 3.3 Temporal Pipeline
 
 `FeatureVector` 使用版本化 schema，将帧级特征映射为固定顺序或具名张量。Window Buffer 维护 3–5 秒滑动窗口，显式处理丢帧、低质量特征和采样频率变化。TCN 输出各行为概率与模型置信度。
+
+时序模型详细候选见 [TCN 模型设计](../training/MODEL_DESIGN.md)：默认 25 Hz、4 秒窗口、5 个因果残差块、4 个独立二分类 logits。12 个观测值与 12 个掩码是基线/消融配置；完整方案需补充手物交互与眨眼统计，输入通道由版本化 schema 的 2F 推导。概率由逐类 sigmoid 得到，不直接等于已校准置信度。训练 label_mask 与输入 mask 独立，未知标签不参与对应损失；单个样本不混合多摄像头特征。
 
 ### 3.4 Risk Fusion
 
@@ -60,15 +67,17 @@ Camera → Capture → Perception Experts → Feature Contract
 
 融合器不得将缺失专家结果静默替换为安全值。未来学习型融合只能替换内部实现，不改变外部字段语义。
 
+四任务加权包含 drinking，结合质量、持续时间、单项严重风险与重复计数检查。部分任务不可用但有充分危险证据可输出 degraded 的 WARNING/DANGER；证据不足时只发布系统不可用状态，不生成伪造 SAFE 快照。详见完整模型设计 §5。上述 reasons/generated_at 是内部概念，公共 API 统一使用 reason_codes/captured_at，发送时间放 WS envelope.sent_at。
+
 ### 3.5 Alarm Controller
 
-使用状态机管理 `SAFE → WARNING → DANGER → RECOVERING → SAFE`，负责告警延迟、升级、冷却和重复抑制。本地告警与后台 API 解耦，即使数据库或网络不可用也应继续工作。
+使用状态机管理 `SAFE → WARNING → DANGER → RECOVERING → SAFE`，负责告警延迟、升级、冷却和重复抑制。RECOVERING 仅是内部告警状态，公开等级仍为三种。本地告警与后台 API 解耦，即使数据库或网络不可用也应继续工作。
 
 ### 3.6 Backend
 
 - API Router：协议转换和输入校验。
 - Monitoring Service：读取实时快照与运行状态。
-- Event Service：创建、聚合、结束和查询事件。
+- Event Service：接收推理侧事件边界，幂等持久化/更新/结束并提供查询；不在 API 侧重新判定风险。
 - Settings Service：配置校验、版本化更新和生效策略。
 - Statistics Service：基于事件数据生成聚合结果。
 - WebSocket Hub：管理连接、订阅、序列号和背压。
@@ -77,7 +86,7 @@ Camera → Capture → Perception Experts → Feature Contract
 
 ### 3.7 Frontend
 
-React Dashboard 分为实时监控、事件历史、统计和系统设置四个功能域。WebSocket 只承载实时快照；查询与配置使用 REST。前端只负责交互级校验，权限和数据约束由后端兜底。
+React + TypeScript + Vite + ECharts Dashboard 分为实时监控、事件历史、统计和系统设置四个功能域。WebSocket 承载风险快照、系统状态和事件通知；查询与配置使用 REST。实时视频走独立鉴权 MJPEG 通道，默认关闭。前端只负责交互级校验，权限和数据约束由后端兜底，不自行重算风险。
 
 ## 4. 核心数据流
 
@@ -88,7 +97,7 @@ React Dashboard 分为实时监控、事件历史、统计和系统设置四个�
 3. Feature Builder 合并并验证特征，写入滑动窗口。
 4. TCN 对完整或允许降级的窗口输出行为概率。
 5. Risk Fusion 计算综合风险并驱动 Alarm Controller。
-6. Event Service 按状态边界创建/更新事件；WebSocket Hub 推送最新快照。
+6. 推理侧按融合/告警状态生成事件边界；API Event Service 接收并持久化；WebSocket Hub 推送最新有效快照及状态。
 
 ### 4.2 事件生命周期
 
@@ -130,15 +139,19 @@ Jetson/RTX Host
 └── model/config storage
 ```
 
-可先采用单仓模块化单体，保持进程内低延迟；当模型隔离、GPU 调度或稳定性要求出现明确证据时，再拆分推理服务。当前不引入消息队列或微服务。
+采用单仓、统一发布的模块化应用，但 inference 与 API 运行在独立受监护进程，保证 API 故障不停止本地告警。FastAPI 首版单 Uvicorn worker；本机有界 IPC 传递最新快照和事件，不引入外部消息中间件或微服务。缓冲容量、幂等和丢失边界见[应用设计](APPLICATION_DESIGN.md)。
 
 ### 6.2 运行时策略
 
 - 开发：PyTorch/ONNX Runtime，SQLite，Vite 开发服务器。
-- 边缘：ONNX Runtime 或 TensorRT，SQLite，静态前端由 FastAPI 或反向代理提供。
+- 边缘：YOLO/TCN 使用已验证的 ONNX Runtime 或 TensorRT 工件；MediaPipe 使用自身兼容运行时，不假定可直接转 TensorRT。SQLite、静态前端由 FastAPI 或反向代理提供；按目标平台打包 Docker 镜像。
 - 云端扩展：API 与推理解耦、PostgreSQL、多设备标识；不属于 MVP。
 
 ## 7. 可靠性与降级
+
+### 训练开发边界（2026-09-18）
+
+shadow 在 `model` 分支维护 `training/` 与 `configs/training/`。GPU/CUDA 与华为昇腾 NPU/torch_npu 入口共用模型和 FP32 训练循环，平台初始化单独适配。训练数据根目录允许机器间不同；发布权重统一保存 CPU state_dict。NPU 是新增的**训练平台**，现有 Jetson/TensorRT 部署规划不因此代表支持 NPU 推理。具体协议见[训练职责约定](../training/TRAINING_CHARTER.md)。
 
 | 故障 | 系统行为 |
 | --- | --- |
@@ -175,7 +188,7 @@ Jetson/RTX Host
 
 ### ADR-002 MVP 使用模块化单体
 
-- 决策：先使用清晰分层的单仓模块化单体，不预先拆微服务。
+- 决策：先使用清晰分层的单仓模块化应用，不预先拆微服务；本地 inference/API 进程分离以满足故障隔离，统一部署发布。
 - 替代方案：模型服务、事件服务和 API 各自独立部署。
 - 反选理由：当前无规模和隔离证据，拆分会增加部署、观测和一致性成本。
 - 重新评估条件：独立伸缩、故障隔离或 GPU 调度成为已测量瓶颈。
@@ -188,7 +201,7 @@ Jetson/RTX Host
 
 ## 11. 已知限制
 
-- 当前无代码，组件接口和并发模型需在实现阶段验证。
+- 当前已有独立 TCN 训练工程与[观测特征桥接](../training/PERCEPTION_BRIDGE.md)；真实专家调用、在线组件接口、并发模型和完整感知管线仍需实现验证。
 - 模型阈值、窗口缺失策略、告警状态机参数尚需数据实验确定。
 - draw.io CLI 在当前环境不可用，架构图仅提供可编辑源文件，未完成图片渲染自检。
 

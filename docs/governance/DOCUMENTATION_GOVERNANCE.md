@@ -22,6 +22,8 @@
 | REST 路径、字段、状态码、权限变化 | API 设计、OpenAPI、Spec Scenario、前端类型 |
 | WebSocket 消息或重连策略变化 | API 设计、前端类型、契约测试 |
 | 模型输入特征、标签、版本或指标变化 | 需求、架构、Spec、测试策略 |
+| YOLO/MediaPipe/手物关联、模型组合变化 | 完整多专家设计、TCN 子设计、训练职责、部署、模型 runtime 契约 |
+| 前后端选型、预览、IPC 或平台镜像变化 | 应用技术选型、部署、API/OpenAPI、隐私场景 |
 | 配置键、默认值、生效方式变化 | 需求、API、数据库、部署说明 |
 | 性能、安全或隐私目标变化 | Requirements、Architecture、Test Strategy |
 | 纯内部重构且契约不变 | 通常无需改正文，记录检查结论即可 |
@@ -116,6 +118,9 @@
 | API / OpenAPI | 后端负责人 | 前端、测试 |
 | Test Strategy | 测试负责人 | 算法、开发、部署 |
 | Governance | 技术负责人 | 全体贡献者 |
+| 训练协议、模型结构、实验报告、权重模型卡 | 算法工程师 shadow | 推理集成维护者、项目负责人 |
+
+shadow 的具体工作包、GPU/昇腾 NPU 双平台交付与数据/权重 Git 策略见[训练职责约定](../training/TRAINING_CHARTER.md)。`model` 为训练开发分支；署名用于职责和文档，不改写 Git 全局身份。
 
 ## 10. 完成定义
 
@@ -127,6 +132,8 @@
 - 新增行为可追溯到 Requirement/Scenario 或有清晰的需求来源。
 
 ## 资料来源
+
+- [PPT 全方案对齐记录](PPT_ALIGNMENT.md)：参考内容落点与工程补充；仅作导航，不增加逐页审批或额外门禁。
 
 - `docs/specs/PROJECT_SPEC.md`：REQ-010 与跨层一致性规则。
 - `docs/README.md`：文档索引、可信度和变更原则。

@@ -1,0 +1,74 @@
+{
+  "schema_version": "driveguard-training-v1",
+  "experiment": "temporal-19-feature-interaction-candidate",
+  "data": {
+    "feature_schema_version": "driveguard-interaction-v1",
+    "label_schema_version": "driveguard-behavior-v1",
+    "feature_names": [
+      "ear_left",
+      "ear_right",
+      "mar",
+      "perclos_4s",
+      "closed_duration_s",
+      "head_yaw_deg",
+      "head_pitch_deg",
+      "head_roll_deg",
+      "phone_conf",
+      "drink_object_conf",
+      "phone_face_distance",
+      "drink_mouth_distance",
+      "blink_rate_per_min",
+      "phone_hand_distance",
+      "phone_hand_iou",
+      "phone_near_duration_s",
+      "drink_hand_distance",
+      "drink_hand_iou",
+      "drink_near_duration_s"
+    ],
+    "sample_rate_hz": 25,
+    "window_steps": 100,
+    "stride_steps": 25
+  },
+  "model": {
+    "input_channels": 38,
+    "channels": [
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "dilations": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "kernel_size": 3,
+    "dropout": 0.1
+  },
+  "training": {
+    "active_tasks": [
+      "fatigue",
+      "phone_use",
+      "drinking",
+      "distraction"
+    ],
+    "epochs": 10,
+    "batch_size": 16,
+    "seed": 42,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 1,
+    "precision": "fp32",
+    "num_workers": 0
+  },
+  "runtime": {
+    "backend": "cpu",
+    "device_index": 0,
+    "data_root": null,
+    "manifest": null,
+    "output_dir": null
+  }
+}

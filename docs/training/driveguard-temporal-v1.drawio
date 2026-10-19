@@ -1,0 +1,55 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mxfile host='drawio' version='26.0.0'>
+  <diagram id='temporal-v1' name='DriveGuard Temporal v1'>
+    <mxGraphModel grid='1' gridSize='10' page='0' background='#ffffff'>
+      <root>
+        <mxCell id='0' />
+        <mxCell id='1' parent='0' />
+        <mxCell id='2' value='Observation v1&#xa;12 values + 12 validity masks&#xa;(B, 100, 24)' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#d5e8d4;strokeColor=#82b366;' vertex='1' parent='1'>
+          <mxGeometry x='320' y='40' width='360' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='3' value='Transpose&#xa;(B, 24, 100)' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#f5f5f5;strokeColor=#666666;' vertex='1' parent='1'>
+          <mxGeometry x='320' y='280' width='360' height='80' as='geometry' />
+        </mxCell>
+        <mxCell id='4' value='5 causal residual blocks&#xa;2 Conv1d / block; kernel=3; channels=32&#xa;d = 1, 2, 4, 8, 16; dropout=0.1&#xa;(B, 32, 100); receptive field=125' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;' vertex='1' parent='1'>
+          <mxGeometry x='320' y='500' width='360' height='120' as='geometry' />
+        </mxCell>
+        <mxCell id='5' value='Last time step: h[:, :, -1]&#xa;(B, 32)' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#f5f5f5;strokeColor=#666666;' vertex='1' parent='1'>
+          <mxGeometry x='320' y='760' width='360' height='80' as='geometry' />
+        </mxCell>
+        <mxCell id='6' value='Linear(32, 4) / independent logits&#xa;fatigue | phone_use | drinking | distraction&#xa;(B, 4)' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#ffe6cc;strokeColor=#d79b00;' vertex='1' parent='1'>
+          <mxGeometry x='320' y='980' width='360' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='7' value='TRAIN ONLY&#xa;target + label_mask&#xa;(B, 4) each; unknown is masked' style='rounded=1;whiteSpace=wrap;html=1;fontSize=15;fillColor=#d5e8d4;strokeColor=#82b366;' vertex='1' parent='1'>
+          <mxGeometry x='20' y='1040' width='240' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='8' value='TRAIN&#xa;Masked BCEWithLogitsLoss&#xa;per-task mean then task mean' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;' vertex='1' parent='1'>
+          <mxGeometry x='20' y='1300' width='300' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='9' value='INFERENCE&#xa;Independent sigmoid&#xa;(B, 4); no softmax' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;' vertex='1' parent='1'>
+          <mxGeometry x='700' y='1300' width='300' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='10' value='Quality + duration + Risk Fusion&#xa;SAFE / WARNING / DANGER&#xa;Missing input is NOT SAFE' style='rounded=1;whiteSpace=wrap;html=1;fontSize=16;fillColor=#d5e8d4;strokeColor=#82b366;' vertex='1' parent='1'>
+          <mxGeometry x='700' y='1540' width='300' height='100' as='geometry' />
+        </mxCell>
+        <mxCell id='11' value='Legend&#xa;Green: input/output | Blue: convolution | Orange: linear&#xa;Red: loss/activation | Grey: tensor operations&#xa;Design only; shadow; model branch; no measured scores' style='rounded=0;whiteSpace=wrap;html=1;fontSize=14;fillColor=#ffffff;strokeColor=#666666;align=left;spacingLeft=10;' vertex='1' parent='1'>
+          <mxGeometry x='20' y='1520' width='560' height='120' as='geometry' />
+        </mxCell>
+        <mxCell id='12' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='2' target='3'><mxGeometry relative='1' as='geometry' /></mxCell>
+        <mxCell id='13' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='3' target='4'><mxGeometry relative='1' as='geometry' /></mxCell>
+        <mxCell id='14' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='4' target='5'><mxGeometry relative='1' as='geometry' /></mxCell>
+        <mxCell id='15' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='5' target='6'><mxGeometry relative='1' as='geometry' /></mxCell>
+        <mxCell id='16' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.25;exitY=1;entryX=0.75;entryY=0;' edge='1' parent='1' source='6' target='8'>
+          <mxGeometry relative='1' as='geometry'><Array as='points'><mxPoint x='410' y='1220' /><mxPoint x='245' y='1220' /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id='17' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.25;entryY=0;' edge='1' parent='1' source='7' target='8'>
+          <mxGeometry relative='1' as='geometry'><Array as='points'><mxPoint x='140' y='1200' /><mxPoint x='95' y='1200' /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id='18' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.75;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='6' target='9'>
+          <mxGeometry relative='1' as='geometry'><Array as='points'><mxPoint x='590' y='1200' /><mxPoint x='850' y='1200' /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id='19' style='edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;' edge='1' parent='1' source='9' target='10'><mxGeometry relative='1' as='geometry' /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

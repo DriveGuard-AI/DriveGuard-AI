@@ -1,0 +1,3228 @@
+{
+  "schema_version": "driveguard-live-composite-v1",
+  "status": "complete",
+  "models": {
+    "coverage25": {
+      "path": "weights/coverage25.pt",
+      "sha256": "4c32d5d2876b658d122145ada9c33eec8b23fabb97884ea6144d713d06330624"
+    },
+    "gap80": {
+      "path": "weights/gap80.pt",
+      "sha256": "a2b45c3b3f564820af33aaaddb3ac5bcb7f1f4fc5c740624830be045e42c8639"
+    },
+    "distraction": {
+      "path": "weights/distraction.pt",
+      "sha256": "8b68ddc3722c3e6fcbf8bcf3c77e3b963ec10cb31f010a74578f56be2021dabf"
+    },
+    "actions": {
+      "path": "weights/actions.pt",
+      "sha256": "ac58df00b18185ea73845e3f627416f30da8267d8b5b0b0f177e49061bca9aec"
+    },
+    "eye": {
+      "path": "weights/eye.pt",
+      "sha256": "0b3738415d7f798a51286cb39d568600237d3722c3120ff6f071bf18eaec460a"
+    },
+    "rgb_encoder": {
+      "path": "weights/rgb_encoder.pth",
+      "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec"
+    }
+  },
+  "files": {
+    "weights/coverage25.pt": {
+      "path": "weights/coverage25.pt",
+      "sha256": "4c32d5d2876b658d122145ada9c33eec8b23fabb97884ea6144d713d06330624"
+    },
+    "weights/coverage25.pt.sha256.json": {
+      "path": "weights/coverage25.pt.sha256.json",
+      "sha256": "3b9c80ffe03a8d5424c417666482d2da5dd86615c5ddd430923b49730f6fc3c9"
+    },
+    "weights/gap80.pt": {
+      "path": "weights/gap80.pt",
+      "sha256": "a2b45c3b3f564820af33aaaddb3ac5bcb7f1f4fc5c740624830be045e42c8639"
+    },
+    "weights/gap80.pt.sha256.json": {
+      "path": "weights/gap80.pt.sha256.json",
+      "sha256": "f69294e0588a5a1d277a49bd90fee5be6af18bf8b7f839efaf4dd0aa0b45169b"
+    },
+    "weights/distraction.pt": {
+      "path": "weights/distraction.pt",
+      "sha256": "8b68ddc3722c3e6fcbf8bcf3c77e3b963ec10cb31f010a74578f56be2021dabf"
+    },
+    "weights/distraction.pt.sha256.json": {
+      "path": "weights/distraction.pt.sha256.json",
+      "sha256": "fc0e8fb528cea64a4081b597bd888e38ef4d993846033dbcc9f7cb0120822845"
+    },
+    "weights/actions.pt": {
+      "path": "weights/actions.pt",
+      "sha256": "ac58df00b18185ea73845e3f627416f30da8267d8b5b0b0f177e49061bca9aec"
+    },
+    "weights/actions.pt.sha256.json": {
+      "path": "weights/actions.pt.sha256.json",
+      "sha256": "8604b08004ed266daa75abf5682d52379aaa4868f373e3969d617cbc63521bd3"
+    },
+    "weights/eye.pt": {
+      "path": "weights/eye.pt",
+      "sha256": "0b3738415d7f798a51286cb39d568600237d3722c3120ff6f071bf18eaec460a"
+    },
+    "weights/eye.pt.sha256.json": {
+      "path": "weights/eye.pt.sha256.json",
+      "sha256": "9bff0a3d3ca913de0c7d900a39dac6caab670ff03febbff0feb443c72c1990ee"
+    },
+    "weights/rgb_encoder.pth": {
+      "path": "weights/rgb_encoder.pth",
+      "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec"
+    },
+    "assets/objects.pt": {
+      "path": "assets/objects.pt",
+      "sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+    },
+    "assets/face.task": {
+      "path": "assets/face.task",
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
+    },
+    "assets/hands.task": {
+      "path": "assets/hands.task",
+      "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
+    },
+    "runtime.json": {
+      "path": "runtime.json",
+      "sha256": "943aae10de0a64b49b114f6810f1f2bb318187ae79de1eb2f5e438d720eb0bf3"
+    }
+  },
+  "code_identity": {
+    "inference/__init__.py": "5eb0e96f81af1f6df3ccb454360fe895884068f86e55f8b5170be8a0fb022948",
+    "inference/experts/__init__.py": "8be380d2023b1d59d8b46dca169bd63446597444efaf11975bafc810552c041d",
+    "inference/experts/assets.py": "f9fd6c9f534be47e51d9f2db91c38bea287621e130c888d8a44cff1c3ed10b00",
+    "inference/experts/detector_client.py": "a3d449f771549a509ac63adff62cb46e030513f4e32ec43044860c6db6e09210",
+    "inference/experts/detector_service.py": "3865a92a6d9668e0501b917c41cdc4a874b00e9f8d9f5ca9e2ce6355c978b659",
+    "inference/experts/face_diagnostics.py": "26b7d6466dc8b7e03781813e0c2915c2ffae50da02a801533b1faca5c8af45d7",
+    "inference/experts/face_experiment_adapter.py": "70b328158d16146d47751dbcbb2fe8399fb5fae000df2aa29a3a43e05c0ab38b",
+    "inference/experts/gaze_geometry.py": "ea9896921fcc1e01a008b859fd34ecd243a46472f8f2ac5ae362df5a4fc6ffbe",
+    "inference/experts/mediapipe_adapter.py": "6e7e4ac0c94bbfd71d656cba6986057267a6813a7691fc61cb4e435f5a2401bb",
+    "inference/experts/protocol.py": "37e1b07b1e1cb3274136a25cdc6b4777f3d6c3604efedaaf8ce2a343f979e1af",
+    "inference/experts/yolo11_adapter.py": "04a53669f047c4bb9ea93bba9c276c7584d421c98034dd1e2e76ba250f835b9f",
+    "inference/experts/yolox_adapter.py": "24181337c20de65d8776135813c83d150f73b7c248497fa42928f0a19357297c",
+    "inference/live/__init__.py": "8e9feabf1da335e099ff3288ecec48c6190dd98f24dfba5480ebd92059815bd7",
+    "inference/live/bridge.py": "6e32fbff3b644408d47b3a4ad1fd5a00680aa40ff9e8739fa8ffcc9954887bfd",
+    "inference/live/bundle.py": "9e55113763cd0f18d572649a0985560e12ba00ab6c9f447a6301a90b2e14ecc1",
+    "inference/live/models.py": "6e7d0351396633189ba80ab1d38c78a4a6a650ced6af53a9142e5da0d24f747b",
+    "inference/live/perception_worker.py": "6b724618ef740ec1452de2f2992530da9b0b7805bbd560cb4f9c9bc612690ee6",
+    "inference/live/routing.py": "bb35f491b7c78930f8d6b4468d79d9a43e77367b02295ffa46d1c42883869f14",
+    "inference/live/server.py": "57996d93cf4d95525eb7deb3933ed80e8b2ff56416e3abc015fd3ac8e815fa84",
+    "inference/live/timeline.py": "746c3ca32ae6eddf3d5944e6fb6b35233d61dabd149b43a07d88e4d4eba63f43",
+    "inference/perception/__init__.py": "bbddd730988b057182f211b0758fed4ed1c28c2b35ac669d941c04907d81e1c7",
+    "inference/perception/export.py": "834caafa07e672938be3a09fc4aad18ae9d411fdde44f0a8f0fcf21e3afa2933",
+    "inference/perception/gaze_profile.py": "145770af584577db46e894d6ced2854ece0770c61010e52a65cc2045f110941f",
+    "inference/perception/geometry.py": "c1b5ced1b5b97489a1761d29d2445b179f42b2e929227cc208d7bbde5340fa38",
+    "inference/perception/profile.py": "36166f6dc327c58efc49f3c37a09e37fb76888c8350d6471d323c35e879a9e6d",
+    "inference/perception/runtime.py": "1b9b07ff45dbe378e061ed15e09cd55231614d31d2ed49ebcc3cc24c41af26fb",
+    "inference/perception/sequence.py": "12364b73d695ea9b11196e31c15293ccac31524f5db8c9bc06c0849d36f0cbcc",
+    "inference/perception/tracking.py": "1022472690dbfc9e3fba65c4da1155617cc74afeb286071a28cde64d86ba1747",
+    "inference/perception/video.py": "435c3f11e57d89de0b7368e1434ab6d5bdd3d0a20babf4a70b022c776846a052",
+    "inference/perception/video_source.py": "95b8f14721aef2265f0f5a9bc2e0834bf5872157d007a3ed8d0a4d41e9426a91",
+    "training/common/__init__.py": "d87997f5c66a4193927ba3a690fae2ab634969ec64dd5b2d769e1556406c6857",
+    "training/common/checkpoint.py": "c29f44103a0eeaabbba4b5b500ac8558e80fc541c1b103a3cba19af3d1a4b70b",
+    "training/common/config.py": "10d10694caf38479f6eeebfdf32f7d677f9fa0c574d0d899f9d51ea5b04d7dfd",
+    "training/common/data.py": "7e213c02dcd0164cc2b3a2da3074aac68396fd0df141092a8ab8773d2fcd8bd7",
+    "training/common/device.py": "8afbc57c318748880348e7cd4547775ad505f345afe0c3eaf77aca74d1f8b3ba",
+    "training/common/model_factory.py": "43186aca2a8b40511f2e764ab617011cac6a30036b60ccf26beff0f733c29ef0",
+    "training/common/normalization.py": "df20cbeae42ffbd457428a5bb4a29fa2350a03dc768b7ef7783a82d94f68d8ea",
+    "training/dmd/__init__.py": "4733121334985d4e9720af54a4c1f4fb6fa005fa0806ceadf2efb8d5183d22bc",
+    "training/dmd/annotations.py": "a2bb4817273e64d0a409ff21ac85ca3c52736b0e54642935a1bcb5f19d1f0bf4",
+    "training/dmd/audit.py": "9e6f1030cff44db6411e39b9b26b51a1effba5a6763b3bc5a2c3f908d15b1cc8",
+    "training/dmd/batch.py": "b5b04f2943740ae0b7ac4d9436e8f1781bdda33e750386a02512a26e7ff7fdbc",
+    "training/dmd/batch_config.py": "a4ef58e8e708023035617b3a4f3269650e28699f317ae9e5519c233f82dffa59",
+    "training/dmd/cache.py": "f2cc39862f2f8cfaa598e528a51c58e18a23844032998ea38c8ca0a5762b1d77",
+    "training/dmd/face_crop_preview.py": "ad126fb28824f701ccf6069b45f9524ca364ac5fbcfb7c59c14271cdf733f6ba",
+    "training/dmd/face_diagnostic_samples.py": "18391d32f63ad399fad6626ff5a0b81af6e35418dd0fc2dec713d444c71ee5ed",
+    "training/dmd/face_diagnostics.py": "ee6fecc117f4a5e045dc080008ced5f1af464bd090212c91b2cf61bcbd50031a",
+    "training/dmd/face_experiment_config.py": "433b9ab42d136ca25fba38a175025d1d961cbf28c9aacdccc5bd713a2b4d2ff1",
+    "training/dmd/face_experiments.py": "0a638c047de01c58ab764a4b6d782b614bfc2e95575370fd615eb254359ba191",
+    "training/dmd/face_head_continuity.py": "cb19d42bd385d9b9eb60323a8314048785d59547f48091945d0afbccd01b6328",
+    "training/dmd/fatigue_head_regions.py": "505a7fe0a787468b9385c736cfcbb5171d2526cdf2bf1bdb237bea8655fa43b4",
+    "training/dmd/fatigue_recovery.py": "3caa66b10d36085dc4d91f4dc160d005ed491fb44aef28404ed6f761e75ab789",
+    "training/dmd/fatigue_replay.py": "0af3c485e9fa28909a21c878f3a7d5e2ddf5caed096a257751b91546b44a12f0",
+    "training/dmd/gaze_batch.py": "b03758a32ef7df0cccf15b93816aa26e766145e8b413542102149c200797a0cb",
+    "training/dmd/gaze_labels.py": "8aa25bcaddb3e7cd653afd6fce94e3c4131f1ab40eca5af8b7902c0cf2189a98",
+    "training/dmd/labels.py": "8c02381f737cee7b02f4e72f45d6b226935c2b64634e1f7007c357f62fc1c81e",
+    "training/dmd/parallel.py": "06dd784687fcc92ee0fe2deca9c9f5e080e12e9ab52201702e1675eb531209ed",
+    "training/dmd/prepare.py": "a10be0fcdf4ec310438cbec619dc6848512243726bd2932147c02b009cc44cdf",
+    "training/dmd/server_runner.py": "6a18be334103f43545734617678c82cbd2d8dea572839cb730e749f69fbe8e62",
+    "training/dmd/server_setup.py": "314de0316ebd0bb9919859f1b9ba7803175fba760643c7c84f645e0a7cefe65d",
+    "training/gaze/__init__.py": "723d99957f8a75c906c9bf735e7f506179e1e4b03557420bc26084ebd1bcef72",
+    "training/gaze/body_dist.py": "0d9a2f231dd60f2f3b55c77a5856bbb6a6533e258f3ac09c2df3c3c0940fb511",
+    "training/gaze/body_dist_report.py": "84796fc9bf4e5c5f1877d4019fb0a2ca009975f5f00e5bd3cf0008efe9012713",
+    "training/gaze/body_dist_suite.py": "76e689552f4030fcb62fae7d118615b9858f6af896bb60b56a4b7d094ab29b53",
+    "training/gaze/checkpoint.py": "af4e26b0e3d533f931ffcb5039a19776d9277934b5536c0c286eac8f818fff25",
+    "training/gaze/cli.py": "a6957e4e49311bb8ae299613e68f56066df6c9c733dbce0d0479fd1a9d821610",
+    "training/gaze/config.py": "2341c41d2bf5d759adb91a5638dacf796df844b7cab71efb588d82353c3b6beb",
+    "training/gaze/cpu_train.py": "6b98d4cdc608c5dd895fe768111f8ea90238bcf1a2784d5294bd1ccdaa937fdc",
+    "training/gaze/data.py": "ba6416befa990314fc6684b1156ab0dd6315fcb1cd36c249507c0514eaab1f86",
+    "training/gaze/diagnostics.py": "a6ac50c969b10b5b25744f32286ce7d29cc7f54bc8c5406503ab964d5999048d",
+    "training/gaze/experiment_settings.py": "102a5d78d7fe98e67eb3b9ba17b5f5dd036869bef9f5af8710215d856bf811c7",
+    "training/gaze/fatigue_diagnostics.py": "02d9f5f9afb01e32d59599fbdcf6b317c7a99ecaede23a68bed2aafc2ca7a8eb",
+    "training/gaze/gpu_train.py": "b1dfb745f80f48f8c54a490e85c151ac332125e666092663532287f01ca1544b",
+    "training/gaze/head_coverage.py": "ece43b67cde84298b41fd0f683aec46e49dafa42d09e6593423deebdc621c766",
+    "training/gaze/head_evidence.py": "2a4c445fae9f92209bdeb9384739a1f6afc43306ee21bbea2eba7d5383ba51a6",
+    "training/gaze/head_model.py": "d9153a62d3b2e8d9f060ab2c26bdaed8a36e979ffb09205f19301d7b486f2229",
+    "training/gaze/head_policy.py": "4adbbcfd3d29cae797549672a3ed919672ca47fc8a35c76279fcf4b18a9e166c",
+    "training/gaze/losses.py": "ae507fb94232b0bfc95997c94373b86e9516da00bbefe387add7327911a7cb46",
+    "training/gaze/metrics.py": "23c379566df7532d3974fd37306f6fea2fa795c5aefd9025d20781dfcdb1d9c0",
+    "training/gaze/model.py": "863cd278c37d4f25cd847870ed11bcbfc1de203a3287285a7fd46bab7fc33c7b",
+    "training/gaze/npu_train.py": "691d2751b4b00a0eff0a2ecaf2c57d0f5f18b30b3184b321315e09a86a070fc3",
+    "training/gaze/predict.py": "e7e8e16b32916a282d1eae770adbfca66603b707e3aaaf0dc70c6f15ea9fd209",
+    "training/gaze/preprocessing.py": "b82ea69533cfaf648af1a49c064143991266317501e3c2cd25439b06cc0b3685",
+    "training/gaze/profile.py": "bd094d6abfb727dedc887cc2a54f20175429786181ac654cba85661a8db21be0",
+    "training/gaze/train.py": "20f56e0b77338f6449b2b3f1a8a6788b8314a796bc986d86ce75c8a7b9189fc5",
+    "training/relation/__init__.py": "5c11ba5079bf7f53649ee81654ec82f59236da1f55e1d667e6f965408b2386aa",
+    "training/relation/cpu_train.py": "ba5c5a25c96b0a838ad6cf5906e5a4b00f23f809b6dd4be4a26a8195c6501b2e",
+    "training/relation/gpu_train.py": "c8aa36286331b32fdc772a6f02aaf95c1296d4a1cb6c12f08d94e994f2a5175d",
+    "training/relation/model.py": "b23bfe75c596280dd4cfc385eca097eecc17a58e6e38c50a96e014e2bcfcf51d",
+    "training/relation/npu_train.py": "8c27b27df97751ba5fc24352e9efa940c8a240f62fef91a086028e095772234e",
+    "training/relation/preprocessing.py": "21f8eb3bef91e273119d934fecd510ccf7ac48a7fb1f5eb16103cd0e7e47354a",
+    "training/relation/profile.py": "d4bfd55d60a58fed0714a2c3bb5788806a1292129be6703bd3afbbf246e0c978",
+    "training/relation/smoke.py": "537b23d2e8984a0f44ccf6bb2e1a42bfb830866f223a8adbec065b804e82d03c",
+    "training/temporal/__init__.py": "b4bfc21f3ca6ad6080eb834d31f0c22d0bf9cf4d39167eb0ab5fe0bf7fdbaa46",
+    "training/temporal/cli.py": "d02d2051a98c32706f4075a479f8f8fb7026f05e5027b28bd677403b8f7efef3",
+    "training/temporal/gpu_train.py": "6aaefae08188ec839cf935a9b122a22c70c993852a0509217847031ff68f6e8e",
+    "training/temporal/losses.py": "ab46dd9552f467d607416cfd3a346b0518eaafb5f6166728929c7a06c068f822",
+    "training/temporal/metrics.py": "389a039cc9e3be09087914e685fdff1a74953f73d3c35c48a3d7cfac983acd01",
+    "training/temporal/model.py": "90e2a218d8607a9fc9550274e576e3e9b90ec5a755875ad5f356b95d1fc7fd18",
+    "training/temporal/npu_train.py": "30c9056f60779ca821bd93b3e3b5e32bf29e216d7b3cbb7030bac2deb505881b",
+    "training/temporal/smoke.py": "2e96d4e78b47495fcd6c34e46c8a9a95f8096005fc8b02d5b840da4aecbafa59",
+    "training/temporal/train.py": "d981c82e7046b544030ae81e78abf55689072f66cdd315ce782fa12928b40045",
+    "training/visual/__init__.py": "2bbf5d6f80894c30e50304e5b64da65e136c1d4ef0b549e6541f5655eee975a8",
+    "training/visual/action_eval.py": "121906dedca6666df4bca0442b4e7ba3d18564143e7842fbf218cd2ee7073f62",
+    "training/visual/action_labels.py": "254ee35a1e862fafa66415062e628feb576faf76d3514659466d3bb66983e71f",
+    "training/visual/action_model.py": "8e246c591858cada99518e256983df439187c4d42b0c14280c4b7f216b861d2a",
+    "training/visual/action_train.py": "4974ace610fd2a25abfc2f21cd62fe8101fd19e06bc84b65cd25da9cddbc13cf",
+    "training/visual/all_tasks.py": "0867a53948305ea5126d9202ebd6f6168abb59a63b8668fbfd88e4b36d4570f9",
+    "training/visual/data.py": "173e26ef414105142ca30a7db5a5005e22b710d8fb1af410c88352ab83d40005",
+    "training/visual/encoder.py": "47e44980229fcc0c951e29c76dbbe5def003e08f71773f454bbae84da98c89c5",
+    "training/visual/encoder_metadata.py": "356209713c54eab0638fb18746552fa2ebba6aae473bd5e0b30e1f6af221a215",
+    "training/visual/evaluation_cost.py": "da1ce9401e610ac952fd86148d81e094637430283832872a1179c83f0ffe71e5",
+    "training/visual/extract.py": "73692fe31ed8ac74a74001243f825df35a6b649b0afdbfc1a1df51ade90308d9",
+    "training/visual/eye_audit.py": "a583160f27d6ba9e84f9e86cd236b96d19d37a87ef923369badb6491209ac870",
+    "training/visual/eye_breakpoints.py": "f394639169cb051b1e2912c7a6047c7905809018e9319af50d40b53fa2eee042",
+    "training/visual/eye_composition.py": "12e6af0e902cc95691c2fded96ddf3e03b80024c5a442e84340720e70672678e",
+    "training/visual/eye_diagnostics.py": "d5950b95ac3e1039879fdd3acfbce085ad7f4ef47e889baa3298cf39e0f43379",
+    "training/visual/eye_frames.py": "d209f6f1610f33f1d5a2f7802e21852fb2b4c8db69f7b1834d8e9dd2f9bce306",
+    "training/visual/eye_recovery.py": "6b82bfe290ac0640c5cbf507d1d1c7ef50f56d24822114e4a81ae4f098c4e0f6",
+    "training/visual/eye_scores.py": "467469191672d7c2f5c8951e074d80447988afca681c0ae2da895b4c5d9b2e37",
+    "training/visual/eye_support.py": "74266a706a7302f4f390164d0a0d0c85610119d21b57b504f36d991571c11c23",
+    "training/visual/eye_tracking.py": "35dc4d904de2147462b6177c9b32065eb821f8f9e2e797322202f654c7f0565b",
+    "training/visual/eye_tracking_replay.py": "9506de4540e1eb928e690a40fd3d66c1e15b72d13db41615f4103c32801a5eb3",
+    "training/visual/eye_train.py": "f352712af68402b287c52222cd8a60badb06cd42af9e29ce13ea2166cc27c3d0",
+    "training/visual/fatigue.py": "29d8ec9e49f5cfca73160b1efb05c1202d8fc21bd5f2fabf636c6d8265aada68",
+    "training/visual/fatigue_actions.py": "07b33758d8811df6772c5bfd9e58674fe613aa9420102e86faddb8422cfc8824",
+    "training/visual/fatigue_audit.py": "30de695daff90690394d0e19ed0c1603203e10b3263bf4c92e45f202ce354db7",
+    "training/visual/fatigue_eyes.py": "1656c3a1038e40f4d32de92d61ce359aa18c70fb96b3e5fdfae36480e40d257f",
+    "training/visual/fatigue_head_stability.py": "80c84d94db0d50275c70e36a20ffa599a7fbea5e9674cfa55864578abda38362",
+    "training/visual/fatigue_spatial_pipeline.py": "f7e4cf7958b6dba869ccb95035234122df88382dbb450868295654da5d8cd205",
+    "training/visual/fatigue_spatial_suite.py": "9608051fc70b639ff0033c443071a9e4645e5faed39b3f6bb6864939cd7835c8",
+    "training/visual/head_adapt_train.py": "e4560c9060ac882c6bdb5a889311900bef7b4dfaa2acb63600fa1573a5991143",
+    "training/visual/head_adaptation.py": "6d4341403a7a1bcf2711ca95454d2529eb5a0a48b6f99d6c760adf648583891d",
+    "training/visual/head_frames.py": "f3f9e98c7e5567e6e9871ee6c11e86a8ad53d689eb2ebf2323ef5fe1b20634b5",
+    "training/visual/model.py": "de4b65c3fb43849539ea61ba304971b7affd2df683af5262be039d886fecb1b7",
+    "training/visual/pipeline.py": "029ba78161b7c111ffc64f4e44154cd5720a8326e82c2c3f0029888187a25e8d",
+    "training/visual/prepare.py": "9bfed49830b4e33c224ef7262667a332ebdf00fbb55dc9999270fcb07b650b8b",
+    "training/visual/report.py": "4bbb7c55f4045647db3e241fab686ee8cf3afb9f8776a0481723a5384548fc5d",
+    "training/visual/spatial.py": "c399d0a6fef1cb4df5fbb61c3052358705e2ee1b455cb0618655339b32749077",
+    "training/visual/stability.py": "a872373aebecdcda930fc53f54c9c598a314a6afbbe60b37ab90c2be1602a4b1",
+    "training/visual/suite.py": "c4be3936632154a92212a4569bfd73ef0a9b81ad91b8c71aefcf22a27d4ce5e4",
+    "training/visual/train.py": "e0aad297c2692c02d90198fc73b0c2cabf1d4c4fa9c2f3445d7d7a802db3df7a",
+    "training/visual/weights.py": "786d08091d92fb5010731fd6e71c5199329c609942cd4fcb9c6d22bd72b33a06"
+  },
+  "candidate": "C_fusion_seed43_validation_fpr03_coverage25_outputs",
+  "distraction_threshold": -0.6933670043945312,
+  "head_crop": {
+    "version": "driver-relative-rect-v1",
+    "xyxy": [
+      0.05,
+      0.0,
+      0.65,
+      0.65
+    ]
+  },
+  "eye_tracking": {
+    "version": "confirmed-eye-translation-lk-v1",
+    "fallback_detector_reason": "no_face_detected",
+    "max_age_ms": 250,
+    "max_source_gap_ms": 80,
+    "min_points": 6,
+    "min_consistent_fraction": 0.6,
+    "max_corners": 80,
+    "feature_quality": 0.01,
+    "feature_min_distance": 3.0,
+    "feature_block_size": 3,
+    "neighborhood_side_per_eye_side": 1.5,
+    "lk_window_size": 21,
+    "lk_max_level": 2,
+    "lk_max_iterations": 30,
+    "lk_epsilon": 0.01,
+    "lk_min_eigenvalue": 0.0001,
+    "max_forward_backward_error_px": 1.0,
+    "max_lk_error": 20.0,
+    "max_translation_residual_px": 1.5,
+    "max_step_shift_px": 20.0,
+    "max_step_shift_per_eye_span": 0.5,
+    "max_total_shift_px": 40.0,
+    "max_total_shift_per_eye_span": 1.0,
+    "motion": "median_translation_only_preserve_detected_square_and_span",
+    "containment": "all_tracked_eye_pixels_inside_head_and_image_no_clipping",
+    "reseed": "confirmed_detection_only",
+    "age": "since_last_confirmed_detection_never_renewed_by_flow",
+    "label_access": false
+  },
+  "event_policy": {
+    "closed_eye_min_ms": 1000,
+    "missing": "reset-eye-only",
+    "threshold_logit": 0.0
+  },
+  "reference_metrics": {
+    "all_tasks": {
+      "body_threshold_logit": -0.6933670043945312,
+      "by_subject": {
+        "14": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": 0.5974025974025974,
+              "all_positive_f1": 0.6748166259168704,
+              "available": 1358,
+              "available_false_positive_rate": 0.0354924578527063,
+              "available_recall": 0.5974025974025974,
+              "coverage": 1.0,
+              "effective_f1": 0.6748166259168704,
+              "false_positive_rate": 0.0354924578527063,
+              "fn": 93,
+              "fp": 40,
+              "input_available_windows": 1948,
+              "known": 1358,
+              "negative": 1127,
+              "positive": 231,
+              "precision": 0.7752808988764045,
+              "raw_known": 1358,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1087,
+              "tp": 138,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 590,
+              "windows": 1948
+            },
+            "drinking": {
+              "all_positive_detection_rate": 0.8703703703703703,
+              "all_positive_f1": 0.912621359223301,
+              "available": 561,
+              "available_false_positive_rate": 0.0039447731755424065,
+              "available_recall": 0.8703703703703703,
+              "coverage": 1.0,
+              "effective_f1": 0.912621359223301,
+              "false_positive_rate": 0.0039447731755424065,
+              "fn": 7,
+              "fp": 2,
+              "input_available_windows": 1948,
+              "known": 561,
+              "negative": 507,
+              "positive": 54,
+              "precision": 0.9591836734693877,
+              "raw_known": 561,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 505,
+              "tp": 47,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1387,
+              "windows": 1948
+            },
+            "fatigue": {
+              "all_positive_detection_rate": 0.42592592592592593,
+              "all_positive_f1": 0.5609756097560976,
+              "available": 296,
+              "available_false_positive_rate": 0.02066115702479339,
+              "available_recall": 0.42592592592592593,
+              "coverage": 1.0,
+              "effective_f1": 0.5609756097560976,
+              "false_positive_rate": 0.02066115702479339,
+              "fn": 31,
+              "fp": 5,
+              "input_available_windows": 1948,
+              "known": 296,
+              "negative": 242,
+              "positive": 54,
+              "precision": 0.8214285714285714,
+              "raw_known": 296,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 237,
+              "tp": 23,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1652,
+              "windows": 1948
+            },
+            "phone_use": {
+              "all_positive_detection_rate": 0.9621749408983451,
+              "all_positive_f1": 0.969047619047619,
+              "available": 930,
+              "available_false_positive_rate": 0.01972386587771203,
+              "available_recall": 0.9621749408983451,
+              "coverage": 1.0,
+              "effective_f1": 0.969047619047619,
+              "false_positive_rate": 0.01972386587771203,
+              "fn": 16,
+              "fp": 10,
+              "input_available_windows": 1948,
+              "known": 930,
+              "negative": 507,
+              "positive": 423,
+              "precision": 0.9760191846522782,
+              "raw_known": 930,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 497,
+              "tp": 407,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1018,
+              "windows": 1948
+            }
+          },
+          "gaze": {
+            "accuracy": 0.9126213788986206,
+            "available_known": 103,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                8,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                10,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                9,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                1,
+                1,
+                9,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                6,
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                7,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                10,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                18
+              ]
+            ],
+            "coverage": 0.9903846153846154,
+            "input_available_windows": 1018,
+            "known": 103,
+            "macro_f1": 0.9040785034497579,
+            "missing_classes": [],
+            "per_class": {
+              "center_mirror": {
+                "f1": 0.9473684430122375,
+                "precision": 0.8999999761581421,
+                "recall": 1.0,
+                "support": 9
+              },
+              "front": {
+                "f1": 0.9090909361839294,
+                "precision": 0.9090909361839294,
+                "recall": 0.9090909361839294,
+                "support": 11
+              },
+              "front_right": {
+                "f1": 0.8999999761581421,
+                "precision": 1.0,
+                "recall": 0.8181818127632141,
+                "support": 11
+              },
+              "infotainment": {
+                "f1": 0.8695651888847351,
+                "precision": 0.9090909361839294,
+                "recall": 0.8333333134651184,
+                "support": 12
+              },
+              "left": {
+                "f1": 0.9411764740943909,
+                "precision": 1.0,
+                "recall": 0.8888888955116272,
+                "support": 9
+              },
+              "left_mirror": {
+                "f1": 0.9714285731315613,
+                "precision": 0.9444444179534912,
+                "recall": 1.0,
+                "support": 17
+              },
+              "right": {
+                "f1": 0.875,
+                "precision": 0.875,
+                "recall": 0.875,
+                "support": 8
+              },
+              "right_mirror": {
+                "f1": 0.800000011920929,
+                "precision": 0.75,
+                "recall": 0.8571428656578064,
+                "support": 7
+              },
+              "steering_wheel": {
+                "f1": 0.9230769276618958,
+                "precision": 0.8999999761581421,
+                "recall": 0.9473684430122375,
+                "support": 19
+              }
+            },
+            "raw_class_support": [
+              17,
+              9,
+              11,
+              9,
+              11,
+              8,
+              8,
+              12,
+              19
+            ],
+            "raw_known": 104,
+            "raw_unknown": 1844,
+            "unavailable_known": 1,
+            "unknown_or_unavailable": 1845
+          },
+          "windows": 1948
+        },
+        "7": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": 0.5137931034482759,
+              "all_positive_f1": 0.6221294363256785,
+              "available": 1438,
+              "available_false_positive_rate": 0.03484320557491289,
+              "available_recall": 0.5137931034482759,
+              "coverage": 1.0,
+              "effective_f1": 0.6221294363256785,
+              "false_positive_rate": 0.03484320557491289,
+              "fn": 141,
+              "fp": 40,
+              "input_available_windows": 1988,
+              "known": 1438,
+              "negative": 1148,
+              "positive": 290,
+              "precision": 0.7883597883597884,
+              "raw_known": 1438,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1108,
+              "tp": 149,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 550,
+              "windows": 1988
+            },
+            "drinking": {
+              "all_positive_detection_rate": 0.6285714285714286,
+              "all_positive_f1": 0.7096774193548387,
+              "available": 627,
+              "available_false_positive_rate": 0.008445945945945946,
+              "available_recall": 0.6285714285714286,
+              "coverage": 1.0,
+              "effective_f1": 0.7096774193548387,
+              "false_positive_rate": 0.008445945945945946,
+              "fn": 13,
+              "fp": 5,
+              "input_available_windows": 1988,
+              "known": 627,
+              "negative": 592,
+              "positive": 35,
+              "precision": 0.8148148148148148,
+              "raw_known": 627,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 587,
+              "tp": 22,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1361,
+              "windows": 1988
+            },
+            "fatigue": {
+              "all_positive_detection_rate": 0.42857142857142855,
+              "all_positive_f1": 0.5769230769230769,
+              "available": 248,
+              "available_false_positive_rate": 0.02247191011235955,
+              "available_recall": 0.42857142857142855,
+              "coverage": 1.0,
+              "effective_f1": 0.5769230769230769,
+              "false_positive_rate": 0.02247191011235955,
+              "fn": 40,
+              "fp": 4,
+              "input_available_windows": 1988,
+              "known": 248,
+              "negative": 178,
+              "positive": 70,
+              "precision": 0.8823529411764706,
+              "raw_known": 248,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 174,
+              "tp": 30,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1740,
+              "windows": 1988
+            },
+            "phone_use": {
+              "all_positive_detection_rate": 0.7893569844789357,
+              "all_positive_f1": 0.8651275820170109,
+              "available": 1043,
+              "available_false_positive_rate": 0.02702702702702703,
+              "available_recall": 0.7893569844789357,
+              "coverage": 1.0,
+              "effective_f1": 0.8651275820170109,
+              "false_positive_rate": 0.02702702702702703,
+              "fn": 95,
+              "fp": 16,
+              "input_available_windows": 1988,
+              "known": 1043,
+              "negative": 592,
+              "positive": 451,
+              "precision": 0.956989247311828,
+              "raw_known": 1043,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 576,
+              "tp": 356,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 945,
+              "windows": 1988
+            }
+          },
+          "gaze": {
+            "accuracy": 0.746268630027771,
+            "available_known": 67,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                6,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                16,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                8,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                11,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                1,
+                6,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                3,
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                6
+              ]
+            ],
+            "coverage": 0.8481012658227848,
+            "input_available_windows": 822,
+            "known": 67,
+            "macro_f1": 0.6212498777442508,
+            "missing_classes": [],
+            "per_class": {
+              "center_mirror": {
+                "f1": 0.5925925970077515,
+                "precision": 0.42105263471603394,
+                "recall": 1.0,
+                "support": 8
+              },
+              "front": {
+                "f1": 0.9696969985961914,
+                "precision": 1.0,
+                "recall": 0.9411764740943909,
+                "support": 17
+              },
+              "front_right": {
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 11
+              },
+              "infotainment": {
+                "f1": 0.4000000059604645,
+                "precision": 1.0,
+                "recall": 0.25,
+                "support": 4
+              },
+              "left": {
+                "f1": 1.0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "support": 6
+              },
+              "left_mirror": {
+                "f1": 1.0,
+                "precision": 1.0,
+                "recall": 1.0,
+                "support": 7
+              },
+              "right": {
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "support": 1
+              },
+              "right_mirror": {
+                "f1": 0.7058823704719543,
+                "precision": 0.6000000238418579,
+                "recall": 0.8571428656578064,
+                "support": 7
+              },
+              "steering_wheel": {
+                "f1": 0.9230769276618958,
+                "precision": 0.8571428656578064,
+                "recall": 1.0,
+                "support": 6
+              }
+            },
+            "raw_class_support": [
+              7,
+              6,
+              19,
+              8,
+              11,
+              7,
+              8,
+              7,
+              6
+            ],
+            "raw_known": 79,
+            "raw_unknown": 1909,
+            "unavailable_known": 12,
+            "unknown_or_unavailable": 1921
+          },
+          "windows": 1988
+        }
+      },
+      "by_subset": {
+        "distraction": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": 0.5508637236084453,
+              "all_positive_f1": 0.6463963963963963,
+              "available": 2796,
+              "available_false_positive_rate": 0.035164835164835165,
+              "available_recall": 0.5508637236084453,
+              "coverage": 1.0,
+              "effective_f1": 0.6463963963963963,
+              "false_positive_rate": 0.035164835164835165,
+              "fn": 234,
+              "fp": 80,
+              "input_available_windows": 2796,
+              "known": 2796,
+              "negative": 2275,
+              "positive": 521,
+              "precision": 0.782016348773842,
+              "raw_known": 2796,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 2195,
+              "tp": 287,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 0,
+              "windows": 2796
+            },
+            "drinking": {
+              "all_positive_detection_rate": 0.7752808988764045,
+              "all_positive_f1": 0.8363636363636363,
+              "available": 1188,
+              "available_false_positive_rate": 0.006369426751592357,
+              "available_recall": 0.7752808988764045,
+              "coverage": 1.0,
+              "effective_f1": 0.8363636363636363,
+              "false_positive_rate": 0.006369426751592357,
+              "fn": 20,
+              "fp": 7,
+              "input_available_windows": 2796,
+              "known": 1188,
+              "negative": 1099,
+              "positive": 89,
+              "precision": 0.9078947368421053,
+              "raw_known": 1188,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1092,
+              "tp": 69,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1608,
+              "windows": 2796
+            },
+            "fatigue": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 2796,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 2796,
+              "windows": 2796
+            },
+            "phone_use": {
+              "all_positive_detection_rate": 0.8729977116704806,
+              "all_positive_f1": 0.9176187612748046,
+              "available": 1973,
+              "available_false_positive_rate": 0.023657870791628753,
+              "available_recall": 0.8729977116704806,
+              "coverage": 1.0,
+              "effective_f1": 0.9176187612748046,
+              "false_positive_rate": 0.023657870791628753,
+              "fn": 111,
+              "fp": 26,
+              "input_available_windows": 2796,
+              "known": 1973,
+              "negative": 1099,
+              "positive": 874,
+              "precision": 0.9670468948035488,
+              "raw_known": 1973,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1073,
+              "tp": 763,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 823,
+              "windows": 2796
+            }
+          },
+          "gaze": {
+            "accuracy": null,
+            "available_known": 0,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "coverage": null,
+            "input_available_windows": 1217,
+            "known": 0,
+            "macro_f1": null,
+            "missing_classes": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "per_class": {
+              "center_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front_right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "infotainment": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "steering_wheel": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              }
+            },
+            "raw_class_support": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "raw_known": 0,
+            "raw_unknown": 2796,
+            "unavailable_known": 0,
+            "unknown_or_unavailable": 2796
+          },
+          "windows": 2796
+        },
+        "drowsiness": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 724,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 724,
+              "windows": 724
+            },
+            "drinking": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 724,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 724,
+              "windows": 724
+            },
+            "fatigue": {
+              "all_positive_detection_rate": 0.4274193548387097,
+              "all_positive_f1": 0.5698924731182796,
+              "available": 544,
+              "available_false_positive_rate": 0.02142857142857143,
+              "available_recall": 0.4274193548387097,
+              "coverage": 1.0,
+              "effective_f1": 0.5698924731182796,
+              "false_positive_rate": 0.02142857142857143,
+              "fn": 71,
+              "fp": 9,
+              "input_available_windows": 724,
+              "known": 544,
+              "negative": 420,
+              "positive": 124,
+              "precision": 0.8548387096774194,
+              "raw_known": 544,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 411,
+              "tp": 53,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 180,
+              "windows": 724
+            },
+            "phone_use": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 724,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 724,
+              "windows": 724
+            }
+          },
+          "gaze": {
+            "accuracy": null,
+            "available_known": 0,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "coverage": null,
+            "input_available_windows": 232,
+            "known": 0,
+            "macro_f1": null,
+            "missing_classes": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "per_class": {
+              "center_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front_right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "infotainment": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "steering_wheel": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              }
+            },
+            "raw_class_support": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "raw_known": 0,
+            "raw_unknown": 724,
+            "unavailable_known": 0,
+            "unknown_or_unavailable": 724
+          },
+          "windows": 724
+        },
+        "gaze": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 416,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 416,
+              "windows": 416
+            },
+            "drinking": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 416,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 416,
+              "windows": 416
+            },
+            "fatigue": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 416,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 416,
+              "windows": 416
+            },
+            "phone_use": {
+              "all_positive_detection_rate": null,
+              "all_positive_f1": null,
+              "available": 0,
+              "available_false_positive_rate": null,
+              "available_recall": null,
+              "coverage": null,
+              "effective_f1": null,
+              "false_positive_rate": null,
+              "fn": 0,
+              "fp": 0,
+              "input_available_windows": 416,
+              "known": 0,
+              "negative": 0,
+              "positive": 0,
+              "precision": null,
+              "raw_known": 0,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 0,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 416,
+              "windows": 416
+            }
+          },
+          "gaze": {
+            "accuracy": 0.8470588326454163,
+            "available_known": 170,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                24,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                26,
+                0,
+                0,
+                0,
+                0,
+                0,
+                2
+              ],
+              [
+                0,
+                0,
+                0,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                1,
+                12,
+                9,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                1,
+                12,
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                2,
+                7,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                4,
+                0,
+                11,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                24
+              ]
+            ],
+            "coverage": 0.9289617486338798,
+            "input_available_windows": 391,
+            "known": 170,
+            "macro_f1": 0.8305016292466058,
+            "missing_classes": [],
+            "per_class": {
+              "center_mirror": {
+                "f1": 0.739130437374115,
+                "precision": 0.5862069129943848,
+                "recall": 1.0,
+                "support": 17
+              },
+              "front": {
+                "f1": 0.9454545378684998,
+                "precision": 0.9629629850387573,
+                "recall": 0.9285714030265808,
+                "support": 28
+              },
+              "front_right": {
+                "f1": 0.5625,
+                "precision": 0.8999999761581421,
+                "recall": 0.40909090638160706,
+                "support": 22
+              },
+              "infotainment": {
+                "f1": 0.7857142686843872,
+                "precision": 0.9166666865348816,
+                "recall": 0.6875,
+                "support": 16
+              },
+              "left": {
+                "f1": 0.9655172228813171,
+                "precision": 1.0,
+                "recall": 0.9333333373069763,
+                "support": 15
+              },
+              "left_mirror": {
+                "f1": 0.9795918464660645,
+                "precision": 0.9599999785423279,
+                "recall": 1.0,
+                "support": 24
+              },
+              "right": {
+                "f1": 0.8235294222831726,
+                "precision": 0.875,
+                "recall": 0.7777777910232544,
+                "support": 9
+              },
+              "right_mirror": {
+                "f1": 0.75,
+                "precision": 0.6666666865348816,
+                "recall": 0.8571428656578064,
+                "support": 14
+              },
+              "steering_wheel": {
+                "f1": 0.9230769276618958,
+                "precision": 0.8888888955116272,
+                "recall": 0.9599999785423279,
+                "support": 25
+              }
+            },
+            "raw_class_support": [
+              24,
+              15,
+              30,
+              17,
+              22,
+              15,
+              16,
+              19,
+              25
+            ],
+            "raw_known": 183,
+            "raw_unknown": 233,
+            "unavailable_known": 13,
+            "unknown_or_unavailable": 246
+          },
+          "windows": 416
+        }
+      },
+      "by_view": {
+        "body": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": 0.437984496124031,
+              "all_positive_f1": 0.5594059405940595,
+              "available": 1396,
+              "available_false_positive_rate": 0.02899824253075571,
+              "available_recall": 0.437984496124031,
+              "coverage": 1.0,
+              "effective_f1": 0.5594059405940595,
+              "false_positive_rate": 0.02899824253075571,
+              "fn": 145,
+              "fp": 33,
+              "input_available_windows": 1758,
+              "known": 1396,
+              "negative": 1138,
+              "positive": 258,
+              "precision": 0.773972602739726,
+              "raw_known": 1396,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1105,
+              "tp": 113,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 362,
+              "windows": 1758
+            },
+            "drinking": {
+              "all_positive_detection_rate": 0.6976744186046512,
+              "all_positive_f1": 0.7792207792207793,
+              "available": 590,
+              "available_false_positive_rate": 0.007312614259597806,
+              "available_recall": 0.6976744186046512,
+              "coverage": 1.0,
+              "effective_f1": 0.7792207792207793,
+              "false_positive_rate": 0.007312614259597806,
+              "fn": 13,
+              "fp": 4,
+              "input_available_windows": 1758,
+              "known": 590,
+              "negative": 547,
+              "positive": 43,
+              "precision": 0.8823529411764706,
+              "raw_known": 590,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 543,
+              "tp": 30,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1168,
+              "windows": 1758
+            },
+            "fatigue": {
+              "all_positive_detection_rate": 0.0,
+              "all_positive_f1": 0.0,
+              "available": 276,
+              "available_false_positive_rate": 0.0,
+              "available_recall": 0.0,
+              "coverage": 1.0,
+              "effective_f1": 0.0,
+              "false_positive_rate": 0.0,
+              "fn": 61,
+              "fp": 0,
+              "input_available_windows": 1758,
+              "known": 276,
+              "negative": 215,
+              "positive": 61,
+              "precision": 0.0,
+              "raw_known": 276,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 215,
+              "tp": 0,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1482,
+              "windows": 1758
+            },
+            "phone_use": {
+              "all_positive_detection_rate": 0.7935779816513762,
+              "all_positive_f1": 0.8737373737373737,
+              "available": 983,
+              "available_false_positive_rate": 0.018281535648994516,
+              "available_recall": 0.7935779816513762,
+              "coverage": 1.0,
+              "effective_f1": 0.8737373737373737,
+              "false_positive_rate": 0.018281535648994516,
+              "fn": 90,
+              "fp": 10,
+              "input_available_windows": 1758,
+              "known": 983,
+              "negative": 547,
+              "positive": 436,
+              "precision": 0.9719101123595506,
+              "raw_known": 983,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 537,
+              "tp": 346,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 775,
+              "windows": 1758
+            }
+          },
+          "gaze": {
+            "accuracy": null,
+            "available_known": 0,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            ],
+            "coverage": null,
+            "input_available_windows": 33,
+            "known": 0,
+            "macro_f1": null,
+            "missing_classes": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "per_class": {
+              "center_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "front_right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "infotainment": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "left_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "right_mirror": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              },
+              "steering_wheel": {
+                "f1": null,
+                "precision": 0.0,
+                "recall": null,
+                "support": 0
+              }
+            },
+            "raw_class_support": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "raw_known": 0,
+            "raw_unknown": 1758,
+            "unavailable_known": 0,
+            "unknown_or_unavailable": 1758
+          },
+          "windows": 1758
+        },
+        "face": {
+          "behavior": {
+            "distraction": {
+              "all_positive_detection_rate": 0.6615969581749049,
+              "all_positive_f1": 0.71900826446281,
+              "available": 1400,
+              "available_false_positive_rate": 0.04133685136323659,
+              "available_recall": 0.6615969581749049,
+              "coverage": 1.0,
+              "effective_f1": 0.71900826446281,
+              "false_positive_rate": 0.04133685136323659,
+              "fn": 89,
+              "fp": 47,
+              "input_available_windows": 2178,
+              "known": 1400,
+              "negative": 1137,
+              "positive": 263,
+              "precision": 0.7873303167420814,
+              "raw_known": 1400,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 1090,
+              "tp": 174,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 778,
+              "windows": 2178
+            },
+            "drinking": {
+              "all_positive_detection_rate": 0.8478260869565217,
+              "all_positive_f1": 0.8863636363636364,
+              "available": 598,
+              "available_false_positive_rate": 0.005434782608695652,
+              "available_recall": 0.8478260869565217,
+              "coverage": 1.0,
+              "effective_f1": 0.8863636363636364,
+              "false_positive_rate": 0.005434782608695652,
+              "fn": 7,
+              "fp": 3,
+              "input_available_windows": 2178,
+              "known": 598,
+              "negative": 552,
+              "positive": 46,
+              "precision": 0.9285714285714286,
+              "raw_known": 598,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 549,
+              "tp": 39,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1580,
+              "windows": 2178
+            },
+            "fatigue": {
+              "all_positive_detection_rate": 0.8412698412698413,
+              "all_positive_f1": 0.848,
+              "available": 268,
+              "available_false_positive_rate": 0.04390243902439024,
+              "available_recall": 0.8412698412698413,
+              "coverage": 1.0,
+              "effective_f1": 0.848,
+              "false_positive_rate": 0.04390243902439024,
+              "fn": 10,
+              "fp": 9,
+              "input_available_windows": 2178,
+              "known": 268,
+              "negative": 205,
+              "positive": 63,
+              "precision": 0.8548387096774194,
+              "raw_known": 268,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 196,
+              "tp": 53,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1910,
+              "windows": 2178
+            },
+            "phone_use": {
+              "all_positive_detection_rate": 0.952054794520548,
+              "all_positive_f1": 0.9575200918484501,
+              "available": 990,
+              "available_false_positive_rate": 0.028985507246376812,
+              "available_recall": 0.952054794520548,
+              "coverage": 1.0,
+              "effective_f1": 0.9575200918484501,
+              "false_positive_rate": 0.028985507246376812,
+              "fn": 21,
+              "fp": 16,
+              "input_available_windows": 2178,
+              "known": 990,
+              "negative": 552,
+              "positive": 438,
+              "precision": 0.9630484988452656,
+              "raw_known": 990,
+              "threshold_logit": "per_window_see_predictions",
+              "tn": 536,
+              "tp": 417,
+              "unavailable_negative": 0,
+              "unavailable_positive": 0,
+              "unknown": 1188,
+              "windows": 2178
+            }
+          },
+          "gaze": {
+            "accuracy": 0.8470588326454163,
+            "available_known": 170,
+            "class_order": [
+              "left_mirror",
+              "left",
+              "front",
+              "center_mirror",
+              "front_right",
+              "right_mirror",
+              "right",
+              "infotainment",
+              "steering_wheel"
+            ],
+            "confusion_matrix": [
+              [
+                24,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                1,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                26,
+                0,
+                0,
+                0,
+                0,
+                0,
+                2
+              ],
+              [
+                0,
+                0,
+                0,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                1,
+                12,
+                9,
+                0,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                1,
+                12,
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                2,
+                7,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                4,
+                0,
+                11,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                24
+              ]
+            ],
+            "coverage": 0.9289617486338798,
+            "input_available_windows": 1807,
+            "known": 170,
+            "macro_f1": 0.8305016292466058,
+            "missing_classes": [],
+            "per_class": {
+              "center_mirror": {
+                "f1": 0.739130437374115,
+                "precision": 0.5862069129943848,
+                "recall": 1.0,
+                "support": 17
+              },
+              "front": {
+                "f1": 0.9454545378684998,
+                "precision": 0.9629629850387573,
+                "recall": 0.9285714030265808,
+                "support": 28
+              },
+              "front_right": {
+                "f1": 0.5625,
+                "precision": 0.8999999761581421,
+                "recall": 0.40909090638160706,
+                "support": 22
+              },
+              "infotainment": {
+                "f1": 0.7857142686843872,
+                "precision": 0.9166666865348816,
+                "recall": 0.6875,
+                "support": 16
+              },
+              "left": {
+                "f1": 0.9655172228813171,
+                "precision": 1.0,
+                "recall": 0.9333333373069763,
+                "support": 15
+              },
+              "left_mirror": {
+                "f1": 0.9795918464660645,
+                "precision": 0.9599999785423279,
+                "recall": 1.0,
+                "support": 24
+              },
+              "right": {
+                "f1": 0.8235294222831726,
+                "precision": 0.875,
+                "recall": 0.7777777910232544,
+                "support": 9
+              },
+              "right_mirror": {
+                "f1": 0.75,
+                "precision": 0.6666666865348816,
+                "recall": 0.8571428656578064,
+                "support": 14
+              },
+              "steering_wheel": {
+                "f1": 0.9230769276618958,
+                "precision": 0.8888888955116272,
+                "recall": 0.9599999785423279,
+                "support": 25
+              }
+            },
+            "raw_class_support": [
+              24,
+              15,
+              30,
+              17,
+              22,
+              15,
+              16,
+              19,
+              25
+            ],
+            "raw_known": 183,
+            "raw_unknown": 1995,
+            "unavailable_known": 13,
+            "unknown_or_unavailable": 2008
+          },
+          "windows": 2178
+        }
+      },
+      "checkpoint": "/mnt/workspace/DriveGuard-AI/runs/body-visual-stability-001/C_fusion-seed43/train-001/best.pt",
+      "checkpoint_epoch": 1,
+      "checkpoint_sha256": "8b68ddc3722c3e6fcbf8bcf3c77e3b963ec10cb31f010a74578f56be2021dabf",
+      "equality_audit": {
+        "c_branch_and_gap80_fallback_equal": true,
+        "frozen_gap80_h_cohorts_equal": true,
+        "output_base_behavior_logits_thresholds_masks_equal": true,
+        "output_base_gaze_equal": true,
+        "passed": true
+      },
+      "model_dependencies": [
+        "gap80",
+        "coverage25",
+        "C_fusion_seed43"
+      ],
+      "name": "C_fusion_seed43_validation_fpr03_coverage25_outputs",
+      "output_base": "A_coverage25",
+      "overall": {
+        "behavior": {
+          "distraction": {
+            "all_positive_detection_rate": 0.5508637236084453,
+            "all_positive_f1": 0.6463963963963963,
+            "available": 2796,
+            "available_false_positive_rate": 0.035164835164835165,
+            "available_recall": 0.5508637236084453,
+            "coverage": 1.0,
+            "effective_f1": 0.6463963963963963,
+            "false_positive_rate": 0.035164835164835165,
+            "fn": 234,
+            "fp": 80,
+            "input_available_windows": 3936,
+            "known": 2796,
+            "negative": 2275,
+            "positive": 521,
+            "precision": 0.782016348773842,
+            "raw_known": 2796,
+            "threshold_logit": "per_window_see_predictions",
+            "tn": 2195,
+            "tp": 287,
+            "unavailable_negative": 0,
+            "unavailable_positive": 0,
+            "unknown": 1140,
+            "windows": 3936
+          },
+          "drinking": {
+            "all_positive_detection_rate": 0.7752808988764045,
+            "all_positive_f1": 0.8363636363636363,
+            "available": 1188,
+            "available_false_positive_rate": 0.006369426751592357,
+            "available_recall": 0.7752808988764045,
+            "coverage": 1.0,
+            "effective_f1": 0.8363636363636363,
+            "false_positive_rate": 0.006369426751592357,
+            "fn": 20,
+            "fp": 7,
+            "input_available_windows": 3936,
+            "known": 1188,
+            "negative": 1099,
+            "positive": 89,
+            "precision": 0.9078947368421053,
+            "raw_known": 1188,
+            "threshold_logit": "per_window_see_predictions",
+            "tn": 1092,
+            "tp": 69,
+            "unavailable_negative": 0,
+            "unavailable_positive": 0,
+            "unknown": 2748,
+            "windows": 3936
+          },
+          "fatigue": {
+            "all_positive_detection_rate": 0.4274193548387097,
+            "all_positive_f1": 0.5698924731182796,
+            "available": 544,
+            "available_false_positive_rate": 0.02142857142857143,
+            "available_recall": 0.4274193548387097,
+            "coverage": 1.0,
+            "effective_f1": 0.5698924731182796,
+            "false_positive_rate": 0.02142857142857143,
+            "fn": 71,
+            "fp": 9,
+            "input_available_windows": 3936,
+            "known": 544,
+            "negative": 420,
+            "positive": 124,
+            "precision": 0.8548387096774194,
+            "raw_known": 544,
+            "threshold_logit": "per_window_see_predictions",
+            "tn": 411,
+            "tp": 53,
+            "unavailable_negative": 0,
+            "unavailable_positive": 0,
+            "unknown": 3392,
+            "windows": 3936
+          },
+          "phone_use": {
+            "all_positive_detection_rate": 0.8729977116704806,
+            "all_positive_f1": 0.9176187612748046,
+            "available": 1973,
+            "available_false_positive_rate": 0.023657870791628753,
+            "available_recall": 0.8729977116704806,
+            "coverage": 1.0,
+            "effective_f1": 0.9176187612748046,
+            "false_positive_rate": 0.023657870791628753,
+            "fn": 111,
+            "fp": 26,
+            "input_available_windows": 3936,
+            "known": 1973,
+            "negative": 1099,
+            "positive": 874,
+            "precision": 0.9670468948035488,
+            "raw_known": 1973,
+            "threshold_logit": "per_window_see_predictions",
+            "tn": 1073,
+            "tp": 763,
+            "unavailable_negative": 0,
+            "unavailable_positive": 0,
+            "unknown": 1963,
+            "windows": 3936
+          }
+        },
+        "gaze": {
+          "accuracy": 0.8470588326454163,
+          "available_known": 170,
+          "class_order": [
+            "left_mirror",
+            "left",
+            "front",
+            "center_mirror",
+            "front_right",
+            "right_mirror",
+            "right",
+            "infotainment",
+            "steering_wheel"
+          ],
+          "confusion_matrix": [
+            [
+              24,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              14,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              26,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              17,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              12,
+              9,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              12,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              7,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              4,
+              0,
+              11,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              24
+            ]
+          ],
+          "coverage": 0.9289617486338798,
+          "input_available_windows": 1840,
+          "known": 170,
+          "macro_f1": 0.8305016292466058,
+          "missing_classes": [],
+          "per_class": {
+            "center_mirror": {
+              "f1": 0.739130437374115,
+              "precision": 0.5862069129943848,
+              "recall": 1.0,
+              "support": 17
+            },
+            "front": {
+              "f1": 0.9454545378684998,
+              "precision": 0.9629629850387573,
+              "recall": 0.9285714030265808,
+              "support": 28
+            },
+            "front_right": {
+              "f1": 0.5625,
+              "precision": 0.8999999761581421,
+              "recall": 0.40909090638160706,
+              "support": 22
+            },
+            "infotainment": {
+              "f1": 0.7857142686843872,
+              "precision": 0.9166666865348816,
+              "recall": 0.6875,
+              "support": 16
+            },
+            "left": {
+              "f1": 0.9655172228813171,
+              "precision": 1.0,
+              "recall": 0.9333333373069763,
+              "support": 15
+            },
+            "left_mirror": {
+              "f1": 0.9795918464660645,
+              "precision": 0.9599999785423279,
+              "recall": 1.0,
+              "support": 24
+            },
+            "right": {
+              "f1": 0.8235294222831726,
+              "precision": 0.875,
+              "recall": 0.7777777910232544,
+              "support": 9
+            },
+            "right_mirror": {
+              "f1": 0.75,
+              "precision": 0.6666666865348816,
+              "recall": 0.8571428656578064,
+              "support": 14
+            },
+            "steering_wheel": {
+              "f1": 0.9230769276618958,
+              "precision": 0.8888888955116272,
+              "recall": 0.9599999785423279,
+              "support": 25
+            }
+          },
+          "raw_class_support": [
+            24,
+            15,
+            30,
+            17,
+            22,
+            15,
+            16,
+            19,
+            25
+          ],
+          "raw_known": 183,
+          "raw_unknown": 3753,
+          "unavailable_known": 13,
+          "unknown_or_unavailable": 3766
+        },
+        "windows": 3936
+      },
+      "paired_body_errors": {
+        "baseline_h_eligible": {
+          "introduced_fp": 12,
+          "lost_positive": 6,
+          "removed_fp": 11,
+          "rescued_positive": 16,
+          "strict_both_available": {
+            "introduced_fp": 12,
+            "lost_positive": 6,
+            "removed_fp": 11,
+            "rescued_positive": 16,
+            "windows": 271
+          },
+          "windows": 271
+        },
+        "baseline_h_ineligible": {
+          "introduced_fp": 6,
+          "lost_positive": 0,
+          "removed_fp": 0,
+          "rescued_positive": 17,
+          "strict_both_available": {
+            "introduced_fp": 6,
+            "lost_positive": 0,
+            "removed_fp": 0,
+            "rescued_positive": 17,
+            "windows": 1125
+          },
+          "windows": 1125
+        },
+        "overall": {
+          "introduced_fp": 18,
+          "lost_positive": 6,
+          "removed_fp": 11,
+          "rescued_positive": 33,
+          "strict_both_available": {
+            "introduced_fp": 18,
+            "lost_positive": 6,
+            "removed_fp": 11,
+            "rescued_positive": 33,
+            "windows": 1396
+          },
+          "windows": 1396
+        }
+      },
+      "seed": 43,
+      "threshold_source": "validation_fpr03",
+      "window_label_hash": "d2bf8092d8e2475de9404ce59ef5da412205788719508bcb54fbf4984822edbf"
+    },
+    "body_fatigue": {
+      "baseline_f_eligible": {
+        "all_positive_detection_rate": null,
+        "all_positive_f1": 0.0,
+        "available": 0,
+        "available_false_positive_rate": null,
+        "available_recall": null,
+        "coverage": null,
+        "false_positive_rate": null,
+        "fn": 0,
+        "fn_total": 0,
+        "fp": 0,
+        "known": 0,
+        "negative": 0,
+        "positive": 0,
+        "precision": 0.0,
+        "threshold_logit": 0.0,
+        "tn": 0,
+        "tp": 0,
+        "unavailable_negative": 0,
+        "unavailable_positive": 0,
+        "unknown": 34,
+        "windows": 34
+      },
+      "baseline_f_ineligible": {
+        "all_positive_detection_rate": 0.32786885245901637,
+        "all_positive_f1": 0.49382716049382713,
+        "available": 276,
+        "available_false_positive_rate": 0.0,
+        "available_recall": 0.32786885245901637,
+        "coverage": 1.0,
+        "false_positive_rate": 0.0,
+        "fn": 41,
+        "fn_total": 41,
+        "fp": 0,
+        "known": 276,
+        "negative": 215,
+        "positive": 61,
+        "precision": 1.0,
+        "threshold_logit": 0.0,
+        "tn": 215,
+        "tp": 20,
+        "unavailable_negative": 0,
+        "unavailable_positive": 0,
+        "unknown": 1448,
+        "windows": 1724
+      },
+      "by_record": {
+        "1b7f74e8c9f83a2148b6f230": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 61,
+          "windows": 61
+        },
+        "3dcb48957dffd592fe200721": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 445,
+          "windows": 445
+        },
+        "4b680f020a0947c1fdebfea8": {
+          "all_positive_detection_rate": 0.34285714285714286,
+          "all_positive_f1": 0.5106382978723404,
+          "available": 127,
+          "available_false_positive_rate": 0.0,
+          "available_recall": 0.34285714285714286,
+          "coverage": 1.0,
+          "false_positive_rate": 0.0,
+          "fn": 23,
+          "fn_total": 23,
+          "fp": 0,
+          "known": 127,
+          "negative": 92,
+          "positive": 35,
+          "precision": 1.0,
+          "threshold_logit": 0.0,
+          "tn": 92,
+          "tp": 12,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 51,
+          "windows": 178
+        },
+        "b8f16ca905b2f4e4dc9e1905": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 397,
+          "windows": 397
+        },
+        "bc8f6bf7e06b8ead6a445d5e": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 221,
+          "windows": 221
+        },
+        "cc3234cf4419361ccc018468": {
+          "all_positive_detection_rate": 0.3076923076923077,
+          "all_positive_f1": 0.47058823529411764,
+          "available": 149,
+          "available_false_positive_rate": 0.0,
+          "available_recall": 0.3076923076923077,
+          "coverage": 1.0,
+          "false_positive_rate": 0.0,
+          "fn": 18,
+          "fn_total": 18,
+          "fp": 0,
+          "known": 149,
+          "negative": 123,
+          "positive": 26,
+          "precision": 1.0,
+          "threshold_logit": 0.0,
+          "tn": 123,
+          "tp": 8,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 35,
+          "windows": 184
+        },
+        "d78204ef515c87021cc93929": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 214,
+          "windows": 214
+        },
+        "fd78fcedc50fb511cea5341b": {
+          "all_positive_detection_rate": null,
+          "all_positive_f1": 0.0,
+          "available": 0,
+          "available_false_positive_rate": null,
+          "available_recall": null,
+          "coverage": null,
+          "false_positive_rate": null,
+          "fn": 0,
+          "fn_total": 0,
+          "fp": 0,
+          "known": 0,
+          "negative": 0,
+          "positive": 0,
+          "precision": 0.0,
+          "threshold_logit": 0.0,
+          "tn": 0,
+          "tp": 0,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 58,
+          "windows": 58
+        }
+      },
+      "by_subject": {
+        "14": {
+          "all_positive_detection_rate": 0.3076923076923077,
+          "all_positive_f1": 0.47058823529411764,
+          "available": 149,
+          "available_false_positive_rate": 0.0,
+          "available_recall": 0.3076923076923077,
+          "coverage": 1.0,
+          "false_positive_rate": 0.0,
+          "fn": 18,
+          "fn_total": 18,
+          "fp": 0,
+          "known": 149,
+          "negative": 123,
+          "positive": 26,
+          "precision": 1.0,
+          "threshold_logit": 0.0,
+          "tn": 123,
+          "tp": 8,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 714,
+          "windows": 863
+        },
+        "7": {
+          "all_positive_detection_rate": 0.34285714285714286,
+          "all_positive_f1": 0.5106382978723404,
+          "available": 127,
+          "available_false_positive_rate": 0.0,
+          "available_recall": 0.34285714285714286,
+          "coverage": 1.0,
+          "false_positive_rate": 0.0,
+          "fn": 23,
+          "fn_total": 23,
+          "fp": 0,
+          "known": 127,
+          "negative": 92,
+          "positive": 35,
+          "precision": 1.0,
+          "threshold_logit": 0.0,
+          "tn": 92,
+          "tp": 12,
+          "unavailable_negative": 0,
+          "unavailable_positive": 0,
+          "unknown": 768,
+          "windows": 895
+        }
+      },
+      "by_subject_subtype": {
+        "14": {
+          "closed_eye": {
+            "fn": 9,
+            "positive": 9,
+            "recall": 0.0,
+            "tp": 0
+          },
+          "overlap": {
+            "fn": 0,
+            "positive": 0,
+            "recall": null,
+            "tp": 0
+          },
+          "unresolved": {
+            "fn": 0,
+            "positive": 0,
+            "recall": null,
+            "tp": 0
+          },
+          "yawn": {
+            "fn": 9,
+            "positive": 17,
+            "recall": 0.47058823529411764,
+            "tp": 8
+          }
+        },
+        "7": {
+          "closed_eye": {
+            "fn": 3,
+            "positive": 4,
+            "recall": 0.25,
+            "tp": 1
+          },
+          "overlap": {
+            "fn": 0,
+            "positive": 3,
+            "recall": 1.0,
+            "tp": 3
+          },
+          "unresolved": {
+            "fn": 0,
+            "positive": 0,
+            "recall": null,
+            "tp": 0
+          },
+          "yawn": {
+            "fn": 20,
+            "positive": 28,
+            "recall": 0.2857142857142857,
+            "tp": 8
+          }
+        }
+      },
+      "by_subtype": {
+        "closed_eye": {
+          "fn": 12,
+          "positive": 13,
+          "recall": 0.07692307692307693,
+          "tp": 1
+        },
+        "overlap": {
+          "fn": 0,
+          "positive": 3,
+          "recall": 1.0,
+          "tp": 3
+        },
+        "unresolved": {
+          "fn": 0,
+          "positive": 0,
+          "recall": null,
+          "tp": 0
+        },
+        "yawn": {
+          "fn": 29,
+          "positive": 45,
+          "recall": 0.35555555555555557,
+          "tp": 16
+        }
+      },
+      "changes_from_original_event": {
+        "by_subject": {
+          "14": {
+            "lost_positive": 0,
+            "new_false_positive": 0,
+            "recovered_positive": 0,
+            "removed_false_positive": 0
+          },
+          "7": {
+            "lost_positive": 0,
+            "new_false_positive": 0,
+            "recovered_positive": 1,
+            "removed_false_positive": 0
+          }
+        },
+        "overall": {
+          "lost_positive": 0,
+          "new_false_positive": 0,
+          "recovered_positive": 1,
+          "removed_false_positive": 0
+        }
+      },
+      "changes_from_original_eye": {
+        "by_subject": {
+          "14": {
+            "lost_positive": 0,
+            "new_false_positive": 0,
+            "recovered_positive": 0,
+            "removed_false_positive": 0
+          },
+          "7": {
+            "lost_positive": 0,
+            "new_false_positive": 0,
+            "recovered_positive": 1,
+            "removed_false_positive": 0
+          }
+        },
+        "overall": {
+          "lost_positive": 0,
+          "new_false_positive": 0,
+          "recovered_positive": 1,
+          "removed_false_positive": 0
+        }
+      },
+      "nonzero_tp_with_fpr03_at_fixed_threshold": true,
+      "overall": {
+        "all_positive_detection_rate": 0.32786885245901637,
+        "all_positive_f1": 0.49382716049382713,
+        "available": 276,
+        "available_false_positive_rate": 0.0,
+        "available_recall": 0.32786885245901637,
+        "coverage": 1.0,
+        "false_positive_rate": 0.0,
+        "fn": 41,
+        "fn_total": 41,
+        "fp": 0,
+        "known": 276,
+        "negative": 215,
+        "positive": 61,
+        "precision": 1.0,
+        "threshold_logit": 0.0,
+        "tn": 215,
+        "tp": 20,
+        "unavailable_negative": 0,
+        "unavailable_positive": 0,
+        "unknown": 1482,
+        "windows": 1758
+      },
+      "prediction_rows_hash": "cb6903c555bbcc7580c894a591fb2421ac912509786630f24babb7ebc40f7c9c",
+      "readout": "combined",
+      "validation_fpr03": {
+        "all_positive_detection_rate": 0.4262295081967213,
+        "all_positive_f1": 0.5591397849462365,
+        "available": 276,
+        "available_false_positive_rate": 0.027906976744186046,
+        "available_recall": 0.4262295081967213,
+        "coverage": 1.0,
+        "false_positive_rate": 0.027906976744186046,
+        "fn": 35,
+        "fn_total": 35,
+        "fp": 6,
+        "fpr_budget": 0.03,
+        "known": 276,
+        "negative": 215,
+        "positive": 61,
+        "precision": 0.8125,
+        "threshold_logit": -0.7912094593048096,
+        "threshold_selection": "validation_only_diagnostic_not_heldout",
+        "tn": 209,
+        "tp": 26,
+        "unavailable_negative": 0,
+        "unavailable_positive": 0,
+        "unknown": 1482,
+        "windows": 1758
+      },
+      "variant": "dense_track-combined",
+      "window_label_hash": "26e1c24cb41df91fdfd9410547f29d79f01f87bd94ec0c535575ca0c3c288dc9"
+    }
+  },
+  "source_reports": {
+    "all_tasks_sha256": "0f989159189ebf3c259bf4a3bf25407cffd9a19743e25bb3e152ba406c845df9",
+    "recovery_sha256": "b8802a49140df8a269c8b49533a43445e15883a4a62ff9df5e40aaf5c16e28c0"
+  },
+  "runtime": "runtime.json",
+  "qualification": "webcam_integration_candidate_not_live_validated"
+}

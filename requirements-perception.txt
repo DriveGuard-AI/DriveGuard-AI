@@ -1,0 +1,26 @@
+# Optional perception runtime dependencies; NOT a full upstream YOLOX environment.
+# Windows x64 / Python 3.12 CPU model-load check passed on 2026-09-19.
+# Exact tested package snapshot: requirements-perception-win-cpu.lock.txt.
+# Keep separate from the working Ascend training environment. See EXPERT_RUNTIME.md.
+# Install platform-matched torch/torchvision wheels first (CPU wheels for CPU use).
+-r requirements.txt
+numpy==1.26.4
+torchvision==0.22.1
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+av==12.3.0
+jax==0.4.35
+jaxlib==0.4.35
+wheel==0.45.1
+
+# YOLOX 0.3.0 Python import dependencies; YOLOX source itself is installed separately.
+# Do not install a second OpenCV distribution or upstream's obsolete ONNX export pins.
+loguru
+scikit-image
+tqdm
+Pillow
+thop
+ninja
+tabulate
+tensorboard
+pycocotools

@@ -21,6 +21,8 @@
 | KL-07 | 工具链 | `bundle.json` 绑定 `code_identity`（`inference/`、`training/**` 所有 `.py` 的哈希） | 任何源码提交都会让发布包无法加载，必须重新导出或生成开发副本 | `inference/live/bundle.py` | 设计如此；NPU 侧应重新导出 |
 | KL-08 | 性能/质量 | 检测器异步化后单帧 242.7→172 ms（5.8 Hz），`phone_use`/`drinking` 有 **2.4% 窗口证据不可用** | 仍达不到 8 Hz；异步使部分证据年龄贴近 81 ms 上限，个别窗口任务降为 `available=false` | `docs/experiments/20261019-perception-pipeline-async.md` | 代价已量化；要彻底解决需换执行后端 |
 | KL-09 | 稳定性 | 检测器偶发 `[WinError 10060]` 连接超时（两次全视频运行中一次，第 979 帧） | 会话中断，需重试续跑；在异步模式下会把一次挂起放大成“证据静止” | 同上 §5.3 | 已加 30 s 死锁保护使其快速失败；根因未除 |
+| KL-10 | 性能 | `decode`/`landmarks`/`eye` 三者无数据依赖、本可并行，但感知进程只占 **1.10 核**（单线程）；CPU 检测器却占满其余 8 核 | 单独并行这三者收益会被检测器的抢占吃掉；本机总需求约 1.0 核·秒/帧，8 核物理上限≈ 8 Hz | `docs/experiments/20261019-perception-pipeline-async.md` §8 | 未实现并行；应在检测器离开 CPU 后再做 |
+| KL-11 | 需求未定 | **实时帧率目标未闭合**。捕获间隔受两道 80 ms 闸门约束：A（`fresh`）允许 40/80/120 ms；B（`gap_pending`）在间隔 >80 ms 时每隔一段时间把 `reset=True` 送进 `EventDecoder` | 120 ms 档位可能让疲劳静默失效（`available` 为真但 `detected` 趋零）；暂时无法判定实时所需的最低帧率 | 同上 §7 | 实时目标**暂缓**；待确认 `EventDecoder.step` 的 `reset` 语义 |
 
 ## 已解决（供追溯）
 

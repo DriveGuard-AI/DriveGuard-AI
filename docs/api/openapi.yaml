@@ -396,6 +396,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /analysis/jobs/{job_id}/evidence:
+    get:
+      tags: [analysis]
+      operationId: getAnalysisEvidence
+      summary: 回放坐标（逐 tick 风险曲线 + 事件帧区间）
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: 回放证据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisEvidence"
+        "401":
+          $ref: "#/components/responses/AuthRequired"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analysis/jobs/{job_id}/source:
+    get:
+      tags: [analysis]
+      operationId: getAnalysisSource
+      summary: 原始视频（仅保留原片的任务，支持 Range）
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - $ref: "#/components/parameters/AccessToken"
+      responses:
+        "200":
+          description: 视频字节流
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: 原视频未保留或已清理
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analysis/jobs/{job_id}/frames/{index}:
+    get:
+      tags: [analysis]
+      operationId: getAnalysisFrame
+      summary: 单帧 JPEG（逐帧回放）
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+        - $ref: "#/components/parameters/AccessToken"
+      responses:
+        "200":
+          description: JPEG 帧
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: 帧号越界或产物已清理
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     bearerAuth:
@@ -425,6 +497,13 @@ components:
       schema:
         type: string
         format: uuid
+    AccessToken:
+      name: access_token
+      in: query
+      required: false
+      description: 媒体端点专用（<video>/<img> 无法带请求头，与 WS-001 同一取舍）。
+      schema:
+        type: string
   responses:
     AuthRequired:
       description: 缺少或无效凭证
@@ -756,12 +835,16 @@ components:
           minimum: 1
           maximum: 100
           default: 85
+        retain_source:
+          type: boolean
+          default: false
+          description: 是否保留原始视频（NFR-003 默认不保留）；保留时可用 <video> 回放。
     AnalysisJob:
       type: object
       additionalProperties: false
       required:
         [job_id, session_id, source_kind, source_path, status, frames_total,
-         frames_done, timeline_ms, created_at, updated_at]
+         frames_done, step_ms, timeline_ms, source_available, created_at, updated_at]
       properties:
         job_id: {type: string, format: uuid}
         session_id: {type: string, format: uuid}
@@ -771,12 +854,55 @@ components:
         status: {$ref: "#/components/schemas/AnalysisJobStatus"}
         frames_total: {type: integer, minimum: 0}
         frames_done: {type: integer, minimum: 0}
+        step_ms: {type: integer, minimum: 1, default: 40}
         timeline_ms: {type: integer, minimum: 0}
+        source_available: {type: boolean}
         error: {type: [string, "null"]}
         created_at: {type: string, format: date-time}
         started_at: {type: [string, "null"], format: date-time}
         ended_at: {type: [string, "null"], format: date-time}
         updated_at: {type: string, format: date-time}
+    RiskPoint:
+      type: object
+      additionalProperties: false
+      required: [ms, frame, risk_level]
+      properties:
+        ms: {type: integer, minimum: 0}
+        frame: {type: integer, minimum: 0}
+        risk_level: {$ref: "#/components/schemas/RiskLevel"}
+        primary_risk: {type: [string, "null"]}
+        confidence: {type: number, minimum: 0, maximum: 1}
+    EvidenceEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, event_type, risk_level, started_ms, ended_ms, start_frame, end_frame, duration_ms]
+      properties:
+        event_id: {type: string}
+        event_type: {type: string}
+        risk_level: {type: string}
+        started_ms: {type: integer, minimum: 0}
+        ended_ms: {type: integer, minimum: 0}
+        start_frame: {type: integer, minimum: 0}
+        end_frame: {type: integer, minimum: 0}
+        duration_ms: {type: integer, minimum: 0}
+    AnalysisEvidence:
+      type: object
+      additionalProperties: false
+      required: [job_id, session_id, step_ms, frames_total, duration_ms, source_available, source_kind]
+      properties:
+        job_id: {type: string, format: uuid}
+        session_id: {type: string, format: uuid}
+        step_ms: {type: integer, minimum: 1}
+        frames_total: {type: integer, minimum: 0}
+        duration_ms: {type: integer, minimum: 0}
+        source_available: {type: boolean}
+        source_kind: {$ref: "#/components/schemas/AnalysisSourceKind"}
+        timeline:
+          type: array
+          items: {$ref: "#/components/schemas/RiskPoint"}
+        events:
+          type: array
+          items: {$ref: "#/components/schemas/EvidenceEvent"}
     AnalysisJobPage:
       type: object
       additionalProperties: false

@@ -5,16 +5,54 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from ...deps import AppContext, get_context, require_permission
 from ...errors import ValidationError
 from ...models import JOB_STATUSES
 from ...repositories.events import MAX_PAGE_SIZE
-from ...schemas import AnalysisJobCreate, AnalysisJobListResponse, AnalysisJobOut
-from ...security import PERMISSION_ANALYSIS_READ, PERMISSION_ANALYSIS_WRITE
+from ...schemas import (
+    AnalysisEvidence,
+    AnalysisJobCreate,
+    AnalysisJobListResponse,
+    AnalysisJobOut,
+)
+from ...security import (
+    PERMISSION_ANALYSIS_READ,
+    PERMISSION_ANALYSIS_WRITE,
+    ensure_permission,
+    principal_from_request,
+    resolve_principal,
+)
 
 router = APIRouter(tags=["analysis"])
+
+VIDEO_MEDIA_TYPES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+}
+
+
+def _ensure_media_read(
+    context: AppContext, request: Request, access_token: str | None
+) -> None:
+    """媒体端点额外支持 `?access_token=`。
+
+    `<video src>` 与 `<img src>` 无法自定义请求头，只能把凭证放 URL
+    （与 WS-001 同一取舍）。其余端点仍使用 Bearer 头。
+    """
+
+    principal = (
+        resolve_principal(context.config, access_token)
+        if access_token
+        else principal_from_request(context.config, request)
+    )
+    ensure_permission(principal, PERMISSION_ANALYSIS_READ)
 
 
 @router.post(
@@ -41,6 +79,7 @@ async def upload_job(
     step_ms: int = Form(40),
     size: str = Form("1280x720"),
     quality: int = Form(85),
+    retain_source: bool | None = Form(None),
     context: AppContext = Depends(get_context),
 ) -> AnalysisJobOut:
     """上传视频 → 抽帧 → 立即开始分析。"""
@@ -52,6 +91,7 @@ async def upload_job(
             step_ms=step_ms,
             size=size,
             quality=quality,
+            retain_source=retain_source,
         )
     finally:
         await file.close()
@@ -98,3 +138,44 @@ def get_job(job_id: str, context: AppContext = Depends(get_context)) -> Analysis
 )
 async def cancel_job(job_id: str, context: AppContext = Depends(get_context)) -> AnalysisJobOut:
     return await context.analysis.cancel(job_id)
+
+
+@router.get(
+    "/analysis/jobs/{job_id}/evidence",
+    response_model=AnalysisEvidence,
+    dependencies=[Depends(require_permission(PERMISSION_ANALYSIS_READ))],
+)
+def job_evidence(job_id: str, context: AppContext = Depends(get_context)) -> AnalysisEvidence:
+    """回放坐标：逐 tick 风险曲线（降采样）+ 事件帧区间。"""
+
+    return context.analysis.evidence(job_id)
+
+
+@router.get("/analysis/jobs/{job_id}/source")
+def job_source(
+    job_id: str,
+    request: Request,
+    access_token: str | None = Query(None),
+    context: AppContext = Depends(get_context),
+) -> FileResponse:
+    """原始视频（仅 retain_source=true 的任务）；支持 Range，浏览器可拖动。"""
+
+    _ensure_media_read(context, request, access_token)
+    path = context.analysis.source_file(job_id)
+    media_type = VIDEO_MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.get("/analysis/jobs/{job_id}/frames/{index}")
+def job_frame(
+    job_id: str,
+    index: int,
+    request: Request,
+    access_token: str | None = Query(None),
+    context: AppContext = Depends(get_context),
+) -> FileResponse:
+    """第 `index` 帧 JPEG（保留原视频时不需要，但帧序列回放靠它）。"""
+
+    _ensure_media_read(context, request, access_token)
+    path = context.analysis.frame_file(job_id, index)
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=600"})

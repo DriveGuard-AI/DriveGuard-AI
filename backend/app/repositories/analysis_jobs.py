@@ -22,6 +22,7 @@ class AnalysisJobRepository:
         source_kind: str,
         source_path: str,
         frames_total: int,
+        step_ms: int = 40,
         source_sha256: str | None = None,
         now: datetime,
     ) -> AnalysisJob:
@@ -35,6 +36,7 @@ class AnalysisJobRepository:
             status="running",
             frames_total=frames_total,
             frames_done=0,
+            step_ms=step_ms,
             timeline_ms=0,
             created_at=timestamp,
             started_at=timestamp,

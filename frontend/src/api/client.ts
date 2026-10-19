@@ -8,6 +8,7 @@
  */
 
 import type {
+  AnalysisEvidence,
   AnalysisJob,
   AnalysisJobListResponse,
   AnalysisJobStatus,
@@ -137,6 +138,9 @@ export const api = {
       body: JSON.stringify({ source_kind: 'frames', source_path: sourcePath }),
     }),
 
+  analysisEvidence: (token: string | null, jobId: string) =>
+    request<AnalysisEvidence>(`/analysis/jobs/${jobId}/evidence`, token),
+
   getSettings: (token: string | null) => request<SettingsResponse>('/settings', token),
 
   updateSettings: (token: string | null, version: number, changes: Record<string, unknown>) =>
@@ -163,7 +167,7 @@ export function websocketUrl(token: string | null): string {
 export function uploadAnalysisVideo(
   token: string | null,
   file: File,
-  options: { step_ms?: number; size?: string; quality?: number } = {},
+  options: { step_ms?: number; size?: string; quality?: number; retain_source?: boolean } = {},
   onProgress?: (percent: number) => void,
 ): Promise<AnalysisJob> {
   const form = new FormData()
@@ -171,6 +175,7 @@ export function uploadAnalysisVideo(
   if (options.step_ms != null) form.append('step_ms', String(options.step_ms))
   if (options.size) form.append('size', options.size)
   if (options.quality != null) form.append('quality', String(options.quality))
+  if (options.retain_source != null) form.append('retain_source', String(options.retain_source))
 
   return new Promise<AnalysisJob>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -217,4 +222,17 @@ export function uploadAnalysisVideo(
 
 export function isJobActive(status: AnalysisJobStatus): boolean {
   return status === 'queued' || status === 'running'
+}
+
+/**
+ * 媒体 URL。
+ *
+ * `<video>` / `<img>` 不能自定义请求头，凭证只能走 query（与 WS-001 同一取舍）。
+ */
+export function analysisSourceUrl(token: string | null, jobId: string): string {
+  return `${API_BASE}/analysis/jobs/${jobId}/source${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
+}
+
+export function analysisFrameUrl(token: string | null, jobId: string, index: number): string {
+  return `${API_BASE}/analysis/jobs/${jobId}/frames/${index}${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
 }

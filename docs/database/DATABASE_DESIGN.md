@@ -120,6 +120,7 @@ audit_logs          N ────── 1 administrative actions
 | `status` | TEXT | CHECK `queued/running/completed/failed/cancelled` | 终态不可取消 |
 | `frames_total` | INTEGER | `>=0`，默认 0 | 创建的目录内 JPEG 数 |
 | `frames_done` | INTEGER | `>=0 AND <= frames_total` | 单调不减 |
+| `step_ms` | INTEGER | `>0`，默认 40 | 抽帧步长；事件时间轴 ÷ 步长 = 帧号（迁移 `0003_analysis_step_ms`） |
 | `timeline_ms` | INTEGER | `>=0` | 已处理到的素材时间轴位置 |
 | `error` | TEXT | NULL | 失败原因，截断到 400 字符 |
 | `created_at` | TEXT | NOT NULL | UTC 时间 |

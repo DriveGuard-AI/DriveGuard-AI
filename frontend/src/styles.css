@@ -760,3 +760,99 @@ button.ghost:hover:not(:disabled) {
   border: 1px solid var(--line);
 }
 
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ 回放 */
+
+.playback-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.playback-head strong {
+  font-size: 16px;
+  color: var(--brand2);
+}
+
+.playback-stage {
+  position: relative;
+  background: #0f172a;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+.playback-stage video,
+.playback-stage img {
+  max-width: 100%;
+  max-height: 420px;
+  display: block;
+}
+
+.playback-stage img {
+  width: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.playback-badge {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.playback-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.risk-curve {
+  margin-top: 12px;
+}
+
+.risk-curve svg {
+  width: 100%;
+  height: 56px;
+  display: block;
+  border-radius: 8px;
+  cursor: crosshair;
+  border: 1px solid var(--line);
+}
+
+.risk-curve-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.playback .table {
+  margin-top: 14px;
+}
+
+.playback .table tbody tr {
+  cursor: pointer;
+}
+
+

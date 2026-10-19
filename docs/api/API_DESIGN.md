@@ -97,8 +97,10 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
   "status": "running",
   "frames_total": 961,
   "frames_done": 320,
+  "step_ms": 40,
   "timeline_ms": 12800,
   "error": null,
+  "source_available": false,
   "created_at": "2026-10-19T09:00:00Z",
   "started_at": "2026-10-19T09:00:00Z",
   "ended_at": null,
@@ -107,6 +109,8 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 ```
 
 - `status`：`queued | running | completed | failed | cancelled`；`frames_done` 单调不减。
+- `step_ms`：抽帧步长；事件时间轴 ÷ 步长 = 帧号，回放定位靠它。
+- `source_available`：原始视频是否还在。true 时前端用 `<video>` 回放，false 时逐帧取图。
 - `timeline_ms`：已处理到的素材时间轴位置，用于判断进度是否还在推进。
 - 每个任务对应一个新的 `monitoring_sessions` 记录，事件按该会话隔离。
 
@@ -272,6 +276,7 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 | `step_ms` | integer | `40` | 抽帧步长，必须是 `40/80/120/160/200` 之一（25 Hz 栅格） |
 | `size` | string | `1280x720` | 输出尺寸，宽高必须为偶数 |
 | `quality` | integer | `85` | JPEG 质量 1..100 |
+| `retain_source` | boolean | 由配置决定（默认 `false`） | 是否保留原始视频；保留时可用 `<video>` 回放 |
 
 - 处理：存盘（同时算 sha256 并卡大小上限）→ 抽帧到 `<media_root>/analysis/<job_id>/frames/`
   → 写 `job.json` → 删除原视频（`retain_source=false` 时）→ 开新会话并启动推理。
@@ -279,6 +284,39 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 - 错误：`400 INVALID_ANALYSIS_SOURCE`（非视频后缀／文件为空或超 `analysis.max_upload_mb`／磁盘超 `max_disk_mb`／
   参数不在栅格上／解码失败／帧数超上限）、`503 PIPELINE_UNAVAILABLE`（缺少解码依赖）。
 - 抽帧在请求内完成，失败时整目录回滚，**不会留下空任务**，因此不会出现 "queued 但永远不跑" 的记录。
+
+### API-015 回放证据
+
+`GET /api/v1/analysis/jobs/{job_id}/evidence`（权限 `analysis:read`）
+
+- 用途：把「检测结果在哪几帧」一次性给前端：逐 tick 风险曲线 + 事件帧区间。
+- 成功：`200 AnalysisEvidence`：
+  - `step_ms` / `frames_total` / `duration_ms` / `source_available`；
+  - `timeline`：`{ms, frame, risk_level, primary_risk, confidence}`，服务端降采样到
+    最多 1200 点，每个区间保留最高风险点（尖峰不会被抹平）；
+  - `events`：`{event_id, event_type, risk_level, started_ms, ended_ms, start_frame, end_frame, duration_ms}`。
+- 换算规则：事件时钟是「会话起点 + 素材偏移」，所以 `started_at - session.started_at`
+  就是素材毫秒，除以 `step_ms` 即帧号。
+- 逐点数据来自任务目录下的 `timeline.ndjson`（运行期逐 tick 记录，任务结束时落盘）。
+- 不存在：`404 ANALYSIS_JOB_NOT_FOUND`。
+
+### API-016 原始视频
+
+`GET /api/v1/analysis/jobs/{job_id}/source`（权限 `analysis:read`）
+
+- 用途：`<video>` 回放。仅当该任务 `retain_source=true` 时可用。
+- 成功：`200`，`video/*`，支持 `Range`（可拖动）。
+- 未保留或已清理：`404 ANALYSIS_SOURCE_MISSING`。
+- 鉴权：`<video src>` 不能带请求头，因此额外支持 `?access_token=<token>`（与 WS-001 同一取舍）。
+
+### API-017 单帧图像
+
+`GET /api/v1/analysis/jobs/{job_id}/frames/{index}`（权限 `analysis:read`）
+
+- 用途：原视频未保留（或浏览器无法解码）时逐帧回放；`index` 从 0 开始。
+- 成功：`200 image/jpeg`。
+- 帧号越界或抽帧产物已过期：`404 ANALYSIS_SOURCE_MISSING`。
+- 鉴权同 API-016。
 
 ## 5. WebSocket
 
@@ -339,6 +377,7 @@ MVP 可以使用单个本地管理员 Token，但代码和契约应保留权限�
 | 403 | `FORBIDDEN` | 权限不足 |
 | 404 | `EVENT_NOT_FOUND` | 事件不存在 |
 | 404 | `ANALYSIS_JOB_NOT_FOUND` | 分析任务不存在 |
+| 404 | `ANALYSIS_SOURCE_MISSING` | 回放素材不在（原视频未保留、抽帧过期、帧号越界） |
 | 409 | `CONFIG_VERSION_CONFLICT` | 配置乐观锁冲突 |
 | 409 | `MONITORING_NOT_ACTIVE` | 当前无监测会话 |
 | 409 | `ANALYSIS_JOB_CONFLICT` | 分析任务已是终态，无法取消 |

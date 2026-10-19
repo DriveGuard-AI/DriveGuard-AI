@@ -105,6 +105,13 @@ class InvalidAnalysisSourceError(AppError):
         super().__init__(400, "INVALID_ANALYSIS_SOURCE", "Invalid analysis source", [{"field": field, "reason": reason}])
 
 
+class AnalysisSourceMissingError(AppError):
+    """回放要用的素材不在了：原视频未保留、抽帧产物过期，或帧号越界。"""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(404, "ANALYSIS_SOURCE_MISSING", "Analysis source missing", [{"field": "source", "reason": reason}])
+
+
 def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
 

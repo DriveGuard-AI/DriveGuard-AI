@@ -134,8 +134,11 @@ class AnalysisJobOut(BaseModel):
     status: str
     frames_total: int
     frames_done: int
+    step_ms: int = 40
     timeline_ms: int
     error: str | None = None
+    # 原始视频是否还在：在则前端用 <video> 回放，否则逐帧取图。
+    source_available: bool = False
     created_at: UtcDateTime
     started_at: UtcDateTime | None = None
     ended_at: UtcDateTime | None = None
@@ -148,6 +151,41 @@ class AnalysisJobListResponse(BaseModel):
     page_size: int
     total: int
     has_next: bool
+
+
+class RiskPoint(BaseModel):
+    """回放用的风险采样点。服务端按需降采样，前端按 `ms` 画曲线。"""
+
+    ms: int
+    frame: int
+    risk_level: RiskLevel
+    primary_risk: str | None = None
+    confidence: float = 0.0
+
+
+class EvidenceEvent(BaseModel):
+    """事件在素材时间轴/帧号上的位置，供回放定位。"""
+
+    event_id: str
+    event_type: str
+    risk_level: str
+    started_ms: int
+    ended_ms: int
+    start_frame: int
+    end_frame: int
+    duration_ms: int
+
+
+class AnalysisEvidence(BaseModel):
+    job_id: str
+    session_id: str
+    step_ms: int
+    frames_total: int
+    duration_ms: int
+    source_available: bool
+    source_kind: str
+    timeline: list[RiskPoint] = Field(default_factory=list)
+    events: list[EvidenceEvent] = Field(default_factory=list)
 
 
 class CountByType(BaseModel):

@@ -110,12 +110,49 @@ export interface AnalysisJob {
   status: AnalysisJobStatus
   frames_total: number
   frames_done: number
+  /** 抽帧步长（ms）：事件时间轴 ÷ 步长 = 帧号。 */
+  step_ms: number
   timeline_ms: number
   error: string | null
+  /** 原始视频是否还在：在则用 <video> 回放，否则逐帧取图。 */
+  source_available: boolean
   created_at: string
   started_at: string | null
   ended_at: string | null
   updated_at: string
+}
+
+/** 回放用的风险采样点（服务端已降采样）。 */
+export interface RiskPoint {
+  ms: number
+  frame: number
+  risk_level: RiskLevel
+  primary_risk: string | null
+  confidence: number
+}
+
+/** 事件在素材时间轴和帧号上的位置。 */
+export interface EvidenceEvent {
+  event_id: string
+  event_type: string
+  risk_level: string
+  started_ms: number
+  ended_ms: number
+  start_frame: number
+  end_frame: number
+  duration_ms: number
+}
+
+export interface AnalysisEvidence {
+  job_id: string
+  session_id: string
+  step_ms: number
+  frames_total: number
+  duration_ms: number
+  source_available: boolean
+  source_kind: AnalysisSourceKind
+  timeline: RiskPoint[]
+  events: EvidenceEvent[]
 }
 
 export interface AnalysisJobListResponse {

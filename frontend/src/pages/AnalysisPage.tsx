@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ApiError, api, isJobActive, uploadAnalysisVideo } from '../api/client'
 import type { AnalysisJob, AnalysisJobStatus } from '../api/types'
 import { EmptyState, MetricCard, Notice, formatLocalTime } from '../components/common'
+import { AnalysisPlayback } from './AnalysisPlayback'
 
 const STEP_CHOICES = [40, 80, 120, 160, 200]
 const JOB_STORAGE_KEY = 'dgb.analysis.job'
@@ -53,6 +54,7 @@ export function AnalysisPage({
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [stepMs, setStepMs] = useState(40)
+  const [retainSource, setRetainSource] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadPercent, setUploadPercent] = useState(0)
   const [job, setJob] = useState<AnalysisJob | null>(null)
@@ -129,7 +131,12 @@ export function AnalysisPage({
     setUploadPercent(0)
     setError(null)
     try {
-      const created = await uploadAnalysisVideo(token, file, { step_ms: stepMs }, setUploadPercent)
+      const created = await uploadAnalysisVideo(
+        token,
+        file,
+        { step_ms: stepMs, retain_source: retainSource },
+        setUploadPercent,
+      )
       setUploadPercent(100)
       setJob(created)
       await loadJobs()
@@ -190,6 +197,16 @@ export function AnalysisPage({
             {uploading ? '上传并抽帧…' : '开始分析'}
           </button>
         </div>
+
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={retainSource}
+            onChange={(event) => setRetainSource(event.target.checked)}
+            disabled={uploading}
+          />
+          保留原视频（回放更流畅；默认不保留，遵守 NFR-003）
+        </label>
 
         {uploading ? (
           <ProgressBar percent={uploadPercent} label="上传进度（抽帧在服务端完成，期间请勿关闭页面）" />
@@ -281,6 +298,12 @@ export function AnalysisPage({
               </>
             ) : null}
           </div>
+        </section>
+      ) : null}
+
+      {job && !isJobActive(job.status) ? (
+        <section className="card">
+          <AnalysisPlayback token={token} job={job} />
         </section>
       ) : null}
 

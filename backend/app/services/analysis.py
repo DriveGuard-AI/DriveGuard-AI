@@ -22,15 +22,23 @@ from ..database import Database
 from ..errors import (
     AnalysisJobConflictError,
     AnalysisJobNotFoundError,
+    AnalysisSourceMissingError,
     InvalidAnalysisSourceError,
     PipelineUnavailableError,
 )
 from ..inference.port import AnalysisSource
 from ..repositories.analysis_jobs import AnalysisJobRepository
 from ..repositories.audit import AuditRepository
+from ..repositories.events import EventRepository
 from ..repositories.sessions import SessionRepository
-from ..schemas import AnalysisJobCreate, AnalysisJobOut
-from ..timeutil import to_iso_z, utcnow
+from ..schemas import (
+    AnalysisEvidence,
+    AnalysisJobCreate,
+    AnalysisJobOut,
+    EvidenceEvent,
+    RiskPoint,
+)
+from ..timeutil import parse_iso, to_iso_z, utcnow
 from .frame_extraction import (
     STEP_MS_CHOICES,
     VIDEO_SUFFIXES,
@@ -49,9 +57,14 @@ TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 PROGRESS_INTERVAL_SECONDS = 1.0
 PURGE_INTERVAL_SECONDS = 3600.0
 UPLOAD_CHUNK_BYTES = 1024 * 1024
+# 一次 10 分钟素材约 15000 个 tick；上限留足两倍余量，超出就停止记录。
+MAX_TIMELINE_POINTS = 300_000
+# 回放曲线不需要逐点回传，超过这个数就按区间降采样（保留区间内的最高风险）。
+MAX_EVIDENCE_POINTS = 1200
+RISK_RANK = {"SAFE": 0, "WARNING": 1, "DANGER": 2}
 
 
-def job_to_schema(job) -> AnalysisJobOut:
+def job_to_schema(job, *, source_available: bool = False) -> AnalysisJobOut:
     return AnalysisJobOut(
         job_id=job.job_id,
         session_id=job.session_id,
@@ -61,13 +74,66 @@ def job_to_schema(job) -> AnalysisJobOut:
         status=job.status,
         frames_total=job.frames_total,
         frames_done=job.frames_done,
+        step_ms=job.step_ms,
         timeline_ms=job.timeline_ms,
         error=job.error,
+        source_available=source_available,
         created_at=job.created_at,
         started_at=job.started_at,
         ended_at=job.ended_at,
         updated_at=job.updated_at,
     )
+
+
+class TimelineRecorder:
+    """把每个 tick 的风险快照记下来，任务结束后落成 `timeline.ndjson`。
+
+    只在内存里累加，避免每个 tick 都做磁盘 IO（推理循环在事件循环里跑）。
+    代价是进程重启会丢掉未落盘的部分，这是可接受的：回放是事后审阅，不是账本。
+    """
+
+    def __init__(self) -> None:
+        self._points: list[dict] = []
+
+    def record(self, snapshot) -> None:
+        if snapshot.source_timestamp_ms is None:
+            return
+        if len(self._points) >= MAX_TIMELINE_POINTS:
+            return
+        self._points.append(
+            {
+                "ms": int(snapshot.source_timestamp_ms),
+                "risk": snapshot.risk_level,
+                "primary": snapshot.primary_risk,
+                "confidence": round(float(snapshot.confidence), 4),
+            }
+        )
+
+    @property
+    def points(self) -> list[dict]:
+        return self._points
+
+    def dump(self, path: Path) -> int:
+        if not self._points:
+            return 0
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as sink:
+            for point in self._points:
+                sink.write(json.dumps(point, ensure_ascii=False) + "\n")
+        return len(self._points)
+
+
+def _downsample(points: list[dict], limit: int) -> list[dict]:
+    """按区间降采样，但保留每个区间内的最高风险点：不能把尖峰抹平。"""
+
+    if len(points) <= limit:
+        return points
+    stride = (len(points) + limit - 1) // limit
+    merged: list[dict] = []
+    for start in range(0, len(points), stride):
+        bucket = points[start : start + stride]
+        merged.append(max(bucket, key=lambda item: RISK_RANK.get(item.get("risk", "SAFE"), 0)))
+    return merged
 
 
 class AnalysisService:
@@ -78,6 +144,9 @@ class AnalysisService:
         self._watcher: asyncio.Task | None = None
         self._watching_job: str | None = None
         self._purge_task: asyncio.Task | None = None
+        self._recorder: TimelineRecorder | None = None
+        self._recorder_job: str | None = None
+        self._recording = False
 
     # ------------------------------------------------------------ 素材校验
 
@@ -134,6 +203,7 @@ class AnalysisService:
             source_kind=kind,
             source_path=str(resolved),
             frames_total=frames_total,
+            step_ms=self._config.live_step_ms,
         )
 
     async def create_from_upload(
@@ -144,6 +214,7 @@ class AnalysisService:
         step_ms: int,
         size: str,
         quality: int,
+        retain_source: bool | None = None,
     ) -> AnalysisJobOut:
         """上传一段视频，抽帧后立即开跑。
 
@@ -195,14 +266,18 @@ class AnalysisService:
                     "created_at": to_iso_z(utcnow()),
                 },
             )
-            # NFR-003：默认不留原始视频；抽帧成功后立即删除。
-            if not self._config.analysis_retain_source:
+            # NFR-003：默认不留原始视频；勾选保留时留下供回放（仍受保留期约束）。
+            keep_source = (
+                self._config.analysis_retain_source if retain_source is None else retain_source
+            )
+            if not keep_source:
                 source.unlink(missing_ok=True)
             return await self._launch(
                 job_id=job_id,
                 source_kind="frames",
                 source_path=str(frames_dir),
                 frames_total=frames_total,
+                step_ms=step_ms,
                 source_sha256=digest,
             )
         except DecoderUnavailableError as error:
@@ -249,6 +324,7 @@ class AnalysisService:
         source_kind: str,
         source_path: str,
         frames_total: int,
+        step_ms: int = 40,
         source_sha256: str | None = None,
         job_id: str | None = None,
     ) -> AnalysisJobOut:
@@ -269,14 +345,18 @@ class AnalysisService:
                     source_kind=source_kind,
                     source_path=source_path,
                     frames_total=frames_total,
+                    step_ms=step_ms,
                     source_sha256=source_sha256,
                     now=utcnow(),
                 )
-                schema = job_to_schema(job)
+                schema = job_to_schema(
+                    job, source_available=self._source_file(job) is not None
+                )
         except Exception:
             # 落库失败时不能把推理留在运行状态，否则后续任务无法切换素材。
             await self._engine.stop()
             raise
+        self._start_recording(schema.job_id)
         self._start_watcher(schema.job_id, session_id)
         return schema
 
@@ -285,14 +365,169 @@ class AnalysisService:
             job = AnalysisJobRepository(session).get(job_id)
             if job is None:
                 raise AnalysisJobNotFoundError(job_id)
-            return job_to_schema(job)
+            return job_to_schema(job, source_available=self._source_file(job) is not None)
 
     def list(self, *, status: str | None, page: int, page_size: int):
         with self._db.session() as session:
             jobs, total = AnalysisJobRepository(session).list(
                 status=status, page=page, page_size=page_size
             )
-            return [job_to_schema(job) for job in jobs], total
+            return [job_to_schema(job, source_available=self._source_file(job) is not None) for job in jobs], total
+
+    # ------------------------------------------------------------ 回放与证据
+
+    def _timeline_path(self, job) -> Path:
+        """时间轴与素材放在同一目录：上传任务是 `analysis/<job_id>/`，
+        目录来源则是其 frames 的父目录。
+        """
+
+        return Path(job.source_path).parent / "timeline.ndjson"
+
+    def _source_file(self, job) -> Path | None:
+        """抽帧后是否还留着原视频（保留时才能用 <video> 回放）。"""
+
+        directory = Path(job.source_path).parent
+        if not directory.is_dir():
+            return None
+        for path in directory.glob("source.*"):
+            if path.is_file():
+                return path
+        return None
+
+    def source_file(self, job_id: str) -> Path:
+        with self._db.session() as session:
+            job = AnalysisJobRepository(session).get(job_id)
+            if job is None:
+                raise AnalysisJobNotFoundError(job_id)
+            path = self._source_file(job)
+            media_root = self._config.media_dir.resolve()
+        if path is None:
+            raise AnalysisSourceMissingError("该任务的原始视频未保留（retain_source=false）")
+        resolved = path.resolve()
+        if not resolved.is_relative_to(media_root):
+            raise AnalysisSourceMissingError("素材路径越出媒体目录")
+        return resolved
+
+    def frame_file(self, job_id: str, index: int) -> Path:
+        with self._db.session() as session:
+            job = AnalysisJobRepository(session).get(job_id)
+            if job is None:
+                raise AnalysisJobNotFoundError(job_id)
+            frames_dir = Path(job.source_path)
+            media_root = self._config.media_dir.resolve()
+        if not frames_dir.is_dir() or not frames_dir.resolve().is_relative_to(media_root):
+            raise AnalysisSourceMissingError("抽帧产物已过期或被清理")
+        frames = sorted(p for p in frames_dir.iterdir() if p.suffix.lower() in JPEG_SUFFIXES)
+        if index < 0 or index >= len(frames):
+            raise AnalysisSourceMissingError(f"帧号越界: {index}（共 {len(frames)} 帧）")
+        return frames[index]
+
+    def evidence(self, job_id: str) -> AnalysisEvidence:
+        """回放所需的全部坐标：逐 tick 风险曲线 + 事件帧区间。
+
+        事件时钟是「会话起点 + 素材偏移」（见 `EventTracker._clock`），所以
+        `event.started_at - session.started_at` 就是素材毫秒，除以步长即帧号。
+        """
+
+        with self._db.session() as session:
+            job = AnalysisJobRepository(session).get(job_id)
+            if job is None:
+                raise AnalysisJobNotFoundError(job_id)
+            session_row = SessionRepository(session).get(job.session_id)
+            events = EventRepository(session).list_for_session(job.session_id)
+            step_ms = int(job.step_ms or 40)
+            anchor = parse_iso(session_row.started_at) if session_row else None
+            records = [self._evidence_event(event, anchor, step_ms) for event in events]
+            source_available = self._source_file(job) is not None
+            timeline_raw = self._load_timeline(job)
+            session_id = job.session_id
+            source_kind = job.source_kind
+            frames_total = job.frames_total
+            duration_ms = max(job.timeline_ms, frames_total * step_ms)
+
+        return AnalysisEvidence(
+            job_id=job_id,
+            session_id=session_id,
+            step_ms=step_ms,
+            frames_total=frames_total,
+            duration_ms=duration_ms,
+            source_available=source_available,
+            source_kind=source_kind,
+            timeline=[
+                RiskPoint(
+                    ms=int(point["ms"]),
+                    frame=int(point["ms"]) // step_ms,
+                    risk_level=point["risk"],
+                    primary_risk=point.get("primary"),
+                    confidence=float(point.get("confidence") or 0.0),
+                )
+                for point in _downsample(timeline_raw, MAX_EVIDENCE_POINTS)
+            ],
+            events=records,
+        )
+
+    @staticmethod
+    def _evidence_event(event, anchor, step_ms: int) -> EvidenceEvent:
+        if anchor is None:
+            started_ms = 0
+        else:
+            started_ms = max(0, int((parse_iso(event.started_at) - anchor).total_seconds() * 1000))
+        ended_ms = started_ms + max(0, event.duration_ms)
+        return EvidenceEvent(
+            event_id=event.event_id,
+            event_type=event.event_type,
+            risk_level=event.max_risk_level,
+            started_ms=started_ms,
+            ended_ms=ended_ms,
+            start_frame=started_ms // step_ms,
+            end_frame=ended_ms // step_ms,
+            duration_ms=max(0, event.duration_ms),
+        )
+
+    def _load_timeline(self, job) -> list[dict]:
+        path = self._timeline_path(job)
+        if not path.is_file():
+            return []
+        points: list[dict] = []
+        try:
+            with path.open("r", encoding="utf-8") as source:
+                for line in source:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        points.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            logger.warning("读取回放时间轴失败: %s", path)
+            return []
+        return points
+
+    def _start_recording(self, job_id: str) -> None:
+        self._flush_timeline()
+        self._recorder = TimelineRecorder()
+        self._recorder_job = job_id
+        self._engine.set_snapshot_sink(self._recorder.record)
+
+    def _flush_timeline(self) -> None:
+        recorder, job_id = self._recorder, self._recorder_job
+        self._recorder = None
+        self._recorder_job = None
+        self._engine.set_snapshot_sink(None)
+        if recorder is None or job_id is None:
+            return
+        try:
+            with self._db.session() as session:
+                job = AnalysisJobRepository(session).get(job_id)
+                if job is None:
+                    return
+                path = self._timeline_path(job)
+            count = recorder.dump(path)
+            if count:
+                logger.info("回放时间轴已写入 %d 点: %s", count, path)
+        except OSError:
+            logger.warning("回放时间轴写入失败: %s", job_id, exc_info=True)
 
     async def cancel(self, job_id: str) -> AnalysisJobOut:
         with self._db.session() as session:
@@ -304,6 +539,7 @@ class AnalysisService:
             session_id = job.session_id
         # 停止推理会让会话结束；任务记录里保留已完成的帧数。
         await self._engine.stop()
+        self._flush_timeline()
         with self._db.session() as session:
             repository = AnalysisJobRepository(session)
             job = repository.get(job_id)
@@ -333,6 +569,7 @@ class AnalysisService:
                 await asyncio.sleep(PROGRESS_INTERVAL_SECONDS)
                 if self._is_terminal(job_id):
                     # 已经被取消（或别处写入终态），跟踪任务没有继续的必要。
+                    self._flush_timeline()
                     return
                 status = self._engine.inference_status() or {}
                 if self._engine.session_id != session_id:
@@ -349,6 +586,7 @@ class AnalysisService:
                     # 素材跑完就停掉循环并结束会话：离线任务不该继续占用
                     # 摄像头/模型，也该让本会话的 ended_at 落下来。
                     await self._stop_engine_if_current(session_id)
+                    self._flush_timeline()
                     return
                 if state == "failed":
                     self._finish(
@@ -359,6 +597,7 @@ class AnalysisService:
                         timeline_ms=timeline,
                     )
                     await self._stop_engine_if_current(session_id)
+                    self._flush_timeline()
                     return
                 self._progress(job_id, frames_done=frames_done, timeline_ms=timeline)
         except asyncio.CancelledError:  # pragma: no cover - 正常关闭路径
@@ -493,6 +732,7 @@ class AnalysisService:
             logger.warning("清理审计写入失败: %s", job_id)
 
     async def shutdown(self) -> None:
+        self._flush_timeline()
         for task in (self._watcher, self._purge_task):
             if task is None or task.done():
                 continue

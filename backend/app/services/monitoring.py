@@ -62,6 +62,8 @@ class InferenceEngine:
         self._state = "stopped"
         # 是否是“离线素材回放”。由 run_analysis() 置位，start() 走实时路径时为 False。
         self._playback = False
+        # 每个 tick 的快照回调（回放时间轴用）。同步调用，不能阻塞。
+        self._snapshot_sink: Callable[[RiskSnapshot], None] | None = None
 
         self._latencies: deque[float] = deque(maxlen=MAX_LATENCY_SAMPLES)
         self._tick_times: deque[float] = deque(maxlen=MAX_TICK_SAMPLES)
@@ -205,6 +207,11 @@ class InferenceEngine:
         self._sequence += 1
         self._latest = snapshot
         self._tick_times.append(time.monotonic())
+        if self._snapshot_sink is not None:
+            try:
+                self._snapshot_sink(snapshot)
+            except Exception:  # noqa: BLE001 - 记录失败不得影响推理
+                logger.warning("快照回调失败（已忽略）", exc_info=True)
 
         # 离线素材跑完后时间轴停止推进，合并间隔不会再判超时。此时只收尾、
         # 不再根据快照建事件：否则每轮都会「建一个 → 立刻关掉」，产生大量 0ms 碎片。
@@ -242,6 +249,11 @@ class InferenceEngine:
     @property
     def session_id(self) -> str | None:
         return self._session_id
+
+    def set_snapshot_sink(self, sink: Callable[[RiskSnapshot], None] | None) -> None:
+        """注册/清除每 tick 快照回调。离线分析用它写回放时间轴。"""
+
+        self._snapshot_sink = sink
 
     @property
     def client_count(self) -> int:

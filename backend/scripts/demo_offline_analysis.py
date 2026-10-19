@@ -109,21 +109,36 @@ def main() -> None:
     parser.add_argument("--token", default="dev-token")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--frames", type=int, default=50, help="样例视频帧数（25 fps，默认 2 秒）")
+    parser.add_argument(
+        "--keep-db",
+        action="store_true",
+        help="保留上次演示的库；默认重建（表结构变了也能直接跑起来）",
+    )
     args = parser.parse_args()
 
     media_root = BACKEND / "var" / "demo-media"
-    os.environ.setdefault("DGB_DATABASE_URL", f"sqlite:///{(BACKEND / 'var' / 'demo.db').as_posix()}")
-    os.environ.setdefault("DGB_MEDIA_DIR", str(media_root))
-    os.environ.setdefault("DGB_ADMIN_TOKEN", args.token)
-    os.environ.setdefault("DGB_INFERENCE_HZ", "20")
-    os.environ.setdefault("DGB_HEARTBEAT_SECONDS", "30")
+    database = BACKEND / "var" / "demo.db"
+    # 演示必须和外部环境隔离：之前用 setdefault 继承了一个旧 DGB_DATABASE_URL，
+    # 结果演示库与页面看到的库不是同一个。这里直接覆盖。
+    os.environ["DGB_DATABASE_URL"] = f"sqlite:///{database.as_posix()}"
+    os.environ["DGB_MEDIA_DIR"] = str(media_root)
+    os.environ["DGB_ADMIN_TOKEN"] = args.token
+    os.environ["DGB_INFERENCE_HZ"] = "20"
+    os.environ["DGB_HEARTBEAT_SECONDS"] = "30"
     # 有构建产物就交给 FastAPI 托管；没有则只提供 API 与 /docs。
     dist = BACKEND.parent / "frontend" / "dist"
     if dist.is_dir():
-        os.environ.setdefault("DGB_STATIC_DIR", str(dist))
+        os.environ["DGB_STATIC_DIR"] = str(dist)
 
     from app.config import load_config
     from app.main import create_app
+
+    if not args.keep_db:
+        # `create_all` 不会改已存在的表；旧演示库缺 `step_ms` 会直接 500。
+        for suffix in ("", "-shm", "-wal"):
+            stale = database.with_name(database.name + suffix)
+            if stale.exists():
+                stale.unlink()
 
     config = load_config()
     app = create_app(config)
@@ -143,6 +158,7 @@ def main() -> None:
     print(f"  页面      {base}/")
     print(f"  API 文档  {base}/docs")
     print(f"  Token     {args.token}")
+    print(f"  数据库    {database}")
     print(f"  样例视频  {sample}")
     print("-" * 68)
     print("  1) 页面右上角填 Token → 打开「离线分析」")
@@ -151,6 +167,10 @@ def main() -> None:
     print("  4) 点「查看该会话事件」→ 事件表只剩这一轮（含一条 fatigue/DANGER）")
     print("  5) 点「查看该会话统计」→ 危险事件总数应为 1，累计时长大致等于危险段时长")
     print("  6) 回「实时监控」→ 顶部提示「当前离线回放，不是实时采集」")
+    print("  7) 在任务卡下方看「回放」→ 拖动风险曲线或点事件「定位」跳到出问题的那一帧")
+    print("-" * 68)
+    print("  注：脚本生成的样例是 mp4v，浏览器一般解不了，回放会自动退回抽帧序列")
+    print("      （帧号同样精确）。真实手机/行车记录仪的 H.264 视频才会用 <video> 播放。")
     print("=" * 68, flush=True)
 
     import uvicorn

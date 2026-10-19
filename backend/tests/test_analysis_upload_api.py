@@ -23,32 +23,10 @@ from tests.analysis_support import (
     JOBS,
     configure_env,
     install_ports,
+    write_sample_video as _write_video,
 )
 
 UPLOAD = f"{JOBS}/upload"
-
-
-def _write_video(path: Path, *, frames: int = 10, fps: int = 25, width: int = 160, height: int = 120) -> Path:
-    cv2, np = _cv2()
-    writer = cv2.VideoWriter(
-        str(path), cv2.VideoWriter_fourcc(*"mp4v"), float(fps), (width, height)
-    )
-    if not writer.isOpened():  # pragma: no cover - 取决于本机编码器
-        pytest.skip("当前环境没有可用的 mp4 编码器")
-    try:
-        for index in range(frames):
-            frame = np.full((height, width, 3), (index * 20) % 255, dtype="uint8")
-            writer.write(frame)
-    finally:
-        writer.release()
-    return path
-
-
-def _cv2():
-    import cv2
-    import numpy as np
-
-    return cv2, np
 
 
 def _upload(client: TestClient, headers, path: Path, **form):

@@ -130,6 +130,8 @@ class AnalysisJob(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False)
     frames_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     frames_done: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 抽帧步长（ms）。事件时间轴 ÷ 步长 = 帧号，回放定位靠它。
+    step_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=40)
     timeline_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
@@ -141,6 +143,7 @@ class AnalysisJob(Base):
         CheckConstraint(_in_list("status", JOB_STATUSES), name="ck_jobs_status"),
         CheckConstraint(_in_list("source_kind", SOURCE_KINDS), name="ck_jobs_kind"),
         CheckConstraint("frames_total >= 0", name="ck_jobs_total"),
+        CheckConstraint("step_ms > 0", name="ck_jobs_step"),
         CheckConstraint("frames_done >= 0 AND frames_done <= frames_total", name="ck_jobs_done"),
         CheckConstraint("timeline_ms >= 0", name="ck_jobs_timeline"),
         CheckConstraint(

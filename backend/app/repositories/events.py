@@ -133,6 +133,16 @@ class EventRepository:
         items = list(self._session.execute(stmt).scalars())
         return items, int(total)
 
+    def list_for_session(self, session_id: str) -> list[DrivingEvent]:
+        """某会话的全部事件，按时间升序（回放定位用，不分页）。"""
+
+        stmt = (
+            select(DrivingEvent)
+            .where(DrivingEvent.session_id == session_id)
+            .order_by(DrivingEvent.started_at.asc(), DrivingEvent.event_id.asc())
+        )
+        return list(self._session.execute(stmt).scalars().all())
+
     def summary(
         self,
         *,

@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from app.schemas import RiskSnapshot
 
 ADMIN_TOKEN = "test-admin-token"
@@ -81,6 +83,33 @@ def make_frames(media: Path, count: int, *, name: str = "job-under-test") -> Pat
     for index in range(count):
         (directory / f"{index:06d}.jpg").write_bytes(JPEG)
     return directory
+
+
+def write_sample_video(
+    path: Path,
+    *,
+    frames: int = 10,
+    fps: int = 25,
+    width: int = 160,
+    height: int = 120,
+) -> Path:
+    """写一段可解码的合成 mp4（抽帧测试必须用真视频，假解码等于没测）。"""
+
+    import cv2
+    import numpy as np
+
+    writer = cv2.VideoWriter(
+        str(path), cv2.VideoWriter_fourcc(*"mp4v"), float(fps), (width, height)
+    )
+    if not writer.isOpened():  # pragma: no cover - 取决于本机编码器
+        pytest.skip("当前环境没有可用的 mp4 编码器")
+    try:
+        for index in range(frames):
+            frame = np.full((height, width, 3), (index * 20) % 255, dtype="uint8")
+            writer.write(frame)
+    finally:
+        writer.release()
+    return path
 
 
 def configure_env(monkeypatch, tmp_path, media: Path, **overrides: object) -> None:

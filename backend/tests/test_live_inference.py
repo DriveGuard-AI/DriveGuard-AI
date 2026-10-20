@@ -16,7 +16,7 @@ import pytest
 
 from app.inference.frame_source import JpegSequenceSource
 from app.inference.live_client import LiveCamera, LiveClient, LiveError
-from app.inference.live_port import LiveInference, summarize_tasks
+from app.inference.live_port import LiveInference, build_task_details, summarize_tasks
 
 NOW = datetime(2026, 10, 18, 12, 0, 0, tzinfo=timezone.utc)
 TASKS = ("fatigue", "phone_use", "drinking", "distraction")
@@ -102,6 +102,65 @@ def test_missing_tasks_behave_like_unavailable_evidence():
     assert summary["quality"] == "unknown"
 
 
+# --------------------------------------------------------------- 六参数表
+
+
+def test_task_details_expose_the_six_parameters_and_derived_margin():
+    details = build_task_details({
+        "drinking": task(detected=True, score=0.88),
+        "phone_use": task(available=False, detected=False, score=None),
+    })
+
+    drinking = details["drinking"]
+    assert drinking.available is True
+    assert drinking.logit == pytest.approx(0.88)
+    assert drinking.score == pytest.approx(0.88)
+    assert drinking.threshold_logit == pytest.approx(0.0)
+    # margin 是接口层派生：logit - threshold_logit
+    assert drinking.margin == pytest.approx(0.88)
+    assert drinking.detected is True
+    assert drinking.source == "test"
+
+    # 不可用任务不得用 0 冒充分数
+    phone = details["phone_use"]
+    assert phone.available is False
+    assert phone.logit is None
+    assert phone.score is None
+    assert phone.margin is None
+    assert phone.detected is None
+    assert phone.threshold_logit == pytest.approx(0.0)
+
+
+def test_task_details_margin_is_a_signed_distance_to_threshold():
+    details = build_task_details({
+        "fatigue": {
+            "available": True, "logit": -1.5, "score": 0.18,
+            "threshold_logit": -0.5, "detected": False, "source": "coverage25",
+        }
+    })
+    fatigue = details["fatigue"]
+    assert fatigue.margin == pytest.approx(-1.0)
+    assert fatigue.detected is False
+
+
+def test_task_details_ignore_non_finite_numbers():
+    details = build_task_details({
+        "fatigue": {
+            "available": True, "logit": float("nan"), "score": float("inf"),
+            "threshold_logit": 0.0, "detected": True, "source": "coverage25",
+        },
+        "distraction": {
+            "available": True, "logit": True, "score": 1,
+            "threshold_logit": 0.0, "detected": True, "source": "C_fusion",
+        },
+    })
+    assert details["fatigue"].logit is None
+    assert details["fatigue"].score is None
+    assert details["fatigue"].margin is None
+    # bool 是 int 的子类，不能被当成 1.0 写进快照
+    assert details["distraction"].logit is None
+
+
 def test_one_detection_is_warning_two_are_danger():
     single = summarize_tasks({**{name: task() for name in TASKS},
                               "phone_use": task(detected=True, score=0.93)})
@@ -179,6 +238,12 @@ def test_pumped_result_becomes_a_real_snapshot():
         assert snapshot.primary_risk == "phone_use"
         assert snapshot.reason_codes == ["PHONE_USE_DETECTED"]
         assert snapshot.risk_scores["phone_use"] == pytest.approx(0.88)
+        # 六参数随快照下发，margin 可直接回答“离触发多远”
+        detail = snapshot.task_details["phone_use"]
+        assert detail.available is True
+        assert detail.detected is True
+        assert detail.margin == pytest.approx(0.88)
+        assert detail.source == "test"
         status = inference.status()
         assert status["frames_sent"] == 2
         assert status["degraded"] is False
@@ -199,6 +264,8 @@ def test_stale_result_is_reported_as_unknown_not_safe():
         assert snapshot.risk_level == "WARNING"
         assert snapshot.quality == "unknown"
         assert snapshot.reason_codes == ["RESULT_STALE"]
+        # 过期结果不能把上一轮的六参数当成当前依据
+        assert snapshot.task_details == {}
     finally:
         inference.close()
 

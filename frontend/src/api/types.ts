@@ -27,6 +27,23 @@ export interface Detection {
   bbox: number[]
 }
 
+/**
+ * 单个行为的判决参数（六参数表）。
+ *
+ * 判定依据是 `logit >= threshold_logit`，不是 score；`score` 是未校准 sigmoid，
+ * 只能横向比较。`margin = logit - threshold_logit`：>0 已触发，<0 是安全余量。
+ */
+export interface TaskDetail {
+  available: boolean
+  logit: number | null
+  score: number | null
+  threshold_logit: number | null
+  margin: number | null
+  detected: boolean | null
+  source: string | null
+  score_semantics: string | null
+}
+
 export interface RiskSnapshot {
   schema_version: string
   session_id: string
@@ -39,6 +56,8 @@ export interface RiskSnapshot {
   risk_scores: Record<string, number>
   features: FeatureSet
   detections: Detection[]
+  /** 四任务的六参数；fake 回放或结果过期时为空对象，不伪造数字。 */
+  task_details?: Record<string, TaskDetail>
   reason_codes: string[]
   inference_mode: InferenceMode
   /** 素材时间轴位置（毫秒）；实时模式或尚无证据时为 null。 */

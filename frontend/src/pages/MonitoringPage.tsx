@@ -12,7 +12,96 @@ import {
 } from '../components/common'
 import { LivePreview } from '../components/LivePreview'
 import type { MonitoringFeed } from '../hooks/useMonitoringSocket'
-import type { RiskSnapshot } from '../api/types'
+import type { RiskSnapshot, TaskDetail } from '../api/types'
+
+const TASK_LABELS: Record<string, string> = {
+  fatigue: '疲劳',
+  phone_use: '使用手机',
+  drinking: '饮水',
+  distraction: '分心',
+}
+
+function formatSigned(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
+/**
+ * 六参数表：解释"为什么是 / 不是 DANGER"。
+ *
+ * 判定依据是 `logit >= threshold_logit`；`margin` 是两者之差，负值即安全余量。
+ * `score` 只是未校准 sigmoid，仅可横向比较——这里刻意与 margin 分列展示，
+ * 避免把 score 当成概率。
+ */
+function TaskDetailsCard({ details }: { details: Record<string, TaskDetail> }) {
+  const names = Object.keys(details).sort(
+    (a, b) => Object.keys(TASK_LABELS).indexOf(a) - Object.keys(TASK_LABELS).indexOf(b),
+  )
+  if (names.length === 0) {
+    return (
+      <section className="card">
+        <h3>四任务判决参数</h3>
+        <EmptyState text="当前没有逐任务参数（脚本化回放或结果已过期，不伪造数值）" />
+      </section>
+    )
+  }
+
+  return (
+    <section className="card">
+      <h3>四任务判决参数</h3>
+      <table className="table task-details">
+        <thead>
+          <tr>
+            <th>任务</th>
+            <th>可用</th>
+            <th>logit</th>
+            <th>阈值</th>
+            <th>margin</th>
+            <th>score</th>
+            <th>判定</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {names.map((name) => {
+            const detail = details[name]
+            const marginClass =
+              detail.margin === null ? '' : detail.margin >= 0 ? 'margin-pos' : 'margin-neg'
+            return (
+              <tr key={name}>
+                <td>
+                  {TASK_LABELS[name] ?? name}
+                  <span className="muted small"> {name}</span>
+                </td>
+                <td>{detail.available ? '是' : <span className="muted">否</span>}</td>
+                <td className="mono">{detail.logit?.toFixed(3) ?? '—'}</td>
+                <td className="mono">{detail.threshold_logit?.toFixed(3) ?? '—'}</td>
+                <td className={`mono ${marginClass}`}>{formatSigned(detail.margin)}</td>
+                <td className="mono">{detail.score?.toFixed(3) ?? '—'}</td>
+                <td>
+                  {detail.detected === null ? (
+                    <span className="muted">—</span>
+                  ) : detail.detected ? (
+                    <b>触发</b>
+                  ) : (
+                    <span className="muted">未触发</span>
+                  )}
+                </td>
+                <td className="mono small">{detail.source ?? '—'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className="muted small">
+        判定依据是 <code>logit ≥ threshold_logit</code>；<b>margin</b> 为两者之差（&gt;0 已触发，
+        &lt;0 表示还差多少）。<b>score</b> 是未校准 sigmoid（
+        {names.map((name) => details[name].score_semantics).find(Boolean) ?? 'uncalibrated_sigmoid'}），
+        只能横向比较，不得当作概率。不可用任务的数值一律为空，不以 0 代替。
+      </p>
+    </section>
+  )
+}
 
 /** 毫秒时间轴 → m:ss.s。离线分析时表示素材播放位置，不是墙钟。 */
 function formatTimeline(ms: number): string {
@@ -213,6 +302,8 @@ export function MonitoringPage({
               )}
             </section>
           </div>
+
+          <TaskDetailsCard details={snapshot.task_details ?? {}} />
 
           <section className="card">
             <h3>事件通知（event.changed）</h3>

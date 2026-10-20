@@ -773,6 +773,25 @@ components:
         type: number
         minimum: 0
         maximum: 1
+    TaskDetail:
+      type: object
+      additionalProperties: false
+      required: [available]
+      description: >-
+        单任务判决参数（六参数 + 派生 margin）。判定依据是 logit >= threshold_logit，
+        score 是未校准 sigmoid，仅供相对比较。available=false 时 logit/score/margin/detected
+        必须为 null，不得补 0。
+      properties:
+        available: {type: boolean}
+        logit: {type: [number, "null"]}
+        score: {type: [number, "null"], minimum: 0, maximum: 1}
+        threshold_logit: {type: [number, "null"]}
+        margin:
+          type: [number, "null"]
+          description: logit - threshold_logit；>=0 已触发，<0 为安全余量
+        detected: {type: [boolean, "null"]}
+        source: {type: [string, "null"]}
+        score_semantics: {type: [string, "null"]}
     RiskSnapshot:
       type: object
       additionalProperties: false
@@ -794,6 +813,11 @@ components:
         detections:
           type: array
           items: {$ref: "#/components/schemas/Detection"}
+        task_details:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/TaskDetail"
+          description: 四任务判决参数；结果过期或回放模式时为空
         reason_codes:
           type: array
           items: {type: string}

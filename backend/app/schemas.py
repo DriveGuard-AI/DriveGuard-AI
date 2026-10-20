@@ -62,6 +62,32 @@ class Detection(BaseModel):
     bbox: list[float] = Field(default_factory=list)
 
 
+class TaskDetail(BaseModel):
+    """单个行为的判决参数（"六参数表"）。
+
+    字段来源与 live 服务的 `tasks[name]` 一一对应：
+    `available`、`logit`、`score`、`threshold_logit`、`detected`、`source`。
+
+    - `logit` 是模型原始输出，`threshold_logit` 是判定阈值，**判定依据是
+      `logit >= threshold_logit`**，不是 score；
+    - `score` 是未校准 sigmoid（`score_semantics=uncalibrated_sigmoid`），
+      只能用于相对比较，不得解释为概率；
+    - `margin = logit - threshold_logit` 由接口层派生：>0 已触发，<0 是离
+      触发还差多少（负得越多越安全），用于回答"为什么是/不是 DANGER"；
+    - `available=false` 时 `logit/score/detected` 必须为 null，不得用 0 代填
+      （业务规则：不可用证据不得伪装成低风险）。
+    """
+
+    available: bool
+    logit: float | None = None
+    score: float | None = None
+    threshold_logit: float | None = None
+    margin: float | None = None
+    detected: bool | None = None
+    source: str | None = None
+    score_semantics: str | None = None
+
+
 class RiskSnapshot(BaseModel):
     """风险快照：风险融合层输出的版本化实时状态（见 `.ai-memory/project_memory.md`）。
 
@@ -82,6 +108,8 @@ class RiskSnapshot(BaseModel):
     risk_scores: dict[str, float] = Field(default_factory=dict)
     features: FeatureSet = Field(default_factory=FeatureSet)
     detections: list[Detection] = Field(default_factory=list)
+    # 四个行为各自的判决参数。fake/过期快照为空，不伪造数字。
+    task_details: dict[str, TaskDetail] = Field(default_factory=dict)
     reason_codes: list[str] = Field(default_factory=list)
     inference_mode: InferenceMode = "fake"
     # 视频时间轴位置（毫秒）。离线分析时由 live 服务的 window_end_ms 提供，
@@ -368,6 +396,7 @@ __all__ = [
     "SettingsUpdateResponse",
     "StatisticsSummary",
     "SystemStatus",
+    "TaskDetail",
     "TrendBucket",
     "UtcDateTime",
     "WSMessage",

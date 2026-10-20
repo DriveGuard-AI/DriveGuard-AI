@@ -18,11 +18,12 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import math
 import threading
 import time
 from typing import Any
 
-from ..schemas import FeatureSet, RiskSnapshot
+from ..schemas import FeatureSet, RiskSnapshot, TaskDetail
 from .frame_source import FrameSource, FrameSourceError
 from .live_client import LiveCamera, LiveClient, LiveError
 from .port import InferencePort
@@ -31,6 +32,57 @@ logger = logging.getLogger(__name__)
 
 TASK_NAMES = ("fatigue", "phone_use", "drinking", "distraction")
 STALE_SECONDS = 3.0
+
+
+def _finite(value: Any) -> float | None:
+    """只接受有限实数；bool 是 int 的子类，必须排除，否则 True 会变成 1.0。"""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _round(value: float | None) -> float | None:
+    return None if value is None else round(value, 4)
+
+
+def build_task_details(tasks: dict[str, dict] | None) -> dict[str, TaskDetail]:
+    """把 live 的 `tasks` 映射成六参数表，并派生 `margin`。
+
+    映射原则是**不补零、不推测**：
+
+    - `available=false`：`logit/score/detected` 一律 null，仅保留阈值与来源，
+      让前端能显示"该任务没有证据"而不是"分数 0"；
+    - `margin = logit - threshold_logit`：只在两者都有值时计算，否则 null；
+    - 非有限数值（NaN/Inf）视为缺失，不写进快照。
+    """
+
+    details: dict[str, TaskDetail] = {}
+    for name, raw in (tasks or {}).items():
+        if not isinstance(raw, dict):
+            continue
+        available = raw.get("available") is True
+        logit = _finite(raw.get("logit")) if available else None
+        score = _finite(raw.get("score")) if available else None
+        threshold = _finite(raw.get("threshold_logit"))
+        margin = None
+        if logit is not None and threshold is not None:
+            margin = round(logit - threshold, 4)
+        detected = raw.get("detected") if available and isinstance(raw.get("detected"), bool) else None
+        source = raw.get("source") if isinstance(raw.get("source"), str) else None
+        semantics = raw.get("score_semantics") if isinstance(raw.get("score_semantics"), str) else None
+        details[str(name)] = TaskDetail(
+            available=available,
+            logit=_round(logit),
+            score=_round(score),
+            threshold_logit=_round(threshold),
+            margin=margin,
+            detected=detected,
+            source=source,
+            score_semantics=semantics,
+        )
+    return details
 
 
 def summarize_tasks(tasks: dict[str, dict] | None) -> dict[str, Any]:
@@ -229,6 +281,8 @@ class LiveInference(InferencePort):
             confidence=summary["confidence"], quality=summary["quality"],
             risk_scores=summary["risk_scores"], reason_codes=summary["reason_codes"],
             source_timestamp_ms=timeline if isinstance(timeline, int) else None,
+            # 只有新鲜结果才带六参数；过期/缺失时留空，避免“旧参数”被当成当前依据。
+            task_details=build_task_details(result.get("tasks")),
         )
 
     # ------------------------------------------------------------ 内部实现
@@ -256,6 +310,7 @@ class LiveInference(InferencePort):
         risk_scores: dict[str, float],
         reason_codes: list[str],
         source_timestamp_ms: int | None = None,
+        task_details: dict[str, TaskDetail] | None = None,
     ) -> RiskSnapshot:
         return RiskSnapshot(
             schema_version="1.0",
@@ -269,6 +324,7 @@ class LiveInference(InferencePort):
             risk_scores={key: round(float(value), 4) for key, value in risk_scores.items()},
             features=FeatureSet(),
             detections=[],
+            task_details=dict(task_details or {}),
             reason_codes=list(reason_codes),
             inference_mode="real",
             source_timestamp_ms=source_timestamp_ms,
@@ -367,4 +423,10 @@ class LiveInference(InferencePort):
             self._stop.wait(self._retry_seconds)
 
 
-__all__ = ["LiveInference", "STALE_SECONDS", "TASK_NAMES", "summarize_tasks"]
+__all__ = [
+    "LiveInference",
+    "STALE_SECONDS",
+    "TASK_NAMES",
+    "build_task_details",
+    "summarize_tasks",
+]

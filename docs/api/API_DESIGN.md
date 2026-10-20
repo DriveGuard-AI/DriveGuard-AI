@@ -60,6 +60,20 @@ MVP 使用 RESTful JSON API 处理查询和配置，使用 WebSocket 推送实�
 
 features 的缺失项用 null 或省略；confidence 是融合配置定义的决策支持分数，未做校准前不得解释为事故概率。detections 的 bbox 约定为原始未镜像图像的归一化 `[x_min,y_min,x_max,y_max]`，各值 0–1 且 x_min<x_max、y_min<y_max；跨预览缩放时由前端映射。
 
+`task_details` 是逐任务判决参数（六参数 + 派生 `margin`），字段与 live 服务 `tasks[name]` 一一对应：
+
+| 字段 | 含义 |
+| --- | --- |
+| `available` | 该任务本帧是否有可用证据；为 false 时 `logit/score/detected/margin` 必须为 null |
+| `logit` | 模型原始输出（未过 sigmoid） |
+| `threshold_logit` | 该任务的判定阈值 |
+| `margin` | `logit - threshold_logit`，由接口层派生：>=0 已触发，<0 是距触发的差距 |
+| `score` | 未校准 sigmoid（`score_semantics=uncalibrated_sigmoid`），仅供相对比较 |
+| `detected` | 服务端判定结果（`logit >= threshold_logit`） |
+| `source` | 证据来源：`coverage25` / `C_fusion` / `gap80_rgb_fallback` / `yawn_eye_dense_track` |
+
+判定依据是 logit 与阈值，不是 score；`margin` 用于回答"离触发还有多远"。不可用任务不得补 0，客户端也不得自行插值。结果过期（`RESULT_STALE`）或回放模式时整表为空。
+
 ```json
 {
   "schema_version": "1.0",
@@ -83,6 +97,28 @@ features 的缺失项用 null 或省略；confidence 是融合配置定义的决
     "head_pose": {"yaw": 4.2, "pitch": 11.8, "roll": 1.1}
   },
   "detections": [],
+  "task_details": {
+    "fatigue": {
+      "available": true,
+      "logit": 1.42,
+      "score": 0.81,
+      "threshold_logit": 0.0,
+      "margin": 1.42,
+      "detected": true,
+      "source": "yawn_eye_dense_track",
+      "score_semantics": "uncalibrated_sigmoid"
+    },
+    "drinking": {
+      "available": false,
+      "logit": null,
+      "score": null,
+      "threshold_logit": 0.0,
+      "margin": null,
+      "detected": null,
+      "source": "coverage25",
+      "score_semantics": "uncalibrated_sigmoid"
+    }
+  },
   "reason_codes": ["PERCLOS_HIGH"]
 }
 ```

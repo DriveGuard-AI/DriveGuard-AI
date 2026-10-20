@@ -899,3 +899,18 @@ button.ghost:hover:not(:disabled) {
   align-items: center;
   margin-top: 8px;
 }
+/* ------------------------------------------------------------ 六参数表（判决依据） */
+
+.task-details td,
+.task-details th {
+  white-space: nowrap;
+}
+
+.margin-pos {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.margin-neg {
+  color: #1f7a4d;
+}

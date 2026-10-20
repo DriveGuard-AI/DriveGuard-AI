@@ -10,6 +10,7 @@
 | 后端 REST API（API-001 ~ API-009） | **已实现** | 路径、字段、错误码与 `docs/api/API_DESIGN.md` 一致 |
 | 离线分析任务（API-010 ~ API-018，2026-10-19） | **已实现** | 创建/列表/详情/取消 + 上传自动抽帧 + 回放证据 + 与实时互斥（409 + `force`，`/monitoring/resume` 切回实时）；`analysis_jobs` 表（迁移 `0002`/`0003`）；上传配套保留期清理与磁盘上限（NFR-003） |
 | 实时预览（API-010 / API-010a，2026-10-19） | **已实现** | `CameraSource`（25 Hz 网格、丢时间片不追帧、断线重连）+ `PreviewTap`（预览与推理共用同一份 JPEG 字节）+ MJPEG 端点；分片带 `X-Seq`/`X-Timestamp-Ms`/`X-Sha256` 供逐帧对齐；开关 `preview.enabled` 默认关闭，运行时生效；离线回放期间不提供预览 |
+| 六参数判决表（RiskSnapshot.task_details，2026-10-19） | **已实现** | 逐任务下发 `available/logit/score/threshold_logit/detected/source` + 派生 `margin=logit-threshold_logit`；不可用任务数值为 null 不补 0；结果过期时整表为空；前端展示"为什么是/不是 DANGER" |
 | WebSocket（WS-001 `/ws/v1/monitoring`） | **已实现** | envelope、`sequence` 单调、心跳、10 Hz 节流、慢客户端丢旧快照、`event.changed` 优先 |
 | 事件服务（FR-006） | **已实现** | 生命周期 `candidate → active → ended / discarded`，同类同会话聚合，最短持续时间校验 |
 | 配置服务（FR-009） | **已实现** | 键注册表校验（类型/范围/跨字段）、乐观锁、审计日志（secret 去敏） |

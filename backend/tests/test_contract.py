@@ -15,6 +15,8 @@ EXPECTED_OPERATIONS = {
     ("put", "/api/v1/settings"),
     ("get", "/api/v1/models"),
     ("get", "/api/v1/monitoring/snapshot"),
+    ("get", "/api/v1/monitoring/preview"),
+    ("get", "/api/v1/monitoring/preview/state"),
 }
 
 EXPECTED_SCHEMAS = {
@@ -27,6 +29,8 @@ EXPECTED_SCHEMAS = {
     "SettingsUpdateResponse",
     "ModelInfo",
     "SystemStatus",
+    "PreviewState",
+    "TaskDetail",
 }
 
 

@@ -1,0 +1,24 @@
+# Changelog
+
+## v0.1.0 — Windows Desktop（候选，2026-10-20）
+
+### Added
+
+- Electron Windows 桌面壳：无地址栏窗口、启动画面、单实例、后端生命周期管理。
+- PyInstaller onedir 后端打包：FastAPI + SQLite + 前端静态资源，用户无需 Python/Node。
+- 完全内置模型服务配置（URL + Token），启动即连接；支持 `--demo` 离线演示。
+- 桌面桥接：本地随机管理 Token 注入、打开数据目录/日志；模型服务 Token 不进入渲染进程。
+- GitHub Actions `windows-latest` 构建 NSIS 安装器与 portable exe。
+- 桌面版运行手册、发布说明与第三方许可清单。
+
+### Changed
+
+- 导航从 5 页签收敛为 4 页签：实时监控 / 离线分析 / 事件历史 / 系统设置。
+- 系统设置只保留真正生效的基础配置；隐藏告警/风险/时序阈值与模型路径。
+- 事件列表移除未实现的片段列；分析页不再展示服务器绝对素材路径。
+- FastAPI 描述改为 demo/live 双模式，不再声明“模型未实现”。
+
+### Not included
+
+- 统计分析页、多用户/RBAC、多会话/多摄像头、事件片段、自动更新、代码签名。
+- 模型权重/NPU 运行时（由外部模型服务提供）。

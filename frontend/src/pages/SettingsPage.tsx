@@ -1,9 +1,30 @@
-/** 系统设置（FR-009）+ 模型元数据（FR-010）。 */
+/** 系统设置（FR-009）。v0.1 只开放影响当前实例的基础配置。 */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError, api } from '../api/client'
-import type { ModelInfo, SettingItem, SettingsResponse } from '../api/types'
+import type { SettingItem, SettingsResponse } from '../api/types'
 import { EmptyState, Notice, formatLocalTime } from '../components/common'
+
+/**
+ * v0.1 发布版白名单。
+ *
+ * 告警/风险/时序阈值目前没有接到 live 模型判决上；模型路径是历史 stub。
+ * 把这些键展示出来会让用户以为“调了就能改告警”，因此只保留真正生效的项。
+ * 后端接口仍保留完整注册表，v0.2 再按能力开放。
+ */
+const RELEASE_SETTING_KEYS = new Set([
+  'camera.device_index',
+  'camera.frame_width',
+  'camera.frame_height',
+  'preview.enabled',
+  'preview.max_fps',
+  'preview.max_clients',
+  'storage.event_retention_days',
+])
+
+function visibleItems(items: SettingItem[]): SettingItem[] {
+  return items.filter((item) => RELEASE_SETTING_KEYS.has(item.key))
+}
 
 function toDraft(items: SettingItem[]): Record<string, unknown> {
   const draft: Record<string, unknown> = {}
@@ -22,26 +43,22 @@ function valuesEqual(a: unknown, b: unknown): boolean {
 
 export function SettingsPage({ token }: { token: string | null }) {
   const [settings, setSettings] = useState<SettingsResponse | null>(null)
-  const [models, setModels] = useState<ModelInfo[]>([])
   const [draft, setDraft] = useState<Record<string, unknown>>({})
   const [error, setError] = useState<Error | null>(null)
   const [saved, setSaved] = useState<{ version: number; restartRequired: string[] } | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const items = useMemo(() => (settings ? visibleItems(settings.items) : []), [settings])
+
   const load = useCallback(async () => {
     try {
       const result = await api.getSettings(token)
       setSettings(result)
-      setDraft(toDraft(result.items))
+      setDraft(toDraft(visibleItems(result.items)))
       setError(null)
     } catch (caught) {
       setSettings(null)
       setError(caught as Error)
-    }
-    try {
-      setModels(await api.listModels(token))
-    } catch {
-      setModels([])
     }
   }, [token])
 
@@ -52,7 +69,7 @@ export function SettingsPage({ token }: { token: string | null }) {
   const changes = useMemo(() => {
     if (!settings) return {}
     const diff: Record<string, unknown> = {}
-    settings.items.forEach((item) => {
+    items.forEach((item) => {
       const next = draft[item.key]
       if (item.is_secret) {
         if (typeof next === 'string' && next.trim().length > 0) {
@@ -73,7 +90,7 @@ export function SettingsPage({ token }: { token: string | null }) {
       }
     })
     return diff
-  }, [draft, settings])
+  }, [draft, items, settings])
 
   const save = async () => {
     if (!settings) return
@@ -146,6 +163,11 @@ export function SettingsPage({ token }: { token: string | null }) {
         </div>
       </div>
 
+      <Notice kind="info" title="v0.1 只开放基础配置">
+        告警延迟、风险阈值、时序窗口和模型路径尚未接入当前 live 判决，发布版不展示。
+        摄像头分辨率等标注“需重启”的项在下次启动后生效。
+      </Notice>
+
       {error ? (
         error instanceof ApiError ? (
           <Notice kind="error" title={`${error.code}：${error.message}`}>
@@ -162,7 +184,7 @@ export function SettingsPage({ token }: { token: string | null }) {
               <div>配置已被其他会话更新，已重新载入最新版本，请确认后再次提交。</div>
             ) : null}
             {error.code === 'AUTH_REQUIRED' ? (
-              <div>请在右上角填入管理 Token（后端 `DGB_ADMIN_TOKEN`）。</div>
+              <div>桌面版会自动注入本地 Token；Web 调试时请在右上角填入管理 Token。</div>
             ) : null}
           </Notice>
         ) : (
@@ -204,7 +226,7 @@ export function SettingsPage({ token }: { token: string | null }) {
               </tr>
             </thead>
             <tbody>
-              {settings.items.map((item) => (
+              {items.map((item) => (
                 <tr key={item.key} className={item.key in changes ? 'selected' : undefined}>
                   <td className="mono">{item.key}</td>
                   <td>{renderInput(item)}</td>
@@ -221,40 +243,22 @@ export function SettingsPage({ token }: { token: string | null }) {
         )}
       </section>
 
-      <section className="card">
-        <h3>模型与版本（只读）</h3>
-        {models.length === 0 ? (
-          <EmptyState text="暂无模型元数据" />
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>类型</th>
-                <th>语义版本</th>
-                <th>运行时</th>
-                <th>特征 schema</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map((model) => (
-                <tr key={model.model_version_id}>
-                  <td className="mono">{model.model_name}</td>
-                  <td>{model.model_type}</td>
-                  <td>{model.semantic_version}</td>
-                  <td>{model.runtime}</td>
-                  <td className="mono">{model.feature_schema_version ?? '—'}</td>
-                  <td>{model.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <Notice kind="info" title="当前为占位模型（stub）">
-          仓库尚未提供训练好的模型工件；模型识别与判断未实现，风险数据来自脚本化回放。
-        </Notice>
-      </section>
+      {window.driveguard ? (
+        <section className="card">
+          <h3>桌面版数据</h3>
+          <p className="muted small">
+            数据库、上传素材和后端日志保存在当前 Windows 用户的数据目录；卸载默认保留。
+          </p>
+          <div className="preview-actions">
+            <button type="button" onClick={() => void window.driveguard?.openDataDir()}>
+              打开数据目录
+            </button>
+            <button type="button" className="ghost" onClick={() => void window.driveguard?.openLogs()}>
+              查看后端日志
+            </button>
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }

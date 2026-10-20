@@ -23,6 +23,13 @@ frontend/dist/
 frontend/*.tsbuildinfo
 frontend/.vite/
 
+# 桌面版构建产物与本机内置配置（可能含 Token，禁止入库）
+desktop/node_modules/
+desktop/dist/
+desktop/release/
+desktop/build/pyinstaller/
+desktop/config.json
+
 # Machine-local training data, configuration and temporary artifacts.
 /data/
 /datasets/

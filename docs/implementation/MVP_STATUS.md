@@ -2,6 +2,22 @@
 
 > 本文记录 **2026-09-11** 交付的前后端 MVP 骨架与文档的关系。
 > 相关信息可信度分级沿用 `docs/README.md`：**设计基线 / 已实现 / 待实现**。
+>
+> **2026-10-20 增量**：应用侧已可通过 `DGB_INFERENCE_MODE=live` 接入模型服务，
+> 并新增 Windows 桌面版（Electron + PyInstaller，4 页签、外接模型服务）。
+> 本文第 2 节与第 4 节保留了 2026-09-11 的 fake-only 历史基线；
+> 当前能力以根 `README.md`、[桌面版说明](../deployment/DESKTOP_APP.md)和
+> [v0.1.0 发布说明](../releases/V0.1.0-DESKTOP.md)为准。
+
+## 0. 2026-10-20 桌面版增量
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Windows 桌面壳 | **工程实现，待实机验收** | Electron 主进程、启动画面、单实例、后端生命周期、内置模型服务配置 |
+| 后端打包 | **已验证（Linux）** | PyInstaller onedir；冻结后 `/api/v1/health`、Dashboard、status 正常 |
+| 功能裁剪 | **已实现** | 导航 5→4 页签；统计页不进入 v0.1；设置页白名单；事件片段列移除 |
+| Windows 构建 | **待执行** | GitHub Actions `windows-latest` 或 Windows 机器；当前 Linux/aarch64 无法构建 exe |
+| 发布文档 | **已更新** | `docs/deployment/DESKTOP_APP.md`、`docs/releases/V0.1.0-DESKTOP.md`、`NOTICE` |
 
 ## 1. 本次实现范围
 
@@ -19,11 +35,11 @@
 | 鉴权与权限 | **已实现** | Bearer Token、`monitoring:read / monitoring:write / settings:read / settings:write / models:read / analysis:read / analysis:write`；配置 Token 后除 `/health` 外一律要求鉴权 |
 | 可观测性（NFR-006） | **部分实现** | `/system/status` 暴露 FPS/延迟 P50/P95/丢帧率/WS 客户端数/DB 可写性；结构化日志待补 |
 | 前端 Dashboard | **已实现** | 实时监控 / 离线分析 / 事件历史 / 统计 / 系统设置五域，React + TS + Vite + ECharts，构建产物由 FastAPI 托管；事件与统计支持按会话过滤，监控页在 `pipeline.playback=true` 时提示“离线回放” |
-| 模型识别与判断（FR-002 ~ FR-004） | **未实现** | 见下节 |
+| 模型识别与判断（FR-002 ~ FR-004） | **部分实现** | 应用侧默认仍为 fake；配置 `DGB_INFERENCE_MODE=live` 可接模型侧 live 服务（四任务 + 六参数）。模型精度与实机验收仍未完成 |
 | 摄像头采集（FR-001） | **部分实现** | `DGB_LIVE_SOURCE=camera` 时由 `CameraSource` 按 25 Hz 网格取帧并编码 JPEG；分辨率/后端/质量可配；拔线按可重试故障处理（不伪装成“素材读完”）。真实设备验收尚未做 |
 | 训练与评估（FR-011） | **未实现** | 无 DMD 数据处理与训练代码 |
 
-## 2. 模型未实现期间的替代方案（重要）
+## 2. 模型未接入阶段的历史替代方案（2026-09-11）
 
 - 新增推理端口 `backend/app/inference/port.py`：`InferencePort` 是模型与业务逻辑之间的唯一边界。
 - 当前注入 `FakeInference`（`backend/app/inference/fake.py`）：按 **确定性脚本场景** 回放
@@ -47,7 +63,7 @@
 ## 4. 验证证据
 
 ```text
-后端：pytest 40 passed（契约 / 集成 / WS / 隐私 / 事件生命周期）
+后端：pytest 40 passed（2026-09-11 基线；当前后端为 114 项）
 迁移：alembic upgrade head → 0001_initial (head)
 前端：tsc -b && vite build 成功（dist/）
 端到端：uvicorn 启动后 GET / 返回 Dashboard，
@@ -65,7 +81,7 @@
 - 已同步文件：docs/README.md（索引）、README.md（状态与快速开始）、.gitignore、本文件
 - 未同步项及原因：REQUIREMENTS.md / ARCHITECTURE.md / TEST_STRATEGY.md 正文未改动——
   实现遵循既有契约，未发生契约变化，因此按"轻量影响检查"仅记录结论
-- 验证：pytest 40 passed；OpenAPI 覆盖 API-001~009；WebSocket 消息 schema_version=1.0
+- 验证：pytest 40 passed（历史值；2026-10-20 为 114 项）；OpenAPI 覆盖 API-001~009；WebSocket 消息 schema_version=1.0
 ```
 
 ## 6. 后续建议顺序

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "DriveGuard AI Web Dashboard（实时监控 / 事件历史 / 统计 / 系统设置）",
+  "description": "DriveGuard AI Web Dashboard（实时监控 / 离线分析 / 事件历史 / 系统设置）",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

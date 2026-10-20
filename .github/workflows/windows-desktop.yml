@@ -1,0 +1,82 @@
+name: Windows Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "发布标签（可选，例如 v0.1.0）"
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows x64 installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - name: Build installer
+        shell: pwsh
+        env:
+          DGB_MODEL_SERVICE_URL: ${{ secrets.DGB_MODEL_SERVICE_URL }}
+          DGB_MODEL_SERVICE_TOKEN: ${{ secrets.DGB_MODEL_SERVICE_TOKEN }}
+          DGB_MODEL_VIEW: ${{ vars.DGB_MODEL_VIEW || 'body' }}
+          DGB_MODEL_IMAGE_SIZE: ${{ vars.DGB_MODEL_IMAGE_SIZE || '1280x720' }}
+          DGB_MODEL_ROI: ${{ vars.DGB_MODEL_ROI || '0.15,0.0,0.75,1.0' }}
+        run: ./scripts/desktop/build_windows.ps1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: driveguard-windows
+          path: |
+            desktop/release/*.exe
+            desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    name: Draft GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: driveguard-windows
+          path: driveguard-windows
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            driveguard-windows/*.exe
+            driveguard-windows/SHA256SUMS.txt

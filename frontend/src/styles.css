@@ -134,6 +134,39 @@ code,
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Electron 桌面版：无浏览器地址栏，header 顶部让出 Windows 原生窗口按钮区。 */
+.app.desktop .app-header {
+  padding-top: 46px;
+  -webkit-app-region: drag;
+}
+
+.app.desktop .app-header button,
+.app.desktop .app-header input,
+.app.desktop .tabs,
+.app.desktop .header-meta {
+  -webkit-app-region: no-drag;
+}
+
+.app.desktop {
+  user-select: none;
+}
+
+.app.desktop input,
+.app.desktop pre,
+.app.desktop .mono,
+.app.desktop .code {
+  user-select: text;
+}
+
+.desktop-version {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------ status bar */
 
 .status-bar {

@@ -75,8 +75,21 @@ SQLite 到 PostgreSQL 是演进项目：需要迁移 UUID/时间/JSON 类型、�
 
 ## 7. 依赖与代码边界
 
-规划目录 `backend/`、`frontend/`、`inference/`、`training/`、`configs/`、`models/releases/`；这些是待实现目录，不是已有代码。
+规划目录 `backend/`、`frontend/`、`desktop/`、`inference/`、`training/`、`configs/`、`models/releases/`；`desktop/` 是 v0.1 新增的 Windows 桌面封装层。
 
 现有根 requirements 仅覆盖训练基础依赖，不能启动完整应用。实现时按训练、推理、后端分别维护 requirements 清单，前端使用 package.json/锁文件；NPU 插件仅进 NPU 环境。具体包版本在实际目标环境解析后锁定，本次不安装、不改已有依赖清单。
 
 后端模块负责人尚未指定姓名；shadow 提供模型工件、特征协议、评估与加载说明，不默认为全部前后端开发负责人。接口详见 [API 设计](../api/API_DESIGN.md)及 [OpenAPI](../api/openapi.yaml)。
+
+## 8. Windows 桌面封装（v0.1）
+
+v0.1 以 Electron 提供 Windows 桌面壳，PyInstaller 打包 FastAPI 后端与前端静态产物；
+渲染进程仍复用现有 React Dashboard，但用户看到的是无地址栏的原生窗口。
+
+- 主进程负责内置配置、随机本地管理 Token、后端进程生命周期、窗口与日志；
+- `preload` 只暴露本地 Token、版本和打开数据/日志目录，不暴露 Node 或模型服务 Token；
+- 模型服务仍为外部依赖，桌面包不包含权重、CANN/NPU 运行时；
+- 首发功能收敛为 4 页签：实时监控、离线分析、事件历史、系统设置；统计页不进入 v0.1；
+- 运行数据写入 `%APPDATA%\DriveGuardAI`，不写安装目录。
+
+详细构建、配置与验收见 [Windows 桌面版](../deployment/DESKTOP_APP.md)。

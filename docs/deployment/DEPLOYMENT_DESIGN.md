@@ -43,6 +43,21 @@ Docker 按平台构建：RTX/CUDA 开发训练镜像、Ascend/CANN 训练镜像�
 - 默认仅本机访问；对局域网开放时启用 TLS/反向代理、鉴权、Origin 白名单和访问控制。
 - 健康检查分进程存活、推理可用与摄像头就绪；API `/health` 返回正常不能证明检测可用。
 
+### 3.1 Windows 桌面交付（v0.1）
+
+v0.1 额外提供 Windows x64 桌面安装包：Electron 主进程 + PyInstaller 后端 + 预构建前端。
+用户不需要安装 Python/Node，模型服务地址与专用 Token 在构建时完全内置；模型服务仍是
+外部依赖，桌面包不包含权重、CANN/NPU 运行时。
+
+- 后端只监听 `127.0.0.1`随机端口，本地管理 Token 每次启动随机生成；
+- 模型服务 Token 写入用户数据目录供后端读取，不进入渲染进程；
+- 数据目录为 `%APPDATA%\DriveGuardAI`，卸载默认保留；
+- 启动时探测 `/api/live/health`，不可达时明确提示并允许重试/退出；
+- 完全内置 Token 的代价是可能被提取，只应使用专用、可轮换、权限受限的 Token。
+
+构建与验收见 [Windows 桌面版](DESKTOP_APP.md)，发布范围见
+[v0.1.0 桌面发布说明](../releases/V0.1.0-DESKTOP.md)。
+
 ## 4. 采集、调度与性能
 
 开发可使用 OpenCV 摄像头读取；Jetson 优先评估 GStreamer 采集/硬件解码路径，选择必须由实际驱动与测量支撑。采集记录 UTC 用于审计、单调时钟用于时长；排队有上限，实时处理优先新帧。

@@ -1,0 +1,39 @@
+DriveGuard AI — Third-Party Notices
+===================================
+
+本文件覆盖仓库源码与桌面安装包中分发的第三方组件。它不是法律意见；
+发布前请由维护者核对实际打包内容与各上游许可文本。
+
+桌面安装包（DriveGuardAI-Setup / portable）
+------------------------------------------
+- Electron — MIT License
+  https://github.com/electron/electron
+- Chromium — BSD-style licenses and additional third-party licenses
+  https://www.chromium.org/
+- PyInstaller — GPL-2.0-or-later with a special exception permitting
+  distribution of bundled applications under other licenses.
+  https://pyinstaller.org/
+- FastAPI — MIT License
+- Uvicorn — BSD-3-Clause
+- SQLAlchemy — MIT License
+- Pydantic — MIT License
+- OpenCV (opencv-python-headless) — Apache License 2.0
+- NumPy — BSD-3-Clause
+- python-multipart — Apache License 2.0
+- Alembic — MIT License
+- React / React DOM — MIT License
+- Vite — MIT License
+- ECharts — Apache License 2.0
+
+模型服务与权重（不在桌面安装包内）
+--------------------------------
+- Ultralytics YOLO11 (objects.pt) — AGPL-3.0. Distribution of the model or
+  derivative works must comply with AGPL-3.0; alternatively obtain a
+  commercial license from Ultralytics.
+- MediaPipe Face/Hand model bundles — Apache-2.0 (see upstream model cards).
+- DriveGuard candidate weights trained on DMD — redistribution permission is
+  not yet confirmed. Treat as "pending permission"; do not present them as
+  formally released weights.
+
+仓库根 LICENSE 为 MIT，仅覆盖 DriveGuard AI 自有代码；第三方组件与模型权重
+按其各自许可执行。桌面安装包刻意不包含模型权重。

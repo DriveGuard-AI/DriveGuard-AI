@@ -1,0 +1,86 @@
+{
+  "name": "driveguard-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DriveGuard AI Windows desktop shell (Electron)",
+  "author": "DriveGuard AI",
+  "license": "MIT",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^34.5.8",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ai.driveguard.desktop",
+    "productName": "DriveGuard AI",
+    "copyright": "Copyright © 2026 DriveGuard AI",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/backend",
+        "to": "backend"
+      },
+      {
+        "from": "dist/frontend",
+        "to": "frontend"
+      },
+      {
+        "from": "dist/config.json",
+        "to": "config.json"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "../NOTICE",
+        "to": "NOTICE"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "DriveGuardAI-${version}-${arch}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DriveGuard AI",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "DriveGuardAI-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "DriveGuardAI-${version}-portable.${ext}"
+    }
+  }
+}

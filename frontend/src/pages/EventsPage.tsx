@@ -224,7 +224,6 @@ export function EventsPage({
                 <th>开始时间</th>
                 <th>时长</th>
                 <th>最高置信度</th>
-                <th>片段</th>
               </tr>
             </thead>
             <tbody>
@@ -243,7 +242,6 @@ export function EventsPage({
                   <td>{formatLocalTime(item.started_at)}</td>
                   <td>{formatDuration(item.duration_ms)}</td>
                   <td>{item.max_confidence.toFixed(2)}</td>
-                  <td>{item.clip_available ? '可查看' : '未保存'}</td>
                 </tr>
               ))}
             </tbody>
@@ -330,11 +328,6 @@ export function EventsPage({
               ))
             )}
           </div>
-          {!selected.clip_available ? (
-            <Notice kind="info" title="默认不保存视频片段">
-              原始车内视频默认不上传、不持久化；启用事件片段需显式配置保存目录与保留期（NFR-003）。
-            </Notice>
-          ) : null}
         </section>
       ) : null}
     </div>

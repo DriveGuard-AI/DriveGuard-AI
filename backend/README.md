@@ -3,8 +3,12 @@
 FastAPI + SQLite 的驾驶风险监测后端，实现 `docs/requirements/REQUIREMENTS.md`、
 `docs/api/API_DESIGN.md` 与 `docs/database/DATABASE_DESIGN.md` 定义的应用层与数据层契约。
 
-> ⚠️ **模型识别与判断尚未实现**：推理由 `app/inference/fake.py` 的脚本化回放提供，
-> 快照会携带 `inference_mode = "fake"`，`/api/v1/system/status` 也会标记 `degraded = true`。
+> 推理支持两种模式，由 `DGB_INFERENCE_MODE` 决定：
+> - `fake`（默认）：`app/inference/fake.py` 脚本化回放，快照标记 `inference_mode="fake"`；
+> - `live`：连接模型侧 live 服务，映射四任务与六参数，快照标记 `inference_mode="real"`。
+>
+> Windows 桌面版在构建时内置模型服务地址/Token，并以 `live` 模式启动；
+> 详见 `docs/deployment/DESKTOP_APP.md`。
 
 ## 1. 环境要求
 

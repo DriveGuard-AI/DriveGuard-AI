@@ -10,6 +10,7 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 > 当前状态（2026-10-20）：
 > - **应用侧**：MVP 前后端可运行。离线分析（上传/抽帧/回放/与实时互斥）、实时摄像头预览（MJPEG + 帧序号/摘要对齐）、四任务六参数判决表均已实现；后端 **114 项测试通过**。
+> - **Windows 桌面版**：Electron + PyInstaller 工程实现，v0.1 候选。用户无需安装 Python/Node，模型服务地址与 Token 构建时内置；待 Windows CI/实机验收，详见[桌面版说明](docs/deployment/DESKTOP_APP.md)。
 > - **模型侧**：关系门控/TCN 训练与实时组合推理可用。已在 **Ascend 910B** 上跑通「摄像头 → 检测器 → 感知 → 组合模型 → 风险快照」全链路；真实 DMD 精度验收、NVIDIA GPU/Jetson 实机与正式发布仍未完成。
 > - **已知问题**：body 视角 `drinking` 存在系统性误报（KL-01），不能直接当告警使用，详见[已知限制](docs/testing/KNOWN_LIMITATIONS.md)。
 
@@ -18,6 +19,7 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 | 目录 | 内容 |
 | --- | --- |
 | `backend/`、`frontend/` | 应用侧：FastAPI 服务与 Dashboard |
+| `desktop/` | Windows 桌面壳：Electron 主进程、PyInstaller 后端打包、内置配置 |
 | `inference/`、`training/`、`configs/`、`models/`、`scripts/`、`tests/` | 模型侧：感知/时序推理、训练入口、配置与权重 |
 
 ## 快速开始（应用侧）
@@ -76,6 +78,25 @@ cd backend
 python -m pytest            # 当前 114 项测试
 alembic upgrade head        # 版本化迁移
 ```
+
+### Windows 桌面版（v0.1 候选）
+
+桌面版把后端、前端和 Python 运行时打进一个安装包，用户不需要安装 Python/Node；
+模型服务地址与 Token 在构建时完全内置，打开即连接。
+
+```text
+GitHub Actions (windows-latest) 或 Windows 机器
+  → frontend build
+  → PyInstaller 打包 backend
+  → electron-builder 生成 Setup.exe / portable.exe
+```
+
+构建入口为 `scripts/desktop/build_windows.ps1`，需要仓库 Secrets
+`DGB_MODEL_SERVICE_URL` / `DGB_MODEL_SERVICE_TOKEN`。详细说明与验收清参见
+[Windows 桌面版](docs/deployment/DESKTOP_APP.md)与[发布说明](docs/releases/V0.1.0-DESKTOP.md)。
+
+> 当前 Linux 开发机无法构建 Windows exe；产物需由 Windows 机器或 GitHub Actions 生成。
+> 安装包不包含模型权重/CANN/NPU 运行时，`live` 模式连接外部模型服务。
 
 关键环境变量：
 
@@ -212,6 +233,8 @@ Camera
 ## 文档
 
 - [服务器初始化：文件同步、NPU 依赖与最小测试](docs/training/SERVER_SETUP.md)
+- [Windows 桌面版：Electron + PyInstaller 构建与验收](docs/deployment/DESKTOP_APP.md)
+- [v0.1.0 桌面发布说明](docs/releases/V0.1.0-DESKTOP.md)
 - [完整文档索引](docs/README.md)
 - [PPT 全方案对齐](docs/governance/PPT_ALIGNMENT.md)（多专家模型、前后端选型与部署）
 - [详细需求](docs/requirements/REQUIREMENTS.md)

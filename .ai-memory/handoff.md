@@ -1,8 +1,28 @@
 ## Handoff Checkpoint
 
 > 本仓库现在同时包含两个子项目：模型侧（`inference/`、`training/`、`configs/`、`models/`）
-> 与应用侧（`backend/`、`frontend/`）。下面两段交接各自保留，互不覆盖。
+> 与应用侧（`backend/`、`frontend/`、`desktop/`）。下面几段交接各自保留，互不覆盖。
 > 应用侧的最新进度请看 `docs/implementation/MVP_STATUS.md`（截至 2026-10-19 已完成离线分析 M1–M5）。
+
+### 桌面版交接（2026-10-20）
+
+**当前目标**: 发布 Windows x64 桌面版 v0.1.0，用户免装 Python/Node，模型服务地址/Token 构建时内置。
+**当前阶段**: 工程实现完成，待 Windows CI/实机验收。
+**完成度**: Electron 壳、PyInstaller 后端入口/spec、内置配置生成、4 页签裁剪、CI、文档与 NOTICE 已落地；Linux 上冻结后端冒烟通过。
+
+**本轮验证**:
+- 后端 114 项测试通过（Python 3.12，`backend/.venv`）。
+- 前端 `npm run build` 通过（595 modules）。
+- PyInstaller onedir 在 Linux 构建成功；冻结后端 `/api/v1/health`、`/`、`/api/v1/system/status` 正常。
+- Electron 主进程/preload `node --check` 通过；本机无 Xvfb/Windows，未做 GUI 与 Windows 安装包实测。
+
+**关键文件**: `desktop/electron/main.cjs`、`desktop/electron/preload.cjs`、`desktop/backend_entry.py`、`desktop/packaging/backend.spec`、`scripts/desktop/write_config.py`、`scripts/desktop/build_windows.ps1`、`.github/workflows/windows-desktop.yml`、`docs/deployment/DESKTOP_APP.md`。
+
+**下一步**:
+1. 在 GitHub 配置 `DGB_MODEL_SERVICE_URL` / `DGB_MODEL_SERVICE_TOKEN` Secrets，运行 `Windows Desktop Release`。
+2. 在干净 Windows 10/11 上验收安装、摄像头、上传、重启、卸载、杀毒扫描。
+3. 生成 SHA256SUMS 后创建 `v0.1.0` tag 与 GitHub Release（先 draft）。
+**注意**: `desktop/config.json` 含 Token，已被忽略；不要提交。安装包不含模型权重/CANN。
 
 ### 应用侧交接（2026-09-11）
 

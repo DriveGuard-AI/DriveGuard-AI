@@ -1,6 +1,6 @@
 # DriveGuard AI 文档中心
 
-本目录定义 DriveGuard AI 的需求、架构、行为规格、数据模型、接口契约、测试策略与文档协作方式。仓库现包含两侧：应用侧已提供前后端 MVP 骨架与离线分析（模型识别与判断尚未实现，详见[实现状态](implementation/MVP_STATUS.md)）；模型侧已有感知提取、四流关系门控及四行为+九类 gaze 联合训练代码，本机 CPU 工程验证通过。整体仍处于 **Early Development**：其余技术细节以本文档集的设计基线为准，当前以**部署方便、多平台兼容和可验证收益**为原则，不追求论文式架构创新。文档中的系统目标不等于已上线能力。
+本目录定义 DriveGuard AI 的需求、架构、行为规格、数据模型、接口契约、测试策略与文档协作方式。仓库现包含两侧：应用侧已提供前后端 MVP、离线分析、实时预览与 Windows 桌面打包（demo/live 双模式，详见[实现状态](implementation/MVP_STATUS.md)与[Windows 桌面版](deployment/DESKTOP_APP.md)）；模型侧已有感知提取、四流关系门控及四行为+九类 gaze 联合训练代码，本机 CPU 工程验证通过。整体仍处于 **Early Development**：其余技术细节以本文档集的设计基线为准，当前以**部署方便、多平台兼容和可验证收益**为原则，不追求论文式架构创新。文档中的系统目标不等于已上线能力。
 
 ## 文档索引
 
@@ -22,6 +22,8 @@
 | [应用层与技术选型](architecture/APPLICATION_DESIGN.md) | 前后端、架构 | FastAPI、React、视频预览、数据访问和进程边界 | Baseline v0.2 |
 | [训练与边缘部署](deployment/DEPLOYMENT_DESIGN.md) | 算法、部署 | GPU/NPU 训练、Jetson 推理、Docker、导出回滚 | Baseline v0.3 |
 | [本机 CPU 联调](deployment/LOCAL_CPU_DEV.md) | 本机开发、联调 | 无 NPU 时的开发副本、三解释器启动、耗时构成与实时性边界 | 仅适用 CPU；非发布，不作为能力结论 |
+| [Windows 桌面版](deployment/DESKTOP_APP.md) | 桌面开发、发布、测试 | Electron + PyInstaller、内置模型服务配置、构建与验收 | 工程实现；待 Windows CI/实机验收 |
+| [v0.1.0 桌面发布说明](releases/V0.1.0-DESKTOP.md) | 发布、测试、使用者 | 首发范围、交付物、限制与回滚 | 候选发布 |
 | [需求文档](requirements/REQUIREMENTS.md) | 产品、算法、开发、测试 | 业务目标、范围、需求和验收指标 | Baseline v0.3 |
 | [架构设计](architecture/ARCHITECTURE.md) | 架构、开发、运维 | 分层架构、组件边界、数据流和部署设计 | Baseline v0.2 |
 | [项目 Spec](specs/PROJECT_SPEC.md) | 开发、测试、评审者 | RFC 2119 行为规则和 Given/When/Then 场景 | Baseline v0.3 |
@@ -59,8 +61,8 @@
 
 - **已确认基线**：项目目标、技术栈、总体架构、MVP 范围、隐私原则和性能目标来自 2026-09-10 建立文档集时的项目规划；根目录 `README.md` 现作为极简概览和导航入口。
 - **设计基线**：为支持后续实现而定义的数据结构、接口、错误码、模块职责和验证规则。
-- **已实现**：共享 TCN、部分监督训练、特征清单校验、双平台入口和 checkpoint；四流关系门控、几何/时序桥接、YOLOX/Face/Hand适配、PTS因果采样及保守跟踪。新版增加头姿/虹膜线索、九类gaze辅助头、真实标签转换与全量缓存发布；应用侧具备 FastAPI/React MVP 与离线分析（上传、抽帧、回放、与实时互斥）。实际验证范围见工程记录与运行指南。
-- **待实现/验证**：模型识别与判断（应用侧推理仍为脚本化回放）、摄像头采集适配器、全量真实精度验收与检测器训练、自动归属、头姿/视线标定、业务风险融合/告警、部署及正式联合训练和权重公开；本机工程通过不等于这些能力已验证。应用侧具体边界见[实现状态](implementation/MVP_STATUS.md)。
+- **已实现**：共享 TCN、部分监督训练、特征清单校验、双平台入口和 checkpoint；四流关系门控、几何/时序桥接、YOLOX/Face/Hand适配、PTS因果采样及保守跟踪。新版增加头姿/虹膜线索、九类gaze辅助头、真实标签转换与全量缓存发布；应用侧具备 FastAPI/React MVP、离线分析（上传、抽帧、回放、与实时互斥）与 `live` 推理接入；Windows 桌面版工程实现（Electron + PyInstaller）。实际验证范围见工程记录与运行指南。
+- **待实现/验证**：Windows 安装包实机验收、模型精度与真实场景验收、检测器训练、自动归属、头姿/视线标定、业务风险融合/告警、Docker/Jetson 与正式联合训练/权重公开。应用侧默认仍为 fake，`live` 需要外部模型服务；本机工程通过不等于这些能力已验证。应用侧具体边界见[实现状态](implementation/MVP_STATUS.md)与[桌面版说明](deployment/DESKTOP_APP.md)。
 - **待确认参数**：模型阈值、窗口长度、告警延迟、保留周期等通过配置管理，并须由实验或产品验收确定最终值。
 
 ## 需求追溯

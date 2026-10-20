@@ -115,7 +115,8 @@ def create_app(
         version=resolved_config.service_version,
         description=(
             "驾安智护后端：实现 REST/WebSocket 契约与事件、配置、统计服务。"
-            "当前推理为脚本化占位（inference_mode=fake），模型识别与判断尚未实现。"
+            "推理支持 demo（脚本化回放）与 live（对接模型服务）两种模式，"
+            "实际模式由 DGB_INFERENCE_MODE 决定并在 /api/v1/system/status 中如实上报。"
         ),
         lifespan=lifespan,
     )

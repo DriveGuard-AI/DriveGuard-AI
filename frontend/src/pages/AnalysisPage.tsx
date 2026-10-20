@@ -50,7 +50,7 @@ export function AnalysisPage({
   onOpenSession,
 }: {
   token: string | null
-  onOpenSession: (sessionId: string, target: 'events' | 'statistics', origin: string) => void
+  onOpenSession: (sessionId: string, target: 'events', origin: string) => void
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [stepMs, setStepMs] = useState(40)
@@ -293,13 +293,6 @@ export function AnalysisPage({
             >
               查看该会话事件
             </button>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => onOpenSession(job.session_id, 'statistics', '离线分析')}
-            >
-              查看该会话统计
-            </button>
           </div>
 
           {job.error ? (
@@ -309,7 +302,7 @@ export function AnalysisPage({
           ) : null}
 
           <div className="muted small" style={{ marginTop: 10 }}>
-            素材目录：<span className="mono">{job.source_path}</span>
+            素材文件：<span className="mono">{job.source_path.split(/[\\/]/).filter(Boolean).pop() ?? job.source_path}</span>
             {job.source_sha256 ? (
               <>
                 {' '}

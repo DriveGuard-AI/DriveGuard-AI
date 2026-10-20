@@ -7,28 +7,30 @@ import { AnalysisPage } from './pages/AnalysisPage'
 import { EventsPage } from './pages/EventsPage'
 import { MonitoringPage } from './pages/MonitoringPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { StatisticsPage } from './pages/StatisticsPage'
 
-type TabKey = 'monitoring' | 'analysis' | 'events' | 'statistics' | 'settings'
+type TabKey = 'monitoring' | 'analysis' | 'events' | 'settings'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'monitoring', label: '实时监控' },
   { key: 'analysis', label: '离线分析' },
   { key: 'events', label: '事件历史' },
-  { key: 'statistics', label: '统计分析' },
   { key: 'settings', label: '系统设置' },
 ]
 
 const TOKEN_STORAGE_KEY = 'dgb.token'
+const DESKTOP_BRIDGE = window.driveguard
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>('monitoring')
-  const [token, setToken] = useState<string | null>(() => window.localStorage.getItem(TOKEN_STORAGE_KEY))
+  // 桌面版由 Electron preload 注入本地管理 Token；Web 调试仍从 localStorage 读取。
+  const [token, setToken] = useState<string | null>(
+    () => DESKTOP_BRIDGE?.token || window.localStorage.getItem(TOKEN_STORAGE_KEY),
+  )
   const [status, setStatus] = useState<SystemStatus | null>(null)
   const [focus, setFocus] = useState<SessionFocus | null>(null)
 
   const openSession = useCallback(
-    (sessionId: string, target: 'events' | 'statistics', origin: string) => {
+    (sessionId: string, target: 'events', origin: string) => {
       setFocus({ sessionId, origin })
       setTab(target)
     },
@@ -38,6 +40,8 @@ export default function App() {
   const feed = useMonitoringSocket(token)
 
   useEffect(() => {
+    // 桌面版 Token 每次启动由主进程生成，不写浏览器存储，避免过期值残留。
+    if (DESKTOP_BRIDGE) return
     if (token) {
       window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
     } else {
@@ -72,7 +76,7 @@ export default function App() {
   }, [token, refreshStatus])
 
   return (
-    <div className="app">
+    <div className={DESKTOP_BRIDGE ? 'app desktop' : 'app'}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark">DG</span>
@@ -97,15 +101,21 @@ export default function App() {
 
         <div className="header-meta">
           <StatusDot state={feed.connection} />
-          <label className="token-field">
-            管理 Token
-            <input
-              type="password"
-              placeholder="Bearer Token（可选）"
-              value={token ?? ''}
-              onChange={(event) => setToken(event.target.value || null)}
-            />
-          </label>
+          {DESKTOP_BRIDGE ? (
+            <span className="desktop-version" title={`桌面版 ${DESKTOP_BRIDGE.version}`}>
+              桌面版 v{DESKTOP_BRIDGE.version}
+            </span>
+          ) : (
+            <label className="token-field">
+              管理 Token
+              <input
+                type="password"
+                placeholder="Bearer Token（可选）"
+                value={token ?? ''}
+                onChange={(event) => setToken(event.target.value || null)}
+              />
+            </label>
+          )}
         </div>
       </header>
 
@@ -146,16 +156,13 @@ export default function App() {
         {tab === 'events' ? (
           <EventsPage token={token} focus={focus} onClearFocus={() => setFocus(null)} />
         ) : null}
-        {tab === 'statistics' ? (
-          <StatisticsPage token={token} focus={focus} onClearFocus={() => setFocus(null)} />
-        ) : null}
         {tab === 'settings' ? <SettingsPage token={token} /> : null}
       </main>
 
       <footer className="app-footer">
         {status?.pipeline.inference_mode === 'fake'
-          ? '模型识别与判断暂未实现，风险数据来自脚本化回放（inference_mode = fake），仅用于前后端联调。'
-          : '风险数据来自 live 推理服务（inference_mode = real）；发布包限定为联调候选，未经真实场景验证，不作为精度结论。'}
+          ? '当前为演示模式：风险数据来自脚本化回放（inference_mode = fake），仅用于界面与流程验证，不是模型识别结论。'
+          : '风险数据来自模型服务（inference_mode = real）；当前候选版本未经真实场景精度验收，不作为告警或安全结论。'}
       </footer>
     </div>
   )

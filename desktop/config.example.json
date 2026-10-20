@@ -1,0 +1,15 @@
+{
+  "_comment": "由 scripts/desktop/write_config.py 生成 desktop/config.json；不要提交真实 Token。",
+  "modelServiceUrl": "https://dms.example.com",
+  "modelServiceToken": "replace-with-at-least-24-char-token",
+  "view": "body",
+  "imageSize": "1280x720",
+  "driverRoi": "0.15,0.0,0.75,1.0",
+  "cameraIndex": 0,
+  "cameraWidth": 1280,
+  "cameraHeight": 720,
+  "cameraQuality": 85,
+  "cameraBackend": "",
+  "inferenceHz": 5,
+  "previewMaxFps": 10
+}

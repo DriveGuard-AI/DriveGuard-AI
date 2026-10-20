@@ -11,6 +11,7 @@
 
 # 二进制类型不做换行转换
 *.png binary
+*.ico binary
 *.jpg binary
 *.jpeg binary
 *.gif binary

@@ -45,7 +45,10 @@ jobs:
           DGB_MODEL_SERVICE_URL: ${{ secrets.DGB_MODEL_SERVICE_URL }}
           DGB_MODEL_SERVICE_TOKEN: ${{ secrets.DGB_MODEL_SERVICE_TOKEN }}
           DGB_MODEL_VIEW: ${{ vars.DGB_MODEL_VIEW || 'body' }}
-          DGB_MODEL_IMAGE_SIZE: ${{ vars.DGB_MODEL_IMAGE_SIZE || '1280x720' }}
+          DGB_MODEL_IMAGE_SIZE: ${{ vars.DGB_MODEL_IMAGE_SIZE || '640x480' }}
+          DGB_MODEL_CAMERA_WIDTH: ${{ vars.DGB_MODEL_CAMERA_WIDTH || '640' }}
+          DGB_MODEL_CAMERA_HEIGHT: ${{ vars.DGB_MODEL_CAMERA_HEIGHT || '480' }}
+          DGB_MODEL_CAMERA_QUALITY: ${{ vars.DGB_MODEL_CAMERA_QUALITY || '60' }}
           DGB_MODEL_ROI: ${{ vars.DGB_MODEL_ROI || '0.15,0.0,0.75,1.0' }}
         run: ./scripts/desktop/build_windows.ps1
 

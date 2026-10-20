@@ -21,6 +21,7 @@
 - 事件列表移除未实现的片段列；分析页不再展示服务器绝对素材路径。
 - FastAPI 描述改为 demo/live 双模式，不再声明“模型未实现”。
 - live 客户端改为 HTTP/1.1 持久连接 + TCP_NODELAY，避免逐帧 TCP/TLS 握手；系统状态与前端新增模型预热进度（`warmup_slots` / `warmup_total`）。
+- 桌面版公网默认改为 640×480 / JPEG q60（可用 `DGB_MODEL_IMAGE_SIZE`、`DGB_MODEL_CAMERA_*` 覆盖）；局域网/高带宽可改回 960×540 或 1280×720。
 
 ### Not included
 

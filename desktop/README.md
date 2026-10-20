@@ -13,7 +13,7 @@ Windows 桌面版使用 Electron + PyInstaller，把现有 FastAPI 后端与 Rea
 cd backend && ./run.sh
 
 # 2. 生成内置配置（live），或直接使用 --demo
-DGB_MODEL_SERVICE_URL=https://dms.example.com \
+DGB_MODEL_SERVICE_URL=https://dms.yourdomain.com \
 DGB_MODEL_SERVICE_TOKEN='<at least 24 chars>' \
 python scripts/desktop/write_config.py --output desktop/config.json
 
@@ -27,7 +27,7 @@ npm start -- --demo  # 离线演示
 ## Windows 打包
 
 ```powershell
-$env:DGB_MODEL_SERVICE_URL = "https://dms.example.com"
+$env:DGB_MODEL_SERVICE_URL = "https://dms.yourdomain.com"
 $env:DGB_MODEL_SERVICE_TOKEN = "<at least 24 chars>"
 .\scripts\desktop\build_windows.ps1
 ```

@@ -53,7 +53,7 @@ cd backend
 
 ```bash
 # 完全内置 live：需要可访问的模型服务
-DGB_MODEL_SERVICE_URL=https://dms.example.com \
+DGB_MODEL_SERVICE_URL=https://dms.yourdomain.com \
 DGB_MODEL_SERVICE_TOKEN='<at least 24 chars>' \
 python scripts/desktop/write_config.py --output desktop/config.json
 
@@ -81,7 +81,7 @@ npm start -- --demo       # demo：脚本化回放
 - 建议在 GitHub Actions `windows-latest` 上构建，避免本机环境差异。
 
 ```powershell
-$env:DGB_MODEL_SERVICE_URL = "https://dms.example.com"
+$env:DGB_MODEL_SERVICE_URL = "https://dms.yourdomain.com"
 $env:DGB_MODEL_SERVICE_TOKEN = "<at least 24 chars>"
 .\scripts\desktop\build_windows.ps1
 ```
@@ -113,20 +113,23 @@ draft GitHub Release（不会自动公开发布）。
 ```json
 {
   "schemaVersion": 1,
-  "modelServiceUrl": "https://dms.example.com",
+  "modelServiceUrl": "https://dms.yourdomain.com",
   "modelServiceToken": "<token>",
   "view": "body",
-  "imageSize": "1280x720",
+  "imageSize": "640x480",
   "driverRoi": "0.15,0.0,0.75,1.0",
   "cameraIndex": 0,
-  "cameraWidth": 1280,
-  "cameraHeight": 720,
-  "cameraQuality": 85,
+  "cameraWidth": 640,
+  "cameraHeight": 480,
+  "cameraQuality": 60,
   "cameraBackend": "",
   "inferenceHz": 5,
   "previewMaxFps": 10
 }
 ```
+
+默认的 `640x480 / q60` 面向公网演示（实测公网单帧约 276ms，比 1280×720 的约 955ms 快 3.5 倍）。
+局域网或高带宽环境可改回 `960x540` / `1280x720`；手机、饮水等小目标的精度需要重新验收。
 
 安全代价：Token 会随安装包分发，必须使用专用、可轮换、权限受限的服务端 Token；
 不要把管理员 Token 放进公开安装包。更安全的首次配对方案属于 v0.2。

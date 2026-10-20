@@ -2,7 +2,7 @@
 """生成桌面版完全内置的 `config.json`（模型服务地址 + Token）。
 
 Usage:
-    DGB_MODEL_SERVICE_URL=https://dms.example.com \
+    DGB_MODEL_SERVICE_URL=https://dms.yourdomain.com \
     DGB_MODEL_SERVICE_TOKEN=... \
     python scripts/desktop/write_config.py --output desktop/dist/config.json
 
@@ -87,9 +87,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(token) < 24 or any(ch.isspace() for ch in token):
         raise SystemExit("error: DGB_MODEL_SERVICE_TOKEN 至少 24 字符且不能包含空白")
 
-    image_size = env("DGB_MODEL_IMAGE_SIZE", "1280x720") or "1280x720"
+    image_size = env("DGB_MODEL_IMAGE_SIZE", "640x480") or "640x480"
     if not IMAGE_SIZE.match(image_size):
-        raise SystemExit(f"error: DGB_MODEL_IMAGE_SIZE 需形如 1280x720，收到 {image_size!r}")
+        raise SystemExit(f"error: DGB_MODEL_IMAGE_SIZE 需形如 640x480，收到 {image_size!r}")
     roi = env("DGB_MODEL_ROI", "0.15,0.0,0.75,1.0") or "0.15,0.0,0.75,1.0"
     if not ROI.match(roi):
         raise SystemExit(f"error: DGB_MODEL_ROI 需形如 0.15,0.0,0.75,1.0，收到 {roi!r}")
@@ -110,9 +110,9 @@ def main(argv: list[str] | None = None) -> int:
         "imageSize": image_size,
         "driverRoi": roi,
         "cameraIndex": env_int("DGB_MODEL_CAMERA_INDEX", 0),
-        "cameraWidth": env_int("DGB_MODEL_CAMERA_WIDTH", 1280),
-        "cameraHeight": env_int("DGB_MODEL_CAMERA_HEIGHT", 720),
-        "cameraQuality": env_int("DGB_MODEL_CAMERA_QUALITY", 85),
+        "cameraWidth": env_int("DGB_MODEL_CAMERA_WIDTH", 640),
+        "cameraHeight": env_int("DGB_MODEL_CAMERA_HEIGHT", 480),
+        "cameraQuality": env_int("DGB_MODEL_CAMERA_QUALITY", 60),
         "cameraBackend": camera_backend,
         "inferenceHz": env_float("DGB_MODEL_INFERENCE_HZ", 5.0),
         "previewMaxFps": env_float("DGB_MODEL_PREVIEW_MAX_FPS", 10.0),

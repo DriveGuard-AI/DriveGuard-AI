@@ -10,6 +10,8 @@
 - 模型服务启动脚本支持 `DGB_API_TOKEN` 固定 Token，便于桌面安装包内置同一凭证。
 - 桌面桥接：本地随机管理 Token 注入、打开数据目录/日志；模型服务 Token 不进入渲染进程。
 - GitHub Actions `windows-latest` 构建 NSIS 安装器与 portable exe。
+- 构建后校验 `win-unpacked/DriveGuard AI.exe` 与后端可执行文件，缺失或主程序小于 100MB 即失败；额外产出 `win-unpacked.zip` 供绕过安装器诊断。
+- 内置配置生成拒绝 `example.com` 等示例域名，避免把占位地址打进安装包。
 - 桌面版运行手册、发布说明与第三方许可清单。
 
 ### Changed

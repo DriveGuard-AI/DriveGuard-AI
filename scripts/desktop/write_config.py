@@ -76,6 +76,14 @@ def main(argv: list[str] | None = None) -> int:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise SystemExit(f"error: DGB_MODEL_SERVICE_URL 必须是 http(s) 地址，收到 {url!r}")
+    hostname = (parsed.hostname or "").lower()
+    if hostname == "example.com" or hostname.endswith(".example.com") or hostname in {
+        "example.org",
+        "example.net",
+    }:
+        raise SystemExit(
+            "error: DGB_MODEL_SERVICE_URL 仍是示例域名，必须换成真实的模型服务地址"
+        )
     if len(token) < 24 or any(ch.isspace() for ch in token):
         raise SystemExit("error: DGB_MODEL_SERVICE_TOKEN 至少 24 字符且不能包含空白")
 

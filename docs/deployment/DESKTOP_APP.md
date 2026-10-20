@@ -92,8 +92,14 @@ $env:DGB_MODEL_SERVICE_TOKEN = "<at least 24 chars>"
 desktop/release/
   DriveGuardAI-Setup-0.1.0.exe
   DriveGuardAI-0.1.0-portable.exe
+  DriveGuardAI-0.1.0-win-unpacked.zip   # 诊断用：解压直接运行，绕过安装器
   SHA256SUMS.txt
 ```
+
+构建脚本会检查 `win-unpacked/DriveGuard AI.exe` 与
+`win-unpacked/resources/backend/driveguard-backend.exe` 是否存在，并拒绝小于 100MB
+的主程序；缺失或截断则构建失败，避免发布没有主程序的安装包。`win-unpacked.zip`
+用于区分“安装器问题”和“运行环境拦截”。
 
 GitHub Actions 使用仓库 Secrets：`DGB_MODEL_SERVICE_URL`、`DGB_MODEL_SERVICE_TOKEN`；
 可用 Variables 覆盖 `DGB_MODEL_VIEW`、`DGB_MODEL_IMAGE_SIZE`、`DGB_MODEL_ROI`。

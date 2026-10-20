@@ -56,15 +56,42 @@ npm run dist
 if ($LASTEXITCODE -ne 0) { throw "electron-builder failed" }
 Pop-Location
 
-Write-Host "[6/6] Generate SHA256SUMS"
+Write-Host "[6/7] Verify unpacked app and generate SHA256SUMS"
 $Release = Join-Path $Root "desktop\release"
+$Unpacked = Join-Path $Release "win-unpacked"
+$AppExe = Join-Path $Unpacked "DriveGuard AI.exe"
+$BackendExe = Join-Path $Unpacked "resources\backend\driveguard-backend.exe"
+
+if (-not (Test-Path $AppExe)) {
+  throw "Main executable missing from win-unpacked: $AppExe"
+}
+if (-not (Test-Path $BackendExe)) {
+  throw "Backend executable missing from win-unpacked: $BackendExe"
+}
+
+$AppExeInfo = Get-Item $AppExe
+Write-Host "Main executable: $($AppExeInfo.FullName) ($([math]::Round($AppExeInfo.Length / 1MB, 1)) MB)"
+
+# Electron 34 x64 主程序约 180 MB；明显小于 100 MB 说明复制/打包被截断。
+if ($AppExeInfo.Length -lt 100MB) {
+  throw "Main executable is only $([math]::Round($AppExeInfo.Length / 1MB, 1)) MB; expected about 182 MB. Aborting to avoid publishing a truncated build."
+}
+
 $ExeFiles = Get-ChildItem $Release -Filter *.exe -File
 if (-not $ExeFiles) { throw "No release exe found" }
 $Lines = foreach ($File in $ExeFiles) {
   $Hash = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLower()
   "$Hash  $($File.Name)"
 }
+$AppHash = (Get-FileHash $AppExe -Algorithm SHA256).Hash.ToLower()
+$Lines += "$AppHash  win-unpacked/DriveGuard AI.exe"
 $Lines | Set-Content (Join-Path $Release "SHA256SUMS.txt") -Encoding ASCII
 Get-Content (Join-Path $Release "SHA256SUMS.txt")
+
+Write-Host "[7/7] Create unpacked diagnostic zip"
+$Version = (Get-Content (Join-Path $Root "desktop\package.json") -Raw | ConvertFrom-Json).version
+$Zip = Join-Path $Release "DriveGuardAI-$Version-win-unpacked.zip"
+Compress-Archive -Path "$Unpacked\*" -DestinationPath $Zip -Force
+Write-Host "Unpacked zip: $Zip"
 
 Write-Host "Done. Artifacts: $Release"

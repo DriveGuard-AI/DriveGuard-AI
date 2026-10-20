@@ -55,6 +55,7 @@ jobs:
           name: driveguard-windows
           path: |
             desktop/release/*.exe
+            desktop/release/*.zip
             desktop/release/SHA256SUMS.txt
           if-no-files-found: error
 

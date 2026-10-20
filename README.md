@@ -8,9 +8,10 @@ DriveGuard AI 是一套面向真实车内环境的驾驶员监测系统（DMS）
 
 > **驾驶员过去几秒钟的行为是否正在形成驾驶风险。**
 
-> 当前状态：
-> - **应用侧**：MVP 前后端骨架可运行；离线分析（上传/抽帧/回放/与实时互斥）已实现，模型识别与判断仍由脚本化回放提供（`inference_mode = fake`），详见[实现状态](docs/implementation/MVP_STATUS.md)。
-> - **模型侧**：Early Development。TCN、感知入口及轻量关系门控训练骨架已实现，完成 CPU 合成训练、续训与权重重载验证；真实数据效果、GPU/NPU 实机、应用与部署仍待完成。
+> 当前状态（2026-10-20）：
+> - **应用侧**：MVP 前后端可运行。离线分析（上传/抽帧/回放/与实时互斥）、实时摄像头预览（MJPEG + 帧序号/摘要对齐）、四任务六参数判决表均已实现；后端 **114 项测试通过**。
+> - **模型侧**：关系门控/TCN 训练与实时组合推理可用。已在 **Ascend 910B** 上跑通「摄像头 → 检测器 → 感知 → 组合模型 → 风险快照」全链路；真实 DMD 精度验收、NVIDIA GPU/Jetson 实机与正式发布仍未完成。
+> - **已知问题**：body 视角 `drinking` 存在系统性误报（KL-01），不能直接当告警使用，详见[已知限制](docs/testing/KNOWN_LIMITATIONS.md)。
 
 ## 仓库结构
 
@@ -72,20 +73,73 @@ npm run build    # 构建产物 frontend/dist，由 FastAPI 托管
 
 ```bash
 cd backend
-python -m pytest            # 当前 97 项测试
+python -m pytest            # 当前 114 项测试
 alembic upgrade head        # 版本化迁移
 ```
 
-关键环境变量：`DGB_DATABASE_URL`、`DGB_ADMIN_TOKEN`、`DGB_INFERENCE_HZ`、`DGB_INFERENCE_SCENARIO`（`default` / `safe` / `fatigue` / `degraded`）。
+关键环境变量：
+
+| 变量 | 用途 |
+| --- | --- |
+| `DGB_DATABASE_URL`、`DGB_ADMIN_TOKEN` | 数据库与管理 Token |
+| `DGB_INFERENCE_HZ` | 风险快照产生频率（默认 5 Hz，页面实际刷新率） |
+| `DGB_INFERENCE_MODE` | `fake`（脚本回放）/ `live`（连接模型侧 live 服务） |
+| `DGB_LIVE_SOURCE` | `frames`（JPEG 序列）/ `camera`（本地摄像头） |
+| `DGB_LIVE_URL`、`DGB_LIVE_TOKEN_FILE` | live 服务地址与 Token 文件 |
+| `DGB_LIVE_VIEW` / `DGB_LIVE_ROI` / `DGB_LIVE_IMAGE_SIZE` | 机位（`body`/`face`）与裁剪区域 |
+| `DGB_CAMERA_*`、`DGB_PREVIEW_MAX_FPS`、`DGB_PREVIEW_MAX_CLIENTS` | 采集与预览上限 |
 
 更多排障说明见 [backend/README.md](backend/README.md)。
 ## 快速开始（模型侧）
 
-模型侧使用独立虚拟环境（`.venv-perception` / `.venv-training`），不与应用侧共用：
+模型侧在独立环境中运行，不与应用侧共用解释器。三种已验证的部署形态：
 
-- 感知运行时与依赖准备：[PERCEPTION_SETUP.md](docs/training/PERCEPTION_SETUP.md)
-- 关系门控训练与续训：[RELATION_RUNBOOK.md](docs/training/RELATION_RUNBOOK.md)
-- 本机 CPU 联调与启动顺序：[LOCAL_CPU_DEV.md](docs/deployment/LOCAL_CPU_DEV.md)
+| 形态 | 环境 | 入口 |
+| --- | --- | --- |
+| 本机 CPU 联调 | `.venv` + `.venv-perception` + `.venv-detector` | [LOCAL_CPU_DEV.md](docs/deployment/LOCAL_CPU_DEV.md) |
+| Ascend NPU 服务器 | 系统 Python 3.12（torch 2.10 + torch_npu 2.10）+ `.venv-yolo-npu` + `.venv-perception-arm64` | [SERVER_SETUP.md](docs/training/SERVER_SETUP.md) |
+| 训练 | 同上，`torch_npu` 已预装，**不要**执行会降级 torch 的 `requirements-npu.txt` | [RELATION_RUNBOOK.md](docs/training/RELATION_RUNBOOK.md) |
+
+NPU 上启动组合推理（检测器 + 感知 + 模型）：
+
+```bash
+# 每次使用新的 SESSION_DIR；bundle 需按当前源码重新导出
+python3 scripts/local/prepare_dev_bundle.py \
+  --output runs/live-local/bundle-npu --backend npu --device-index 0 \
+  --detector-token-file runs/live-local/detector.token
+
+PYTHON_BIN="$(command -v python3)" \
+DETECTOR_PYTHON="$PWD/.venv-yolo-npu/bin/python" \
+PERCEPTION_PYTHON="$PWD/.venv-perception-arm64/bin/python" \
+BUNDLE_DIR="$PWD/runs/live-local/bundle-npu" \
+SESSION_DIR="$PWD/runs/live-session-001" \
+BACKEND=npu DEVICE_INDEX=0 \
+bash scripts/server/start_live_composite.sh
+```
+
+训练入口（设备不可用时会明确失败，不回退 CPU）：
+
+```bash
+python3 -m training.temporal.npu_train --check-config   # 只校验配置
+python3 -m training.relation.smoke --output-dir runs/relation-smoke-001   # CPU 合成闭环
+```
+
+## 实时监控链路
+
+```
+CameraSource（25 Hz 网格，丢时间片不追帧）
+  ├─ PreviewTap ──► MJPEG 预览（X-Seq / X-Sha256，与推理同字节）
+  └─ LiveInference ──HTTP 帧──► live 服务（检测器 + 感知 + 组合模型 / NPU）
+                                     │
+                          RiskSnapshot（含 task_details 六参数）
+                                     ▼
+                      WebSocket ──► Dashboard（风险 / 预览 / 判决依据）
+```
+
+- 预览默认关闭，需在设置页打开 `preview.enabled`（需要管理员 Token）；离线回放期间不提供实时预览。
+- 快照产生率由 `DGB_INFERENCE_HZ` 决定（默认 5 Hz），模型侧实际结果率取决于推理耗时（NPU 上约 3.8 Hz，CPU 更低）。
+- `task_details` 暴露 `available / logit / score / threshold_logit / detected / source` 与派生 `margin = logit - threshold_logit`，用于回答“为什么是/不是 DANGER”。
+- live 服务只监听 `127.0.0.1`；应用在另一台机器时需要通过 SSH 隧道（`ssh -N -L 8765:127.0.0.1:8765 <host>`）。
 
 ## 核心能力
 
@@ -95,7 +149,11 @@ alembic upgrade head        # 版本化迁移
 - TCN 时序行为识别与多模型风险融合
 - `SAFE`、`WARNING`、`DANGER` 三级风险评估
 - 本地实时告警、危险事件记录与 Web 可视化
-- ONNX / TensorRT 加速和 NVIDIA Jetson 边缘部署
+- 实时摄像头预览，预览帧与推理输入逐帧同源（序号 + sha256）
+- 逐任务判决参数（logit / 阈值 / margin / score / 来源），可解释“为什么触发”
+
+> 边缘加速：已在 **Ascend 910B** 上完成实时组合推理验证；ONNX / TensorRT / Jetson 属于目标方案，尚未验证。
+> 识别精度尚未验收，`drinking` 等分支存在已知误报，参见[已知限制](docs/testing/KNOWN_LIMITATIONS.md)。
 
 ## 工作流程
 
@@ -119,15 +177,17 @@ Camera
 | 目标检测  | YOLO 系列轻量实时检测模型                                                                         |
 | 人脸分析  | [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) |
 | 时序建模  | [Temporal Convolutional Network（TCN）](https://arxiv.org/abs/1608.08242)                          |
-| 模型部署  | [ONNX Runtime](https://onnxruntime.ai/)、[TensorRT](https://developer.nvidia.com/tensorrt)          |
+| 模型部署  | Ascend CANN / torch_npu（已验证）；ONNX Runtime / TensorRT（目标）                                              |
 | 后端      | [FastAPI](https://fastapi.tiangolo.com/)、REST API、WebSocket                                      |
 | 前端      | [React](https://react.dev/)、TypeScript、Vite、ECharts                                             |
 | 数据库    | SQLite；多设备/云端场景预留 PostgreSQL 迁移路径                                                   |
-| 边缘平台  | NVIDIA GPU、Jetson Orin                                                                           |
+| 边缘平台  | Ascend 910B（已验证）、NVIDIA GPU / Jetson Orin（未验证）                                         |
 
 ## 数据集与模型
 
-第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。原始数据设计包含 Face、Body、Hands 等视角及疲劳、分心、视线和动作标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)；实际可用范围以[当前公开版本](https://github.com/Vicomtech/DMD-Driver-Monitoring-Dataset)和已下载分片为准。
+第一阶段使用 [DMD（Driver Monitoring Dataset）](https://dmd.vicomtech.org/) 进行驾驶员状态和行为建模。原始数据包含 **Face / Body 两个机位**（Hands 是感知专家输入，不是独立机位）及疲劳、分心、视线和动作标注，详见 [DMD 论文](https://arxiv.org/abs/2008.12085)；实际可用范围以[当前公开版本](https://github.com/Vicomtech/DMD-Driver-Monitoring-Dataset)和已下载分片为准。
+
+实时推理只支持这两个机位：`view=body`（驾驶位上半身，跑 gap80 + C_fusion + 眼动分支）与 `view=face`（面部特写，只有 coverage25）。一次会话只能选一个，不能并行。
 
 数据按照驾驶员主体划分训练集、验证集和测试集，避免同一驾驶员跨集合造成数据泄漏。
 

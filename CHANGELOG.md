@@ -7,6 +7,7 @@
 - Electron Windows 桌面壳：无地址栏窗口、启动画面、单实例、后端生命周期管理。
 - PyInstaller onedir 后端打包：FastAPI + SQLite + 前端静态资源，用户无需 Python/Node。
 - 完全内置模型服务配置（URL + Token），启动即连接；支持 `--demo` 离线演示。
+- 模型服务启动脚本支持 `DGB_API_TOKEN` 固定 Token，便于桌面安装包内置同一凭证。
 - 桌面桥接：本地随机管理 Token 注入、打开数据目录/日志；模型服务 Token 不进入渲染进程。
 - GitHub Actions `windows-latest` 构建 NSIS 安装器与 portable exe。
 - 桌面版运行手册、发布说明与第三方许可清单。

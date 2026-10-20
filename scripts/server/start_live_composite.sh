@@ -3,7 +3,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.."
 if [[ $# -eq 1 && "$1" == --help ]]; then
   echo 'usage: bash scripts/server/start_live_composite.sh'
-  echo 'Environment: PYTHON_BIN DETECTOR_PYTHON PERCEPTION_PYTHON BUNDLE_DIR SESSION_DIR PORT DETECTOR_PORT BACKEND DEVICE_INDEX'
+  echo 'Environment: PYTHON_BIN DETECTOR_PYTHON PERCEPTION_PYTHON BUNDLE_DIR SESSION_DIR PORT DETECTOR_PORT BACKEND DEVICE_INDEX DGB_API_TOKEN'
   echo 'Loopback only. Use an SSH tunnel to open the camera page from your own computer.'
   exit 0
 fi
@@ -26,7 +26,7 @@ done
 "$DETECTOR_PYTHON" -c 'import torch,ultralytics; import inference.experts.detector_service'
 umask 077
 "$PYTHON_BIN" - "$BUNDLE_DIR" "$SESSION_DIR" "$PORT" "$DETECTOR_PORT" <<'PY'
-import json,secrets,sys
+import json,os,secrets,sys
 from pathlib import Path
 from inference.perception.runtime import load_runtime_config
 bundle,session=map(lambda p:Path(p).resolve(),sys.argv[1:3])
@@ -35,7 +35,13 @@ if not (1024<=port<=65535 and 1024<=detector_port<=65535 and port!=detector_port
     raise ValueError('Distinct ports in 1024..65535 required')
 runtime=load_runtime_config(bundle/'runtime.json')
 session.mkdir(parents=True,exist_ok=False)
-token=secrets.token_urlsafe(32)
+# 桌面版构建时内置固定 Token；为可复现联调，允许用 DGB_API_TOKEN 覆盖随机值。
+token=(os.environ.get('DGB_API_TOKEN') or '').strip()
+if token:
+    if len(token)<24 or any(ch.isspace() for ch in token):
+        raise ValueError('DGB_API_TOKEN must be at least 24 chars without whitespace')
+else:
+    token=secrets.token_urlsafe(32)
 (session/'api.token').write_text(token,encoding='ascii')
 (session/'detector.token').write_text(secrets.token_urlsafe(32),encoding='ascii')
 runtime['objects']['service']=dict(host='127.0.0.1',port=detector_port,token_file=str(session/'detector.token'))

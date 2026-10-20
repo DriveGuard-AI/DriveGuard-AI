@@ -125,6 +125,14 @@ draft GitHub Release（不会自动公开发布）。
 安全代价：Token 会随安装包分发，必须使用专用、可轮换、权限受限的服务端 Token；
 不要把管理员 Token 放进公开安装包。更安全的首次配对方案属于 v0.2。
 
+模型服务端必须使用同一个 Token 启动（否则桌面版会收到 401）：
+
+```bash
+DGB_API_TOKEN="<与构建时相同的 Token>" \
+  SESSION_DIR=runs/live-composite-session-desktop \
+  bash scripts/server/start_live_composite.sh
+```
+
 ## 6. 运行时数据
 
 | 内容 | 位置 |

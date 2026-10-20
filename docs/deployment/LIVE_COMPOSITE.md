@@ -78,6 +78,19 @@ echo $!
 SESSION_DIR=runs/live-composite-session-002 bash scripts/server/start_live_composite.sh
 ```
 
+**桌面版内置 Token**：桌面安装包在构建时写入固定 Token，模型服务必须使用同一个值。
+首次生成一次（至少 24 字符、无空白），之后每次启动都带上：
+
+```bash
+TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+echo "$TOKEN"                       # 填入 GitHub Secret / 桌面构建环境变量
+DGB_API_TOKEN="$TOKEN" \
+  SESSION_DIR=runs/live-composite-session-003 \
+  bash scripts/server/start_live_composite.sh
+```
+
+不设置 `DGB_API_TOKEN` 时仍按旧行为生成临时随机 Token（适合浏览器临时联调，不适合内置桌面版）。
+
 停止时对启动脚本 PID 发送 `kill <launcher_pid>`，脚本负责清理它启动的两个服务。
 页面停止按钮仅关闭当前摄像头会话，不关闭模型服务。
 页面意外退出后，超过 60 秒无帧的会话会自动释放。推理中点击停止会等待当前请求结束再清理。

@@ -88,9 +88,15 @@ def create_server(service,token,port=8765,executor=None):
     if not token:raise ValueError('A nonempty bearer token is required')
     lock=Lock();pool=executor;accepted=[float('-inf')]
     class Handler(BaseHTTPRequestHandler):
+        # 逐帧调用必须复用连接：HTTP/1.0 默认每帧关闭，公网每帧都会重新握手。
+        protocol_version='HTTP/1.1'
+        # 逐帧小请求/小响应关闭 Nagle，避免约 40ms 的延迟 ACK。
+        disable_nagle_algorithm=True
         def log_message(self,*args):pass
         def reply(self,status,value,kind='application/json; charset=utf-8'):
             encoded=json.dumps(value,ensure_ascii=False,allow_nan=False).encode() if kind.startswith('application/json') else value
+            # 错误响应可能没有读完请求体，关闭连接避免下一条请求错位。
+            if status>=400:self.close_connection=True
             self.send_response(status);self.send_header('Content-Type',kind)
             self.send_header('Content-Length',str(len(encoded)));self.send_header('Cache-Control','no-store')
             self.send_header('X-Content-Type-Options','nosniff')

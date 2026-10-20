@@ -336,6 +336,9 @@ class PipelineStatus(BaseModel):
     # 当前推理源是离线素材（由分析任务切换）而非实时采集。
     # 页面据此提示“当前为离线回放”，不把回放当实时。
     playback: bool = False
+    # live 模式下的预热进度：服务端按 25 Hz 时间槽累计，约 100 槽后出首个结果。
+    warmup_slots: int | None = None
+    warmup_total: int | None = None
 
 
 class DatabaseStatus(BaseModel):

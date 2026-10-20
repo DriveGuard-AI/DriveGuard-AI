@@ -68,6 +68,18 @@ class SystemService:
         source_detail = detail.get("source") if isinstance(detail.get("source"), dict) else {}
         preview_detail = source_detail.get("preview") if isinstance(source_detail.get("preview"), dict) else {}
         frames_out = int(preview_detail.get("frames_out") or 0)
+        raw_slots = detail.get("feature_slots")
+        raw_total = detail.get("warmup_total")
+        warmup_slots = (
+            int(raw_slots)
+            if live and isinstance(raw_slots, int) and not isinstance(raw_slots, bool) and raw_slots >= 0
+            else None
+        )
+        warmup_total = (
+            int(raw_total)
+            if live and isinstance(raw_total, int) and not isinstance(raw_total, bool) and raw_total > 0
+            else None
+        )
 
         with self._db.session() as session:
             SettingsRepository(session).ensure_defaults(now_iso=to_iso_z(utcnow()))
@@ -96,6 +108,8 @@ class SystemService:
                 inference_mode=engine_status["inference_mode"],  # type: ignore[arg-type]
                 degraded=engine_status["degraded"],
                 playback=playback,
+                warmup_slots=warmup_slots,
+                warmup_total=warmup_total,
             ),
             database=DatabaseStatus(
                 writable=self._db.is_writable(),

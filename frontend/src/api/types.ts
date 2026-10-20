@@ -261,6 +261,9 @@ export interface SystemStatus {
     degraded: boolean
     /** true 表示当前推理源是分析任务接手的离线素材，而不是实时采集。 */
     playback: boolean
+    /** live 模式预热进度（25 Hz 时间槽）；非 live 为 null。 */
+    warmup_slots?: number | null
+    warmup_total?: number | null
   }
   database: { writable: boolean; driver: string }
   websocket: { clients: number; max_hz: number }

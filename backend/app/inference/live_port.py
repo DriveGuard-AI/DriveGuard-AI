@@ -174,6 +174,8 @@ class LiveInference(InferencePort):
         self._last_error: str | None = None
         self._frames_sent = 0
         self._results_seen = 0
+        # 服务端按 25Hz 时间槽累计，约 100 槽后才产生第一个窗口结果。
+        self._feature_slots = 0
 
     # ------------------------------------------------------------ 生命周期
 
@@ -195,6 +197,9 @@ class LiveInference(InferencePort):
         if session_id:
             self._client.close_session(session_id)
             self._session_id = None
+        closer = getattr(self._client, "close", None)
+        if callable(closer):
+            closer()
         self._source.close()
 
     # ------------------------------------------------------------ 端口实现
@@ -220,6 +225,8 @@ class LiveInference(InferencePort):
                 "state": state,
                 "frames_sent": self._frames_sent,
                 "results_seen": self._results_seen,
+                "feature_slots": self._feature_slots,
+                "warmup_total": 100,
                 "last_error": self._last_error,
                 "result_age_seconds": age,
                 "session_active": self._session_id is not None,
@@ -337,10 +344,13 @@ class LiveInference(InferencePort):
         logger.warning("live 推理出错: %s", message)
 
     def _store(self, reply: dict) -> None:
-        result = reply.get("result")
-        if not isinstance(result, dict):
-            return
+        slots = reply.get("feature_slots")
         with self._lock:
+            if isinstance(slots, int) and not isinstance(slots, bool) and slots >= 0:
+                self._feature_slots = slots
+            result = reply.get("result")
+            if not isinstance(result, dict):
+                return
             self._result = result
             self._received_at = time.monotonic()
             self._results_seen += 1
@@ -383,6 +393,7 @@ class LiveInference(InferencePort):
             with self._lock:
                 self._session_id = session_id
                 self._state = "streaming"
+                self._feature_slots = 0
             completed = False
             # 每个会话的时间戳必须从 0 开始；重开会话后重新取原点。
             origin: int | None = None

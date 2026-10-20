@@ -132,6 +132,12 @@ export default function App() {
           <span>WS 客户端 {status.websocket.clients}</span>
           <span>数据库 {status.database.writable ? '可写' : '不可写'}</span>
           <span>模型 {status.model.loaded ? '已加载' : '未加载'}</span>
+          {typeof status.pipeline.warmup_slots === 'number' &&
+          status.pipeline.warmup_slots < (status.pipeline.warmup_total ?? 100) ? (
+            <span className="warn-text">
+              模型预热 {status.pipeline.warmup_slots}/{status.pipeline.warmup_total ?? 100} 帧
+            </span>
+          ) : null}
           <span>服务 v{status.service_version}</span>
           {status.pipeline.playback ? <span className="warn-text">当前离线回放</span> : null}
         </div>
